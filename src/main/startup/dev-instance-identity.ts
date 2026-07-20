@@ -2,8 +2,11 @@ import { createHash } from 'node:crypto'
 import path from 'node:path'
 import type { AppIdentity } from '../../shared/app-identity'
 
-const BASE_APP_NAME = 'Orca'
-const BASE_APP_USER_MODEL_ID = 'com.stablyai.orca'
+// Why: SAMWOO-ORCA must not share the upstream app's Windows taskbar identity
+// (AppUserModelID) or userData folder — a matching AUMID makes Windows reuse
+// the original Orca's cached taskbar icon for our windows.
+const BASE_APP_NAME = 'SAMWOO-ORCA'
+const BASE_APP_USER_MODEL_ID = 'com.samwoo.orca'
 const MAX_LABEL_LENGTH = 80
 
 export type DevInstanceIdentity = AppIdentity & {
