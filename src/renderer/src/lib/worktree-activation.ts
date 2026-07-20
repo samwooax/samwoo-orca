@@ -217,7 +217,10 @@ export function activateAndRevealFolderWorkspace(
     state.recordWorktreeVisit(workspaceKey)
   }
   resumeSleepingAgentSessionsForWorktree(workspaceKey)
-  const primaryTabId = ensureFolderWorkspaceInitialTerminal(folderWorkspace, opts?.startup)
+  const primaryTabId = ensureFolderWorkspaceInitialTerminal(
+    folderWorkspace,
+    opts?.startup ?? buildDefaultChatAgentStartup(null)
+  )
 
   if (opts?.sidebarRevealBehavior) {
     state.revealWorktreeInSidebar(workspaceKey, { behavior: opts.sidebarRevealBehavior })
@@ -233,15 +236,37 @@ function buildCreatedAgentReopenStartup(worktree: Worktree): WorktreeStartupPayl
   if (!isTuiAgent(agent)) {
     return undefined
   }
+  return buildAgentActivationStartup(worktree, agent)
+}
 
+/** SAMWOO-ORCA: when Settings > Experimental enables native chat plus
+ *  chat-by-default, plain project activations seed a Claude agent tab (which
+ *  opens in the chat view) instead of an idle shell terminal. Pass null for
+ *  folder workspaces, which have no backing repo. */
+function buildDefaultChatAgentStartup(worktree: Worktree | null): WorktreeStartupPayload | undefined {
+  const settings = useAppStore.getState().settings
+  if (
+    settings?.experimentalNativeChat !== true ||
+    settings?.openAgentTabsInChatByDefault !== true
+  ) {
+    return undefined
+  }
+  return buildAgentActivationStartup(worktree, 'claude')
+}
+
+function buildAgentActivationStartup(
+  worktree: Worktree | null,
+  agent: TuiAgent
+): WorktreeStartupPayload | undefined {
   const state = useAppStore.getState()
-  const repo = state.repos.find((entry) => entry.id === worktree.repoId)
-  const launchPlatform = repo
-    ? getAgentLaunchPlatformForRepo(
-        repo,
-        repo.connectionId ? undefined : getLocalProjectExecutionRuntimeContext(state, worktree.id)
-      )
-    : CLIENT_PLATFORM
+  const repo = worktree ? state.repos.find((entry) => entry.id === worktree.repoId) : undefined
+  const launchPlatform =
+    repo && worktree
+      ? getAgentLaunchPlatformForRepo(
+          repo,
+          repo.connectionId ? undefined : getLocalProjectExecutionRuntimeContext(state, worktree.id)
+        )
+      : CLIENT_PLATFORM
 
   const startupPlan = buildAgentStartupPlan({
     agent,
@@ -346,7 +371,7 @@ export function activateAndRevealWorktree(
   const primaryTabId = ensureWorktreeHasInitialTerminal(
     useAppStore.getState(),
     worktreeId,
-    opts?.startup ?? buildCreatedAgentReopenStartup(wt),
+    opts?.startup ?? buildCreatedAgentReopenStartup(wt) ?? buildDefaultChatAgentStartup(wt),
     opts?.setup,
     opts?.issueCommand,
     opts?.defaultTabs
