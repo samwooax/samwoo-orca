@@ -108,7 +108,7 @@ type RuntimeFileWatchEvent =
 const REMOTE_UPLOAD_BASE64_CHUNK_CHARS = 512 * 1024
 const REMOTE_DOWNLOAD_CHUNK_BYTES = 384 * 1024
 const REMOTE_DOWNLOAD_UPDATE_REQUIRED_MESSAGE =
-  'Remote file download requires a newer Orca server. Update the headless server and try again.'
+  'Remote file download requires a newer SAMWOO-ORCA server. Update the headless server and try again.'
 
 type RemoteFileDownloadArgs = NonNullable<ReturnType<typeof getRemoteFileArgs>>
 
@@ -592,7 +592,7 @@ export async function importExternalPathsToRuntime(
     } catch (error) {
       if (createdDirectoryImportRoot) {
         // Why: match local directory imports by removing the no-clobber root
-        // Orca created when a nested runtime upload fails halfway through.
+        // SAMWOO-ORCA created when a nested runtime upload fails halfway through.
         await callRuntimeRpc(
           target,
           'files.delete',

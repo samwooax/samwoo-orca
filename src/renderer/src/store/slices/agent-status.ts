@@ -122,7 +122,7 @@ export type AgentStatusSlice = {
   /** Durable agent sessions captured on sleep (not live rows); power the one-click CLI resume on wake. */
   sleepingAgentSessionsByPaneKey: Record<string, SleepingAgentSessionRecord>
 
-  /** Ephemeral launch snapshots keyed by pane; hook payloads lack Orca launch settings, so the renderer supplies them from startup. */
+  /** Ephemeral launch snapshots keyed by pane; hook payloads lack SAMWOO-ORCA launch settings, so the renderer supplies them from startup. */
   agentLaunchConfigByPaneKey: Record<string, AgentLaunchConfigRegistryEntry>
 
   /** Pane keys explicitly torn down, forbidden from re-retention on next disappearance; a one-shot suppressor consumed by the retention sync. */
@@ -1855,7 +1855,7 @@ export const createAgentStatusSlice: StateCreator<AppState, [], [], AgentStatusS
             }
           }
         }
-        // Why: launch tokens can outlive an Orca-started TUI in the shell; once the session is done they must no longer authorize config reuse.
+        // Why: launch tokens can outlive an SAMWOO-ORCA-started TUI in the shell; once the session is done they must no longer authorize config reuse.
         if (
           (providerSessionChanged || entry.state === 'done') &&
           paneKey in s.agentLaunchConfigByPaneKey
@@ -1938,7 +1938,7 @@ export const createAgentStatusSlice: StateCreator<AppState, [], [], AgentStatusS
       queueMicrotask(() => freshness.schedule())
       if (completionRefreshWorktreeId) {
         const worktreeId = completionRefreshWorktreeId
-        // Why: agents can create a PR via `gh pr create`, bypassing Orca's flow and leaving a stale "no PR" cache entry in place.
+        // Why: agents can create a PR via `gh pr create`, bypassing SAMWOO-ORCA's flow and leaving a stale "no PR" cache entry in place.
         queueMicrotask(() => get().refreshGitHubForWorktreeIfStale(worktreeId))
       }
     },

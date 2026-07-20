@@ -282,7 +282,7 @@ const STARTUP_DRAFT_PASTE_QUIET_MS = 1500
 // Why: the notice deliberately omits the rejected path — saved cwds can
 // contain private repo/user names; the terminal itself shows where it opened.
 export const STARTUP_CWD_FALLBACK_NOTICE =
-  '\r\n[Orca opened this terminal at the workspace root because its saved start folder no longer exists.]\r\n'
+  '\r\n[SAMWOO-ORCA opened this terminal at the workspace root because its saved start folder no longer exists.]\r\n'
 const STARTUP_DRAFT_PASTE_TIMEOUT_MS = 8000
 const HIDDEN_OUTPUT_RESTORE_PENDING_CHARS = 512 * 1024
 const HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS = 50
@@ -329,7 +329,7 @@ const FOREGROUND_GRID_DRIFT_CHECK_MIN_MS = 250
 // Why: this is only shown if hidden renderer output was skipped and main-owned
 // terminal state is unavailable, so the user has an explicit loss signal.
 const HIDDEN_OUTPUT_RESTORE_UNAVAILABLE_WARNING =
-  '\x18\x1b[0m\r\n[Orca skipped hidden terminal output because main recovery was unavailable.]\r\n'
+  '\x18\x1b[0m\r\n[SAMWOO-ORCA skipped hidden terminal output because main recovery was unavailable.]\r\n'
 type E2eTerminalPtyDataInjectionApi = {
   inject: (paneKey: string, data: string, meta?: PtyDataMeta) => boolean
   keys: () => string[]
@@ -1203,7 +1203,7 @@ export function connectPanePty(
   ): void => {
     if (!effectiveLaunchConfig) {
       if (metadata?.launchAgent) {
-        // Why: daemon launch identity can outlive the process while Orca is
+        // Why: daemon launch identity can outlive the process while SAMWOO-ORCA is
         // closed. Use it to request confirmation, never as current byte authority.
         useAppStore.getState().setPaneForegroundAgent(cacheKey, {
           agent: metadata.launchAgent,
@@ -1746,7 +1746,7 @@ export function connectPanePty(
       }
       // Why: restored idle agent TUIs can repaint after reattach SIGWINCH and
       // reapply DECSCUSR steady-bar; the normal working→idle reset will not
-      // fire because the agent was already idle before Orca restarted.
+      // fire because the agent was already idle before SAMWOO-ORCA restarted.
       queueAgentIdleTerminalModeReset()
     }, REATTACH_IDLE_AGENT_CURSOR_RESET_DELAY_MS)
   }
@@ -1786,7 +1786,7 @@ export function connectPanePty(
   ): void => {
     const state = useAppStore.getState()
     if (!entry) {
-      // Why: an Orca-started agent can exit before its first hook status. The
+      // Why: an SAMWOO-ORCA-started agent can exit before its first hook status. The
       // launch registry was still created up front, so clear it on command exit.
       state.clearAgentLaunchConfig(cacheKey)
       return
@@ -2146,7 +2146,7 @@ export function connectPanePty(
     ) {
       return
     }
-    // Why: user shell frameworks (bash-preexec/iTerm2) can replace Orca's
+    // Why: user shell frameworks (bash-preexec/iTerm2) can replace SAMWOO-ORCA's
     // OSC 133;C hook, so a manually launched agent produces no command-start
     // signal at all. Enter at a shell-foreground prompt is the user-side
     // equivalent; the sample is gated to panes with no live agent identity
@@ -2849,7 +2849,7 @@ export function connectPanePty(
   // underneath. See POST_REPLAY_MODE_RESET in layout-serialization.ts.
   const onBell = (): void => {
     // Why: restored Claude Code sessions have been observed to emit a real
-    // standalone BEL some time after daemon snapshot reattach, even when Orca
+    // standalone BEL some time after daemon snapshot reattach, even when SAMWOO-ORCA
     // did not just forward focus/control input. Treat the BEL as authoritative
     // PTY output here; any product-side suppression should be an explicit UX
     // decision higher up, not a transport-layer guess.
@@ -3137,9 +3137,9 @@ export function connectPanePty(
     // owns removing agent rows when the TUI actually exits.
   }
   // Why: inject ORCA_PANE_KEY so global Claude/Codex hooks can attribute their
-  // callbacks to the correct Orca pane without resolving worktrees from cwd.
+  // callbacks to the correct SAMWOO-ORCA pane without resolving worktrees from cwd.
   // The key matches the `${tabId}:${leafId}` composite used for cacheTimerByKey
-  // and agentStatusByPaneKey. Treat it as opaque outside Orca.
+  // and agentStatusByPaneKey. Treat it as opaque outside SAMWOO-ORCA.
   const state = useAppStore.getState()
   const parsedWorkspaceKey = parseWorkspaceKey(deps.worktreeId)
   const folderWorkspace =
@@ -4567,7 +4567,7 @@ export function connectPanePty(
       }
       if (!sshStartupShellReady) {
         if (sshShellReadyFallbackTimer === null) {
-          // Why: some SSH shells cannot emit Orca's ready marker. Prefer the
+          // Why: some SSH shells cannot emit SAMWOO-ORCA's ready marker. Prefer the
           // marker when available, but fall back to the old renderer delivery
           // behavior instead of dropping the startup command forever.
           sshShellReadyFallbackTimer = setTimeout(() => {

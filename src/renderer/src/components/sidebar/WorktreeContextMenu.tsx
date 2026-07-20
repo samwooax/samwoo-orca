@@ -898,7 +898,7 @@ const WorktreeContextMenu = React.memo(function WorktreeContextMenu({
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {/* Why: primary checkout rows remove the project from Orca instead of
+          {/* Why: primary checkout rows remove the project from SAMWOO-ORCA instead of
              invoking git worktree deletion. Radix forwards unknown props to the
              DOM element, so `title` works directly without a wrapper span —
              this preserves Radix's flat roving-tabindex keyboard navigation. */}
@@ -932,7 +932,7 @@ const WorktreeContextMenu = React.memo(function WorktreeContextMenu({
                   : removesProject
                     ? translate(
                         'auto.components.sidebar.WorktreeContextMenu.f5ac91531d',
-                        'Remove Project from Orca'
+                        'Remove Project from SAMWOO-ORCA'
                       )
                     : translate('auto.components.sidebar.WorktreeContextMenu.f4475537d8', 'Delete')}
           </DropdownMenuItem>

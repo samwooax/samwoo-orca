@@ -345,7 +345,7 @@ const WorktreeCard = React.memo(function WorktreeCard({
     (s) => (s.activeTabTypeByWorktree?.[worktree.id] ?? 'terminal') === 'terminal'
   )
 
-  // Why: runtime ("Orca server") hosts get the same disconnected dimming as SSH when their environment has no live status.
+  // Why: runtime ("SAMWOO-ORCA server") hosts get the same disconnected dimming as SSH when their environment has no live status.
   const isRuntimeDisconnected = useAppStore((s) => {
     const parsed = parseExecutionHostId(repo?.executionHostId)
     if (parsed?.kind !== 'runtime') {
@@ -632,7 +632,7 @@ const WorktreeCard = React.memo(function WorktreeCard({
         staleWhileRevalidate: true
       })
     }
-    // Why: PRs created outside Orca (e.g. `gh pr create`) emit no renderer event; poll visible cards to discover them.
+    // Why: PRs created outside SAMWOO-ORCA (e.g. `gh pr create`) emit no renderer event; poll visible cards to discover them.
     return installWindowVisibilityInterval({
       run: refreshHostedReview,
       intervalMs: HOSTED_REVIEW_CARD_REFRESH_INTERVAL_MS
@@ -1401,7 +1401,7 @@ const WorktreeCard = React.memo(function WorktreeCard({
                         )
                       : translate(
                           'auto.components.sidebar.WorktreeCard.runtimeHostProject',
-                          'Project on Orca server'
+                          'Project on SAMWOO-ORCA server'
                         )}
                   </TooltipContent>
                 </Tooltip>

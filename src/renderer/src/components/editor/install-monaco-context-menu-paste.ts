@@ -13,7 +13,7 @@ let installed = false
 
 /**
  * Make Monaco's context-menu / command-palette Paste read the clipboard through
- * Orca's trusted IPC bridge instead of the sandbox-blocked navigator.clipboard.
+ * SAMWOO-ORCA's trusted IPC bridge instead of the sandbox-blocked navigator.clipboard.
  * Idempotent and safe to call once during Monaco setup.
  */
 export function installMonacoContextMenuPaste(monaco: typeof Monaco): void {

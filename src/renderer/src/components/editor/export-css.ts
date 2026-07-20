@@ -1,4 +1,4 @@
-// Why: this stylesheet targets the *exported* PDF document, not the live Orca
+// Why: this stylesheet targets the *exported* PDF document, not the live SAMWOO-ORCA
 // pane. In-app CSS assumes sticky UI chrome, hover affordances, and app-shell
 // spacing that would look wrong when flattened to paper. Keeping export CSS
 // separate also means a future UI refactor can move live classes without

@@ -101,7 +101,7 @@ export function LinearAgentSkillPane(): React.JSX.Element {
         )}
         description={translate(
           'auto.components.settings.LinearAgentSkillPane.skillDescription',
-          'Enables agents to read linked tickets and post updates to Linear through Orca.'
+          'Enables agents to read linked tickets and post updates to Linear through SAMWOO-ORCA.'
         )}
         command={installCommand}
         installedCommand={updateCommand}

@@ -1406,7 +1406,7 @@ export default function MarkdownPreview({
           }
 
           if (target.protocol === 'http:' || target.protocol === 'https:') {
-            // Why: route through openHttpLink (not shell.openUrl) so a plain click honors "open links in Orca"; remote runtimes stay on the system browser.
+            // Why: route through openHttpLink (not shell.openUrl) so a plain click honors "open links in SAMWOO-ORCA"; remote runtimes stay on the system browser.
             openHttpLink(
               target.toString(),
               resolveMarkdownPreviewHttpOpenOptions(
@@ -1453,7 +1453,7 @@ export default function MarkdownPreview({
           )
           if (!targetWorktree) {
             if (sourceRoutingWorktreeId && worktreeRoot) {
-              // Why: floating markdown lives in a synthetic workspace with no repo worktree, though Orca can still open links relative to the source root.
+              // Why: floating markdown lives in a synthetic workspace with no repo worktree, though SAMWOO-ORCA can still open links relative to the source root.
               void activateMarkdownLink(href, {
                 sourceFilePath: filePath,
                 worktreeId: sourceRoutingWorktreeId,

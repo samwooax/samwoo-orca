@@ -22,7 +22,7 @@ type ReferenceWidgetConstructor = {
 }
 
 function applyPeekReferencesPreviewOptions(editor: PeekPreviewEditor | undefined): void {
-  // Why: Monaco embedded editors inherit Orca's full-editor options first.
+  // Why: Monaco embedded editors inherit SAMWOO-ORCA's full-editor options first.
   // Peek previews are transient readers, so keep scroll/wrap widgets out of them.
   editor?.updateOptions(PEEK_REFERENCES_PREVIEW_OPTIONS)
 }

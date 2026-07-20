@@ -27,7 +27,7 @@ export const EMPTY_LAYOUT: TerminalLayoutSnapshot = {
   expandedLeafId: null
 }
 
-// Why: SerializeAddon replays mode bits assuming reattach to a live TUI, but Orca restores against a fresh shell with none, so stale bits (e.g. focus reporting rings the bell on click) must be reset.
+// Why: SerializeAddon replays mode bits assuming reattach to a live TUI, but SAMWOO-ORCA restores against a fresh shell with none, so stale bits (e.g. focus reporting rings the bell on click) must be reset.
 export const RESET_TERMINAL_CURSOR_STYLE = '\x1b[0 q'
 export const RESET_KITTY_KEYBOARD_PROTOCOL = '\x1b[<99u\x1b[=0u'
 // Every mouse mode the daemon can re-arm from a snapshot: protocols 9/1000/1002/1003 + SGR encodings 1006/1016.
@@ -71,7 +71,7 @@ const FALLBACK_FONTS = [
   'Consolas', // Windows Vista+
   'DejaVu Sans Mono', // Linux (common)
   'Liberation Mono', // Linux (common)
-  'Orca Nerd Font Symbols', // bundled PUA fallback for OMP/Powerline glyphs
+  'SAMWOO-ORCA Nerd Font Symbols', // bundled PUA fallback for OMP/Powerline glyphs
   'Symbols Nerd Font Mono', // purpose-built Nerd Fonts symbols-only fallback
   'MesloLGS Nerd Font', // p10k's recommended font; very common on zsh setups
   'JetBrainsMono Nerd Font', // widely installed; Ghostty ships a JBM-derived font

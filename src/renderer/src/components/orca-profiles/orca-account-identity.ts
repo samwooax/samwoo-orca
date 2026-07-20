@@ -6,14 +6,14 @@ export function getOrcaAccountIdentity(
   authStatus: OrcaProfileAuthStatus | null
 ): { title: string; subtitle: string } {
   // Why: the account-only menu must not present a local execution profile as
-  // an authenticated Orca identity.
+  // an authenticated SAMWOO-ORCA identity.
   const cloud = authStatus?.cloud ?? profile.cloud
   if (authStatus?.state === 'connected') {
     return {
       title:
         cloud?.displayName?.trim() ||
         cloud?.email ||
-        translate('auto.components.orca.profiles.switcher.accountTitle', 'Orca account'),
+        translate('auto.components.orca.profiles.switcher.accountTitle', 'SAMWOO-ORCA account'),
       subtitle:
         cloud?.activeOrgName ||
         (cloud?.displayName && cloud.email
@@ -26,7 +26,7 @@ export function getOrcaAccountIdentity(
       title:
         cloud?.displayName?.trim() ||
         cloud?.email ||
-        translate('auto.components.orca.profiles.switcher.accountTitle', 'Orca account'),
+        translate('auto.components.orca.profiles.switcher.accountTitle', 'SAMWOO-ORCA account'),
       subtitle: translate(
         'auto.components.orca.profiles.switcher.accountSignInRequired',
         'Sign-in required'
@@ -34,7 +34,7 @@ export function getOrcaAccountIdentity(
     }
   }
   return {
-    title: translate('auto.components.orca.profiles.switcher.accountTitle', 'Orca account'),
+    title: translate('auto.components.orca.profiles.switcher.accountTitle', 'SAMWOO-ORCA account'),
     subtitle: translate('auto.components.orca.profiles.switcher.accountSignedOut', 'Signed out')
   }
 }

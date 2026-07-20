@@ -97,7 +97,7 @@ export function OrcaProfileSwitcher({
     }
   }, [fetchProfiles, loading, profiles.length])
 
-  // Why: the Orca Cloud account UX isn't ready for production users yet, so the
+  // Why: the SAMWOO-ORCA Cloud account UX isn't ready for production users yet, so the
   // trigger stays hidden in packaged builds. Dev builds still show it when cloud
   // auth is configured. electron-vite build forces NODE_ENV=production, so PROD
   // is baked true even for the e2e bundle; exempt MODE==='e2e' so the switcher

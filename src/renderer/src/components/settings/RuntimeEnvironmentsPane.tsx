@@ -190,7 +190,7 @@ export function getActiveServerModeDescription(allowLocalRuntime: boolean): stri
       )
     : translate(
         'auto.components.settings.RuntimeEnvironmentsPane.2c85efb3e8',
-        'Selecting a saved server makes this browser use that paired Orca runtime as its default Host.'
+        'Selecting a saved server makes this browser use that paired SAMWOO-ORCA runtime as its default Host.'
       )
 }
 
@@ -744,7 +744,7 @@ export function RuntimeEnvironmentsPane({
             <p className="text-xs text-muted-foreground">
               {translate(
                 'auto.components.settings.RuntimeEnvironmentsPane.connectToRemoteServersHelp',
-                'Pair another Orca runtime, then connect or disconnect it here. Use Advanced > Active Server only when you want to change the default host.'
+                'Pair another SAMWOO-ORCA runtime, then connect or disconnect it here. Use Advanced > Active Server only when you want to change the default host.'
               )}
             </p>
           </div>
@@ -1172,7 +1172,7 @@ export function RuntimeEnvironmentsPane({
             <p className="text-xs text-muted-foreground">
               {translate(
                 'auto.components.settings.RuntimeEnvironmentsPane.advertiseThisAppHelp',
-                'Create access links for browsers, mobile clients, or another Orca client to connect back to this running app.'
+                'Create access links for browsers, mobile clients, or another SAMWOO-ORCA client to connect back to this running app.'
               )}
             </p>
           </div>
@@ -1182,13 +1182,13 @@ export function RuntimeEnvironmentsPane({
                 <div className="text-sm font-medium">
                   {translate(
                     'auto.components.settings.RuntimeEnvironmentsPane.6e1280ca55',
-                    'Share this Orca server'
+                    'Share this SAMWOO-ORCA server'
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {translate(
                     'auto.components.settings.RuntimeEnvironmentsPane.84b9b2be05',
-                    'Create a revocable access grant so a browser or another Orca client can connect.'
+                    'Create a revocable access grant so a browser or another SAMWOO-ORCA client can connect.'
                   )}
                 </p>
               </div>
@@ -1242,7 +1242,7 @@ export function RuntimeEnvironmentsPane({
             <DialogDescription>
               {translate(
                 'auto.components.settings.RuntimeEnvironmentsPane.b2290ed203',
-                'Orca will focus this host and load its projects. Existing terminals and browser tabs on other hosts stay alive.'
+                'SAMWOO-ORCA will focus this host and load its projects. Existing terminals and browser tabs on other hosts stay alive.'
               )}
             </DialogDescription>
           </DialogHeader>
@@ -1314,7 +1314,7 @@ export function RuntimeEnvironmentsPane({
                 ? allowLocalRuntime
                   ? translate(
                       'auto.components.settings.RuntimeEnvironmentsPane.9f7665a01b',
-                      'Removing the active server first switches Orca back to Local desktop. Existing host sessions are left alone.'
+                      'Removing the active server first switches SAMWOO-ORCA back to Local desktop. Existing host sessions are left alone.'
                     )
                   : translate(
                       'auto.components.settings.RuntimeEnvironmentsPane.b2fda48c39',
@@ -1322,7 +1322,7 @@ export function RuntimeEnvironmentsPane({
                     )
                 : translate(
                     'auto.components.settings.RuntimeEnvironmentsPane.ed3e3f069d',
-                    'This removes the saved server from Orca. It does not change the active server.'
+                    'This removes the saved server from SAMWOO-ORCA. It does not change the active server.'
                   )}
             </DialogDescription>
           </DialogHeader>

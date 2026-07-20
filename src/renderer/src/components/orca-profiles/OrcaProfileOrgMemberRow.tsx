@@ -34,7 +34,7 @@ export function OrcaProfileOrgMemberRow({
   onRemove: () => void
 }): React.JSX.Element {
   const [confirmingRemove, setConfirmingRemove] = useState(false)
-  // Why: teammates provisioned server-side who never signed into Orca have no
+  // Why: teammates provisioned server-side who never signed into SAMWOO-ORCA have no
   // userId, so the API cannot target them for role/remove mutations.
   const neverSignedIn = member.userId === null
   const actionsDisabled = !canManage || isSelf || neverSignedIn || busy
@@ -86,7 +86,7 @@ export function OrcaProfileOrgMemberRow({
           <TooltipContent side="top">
             {translate(
               'auto.components.orca.profiles.org.members.not.signed.in',
-              "They haven't signed in to Orca yet."
+              "They haven't signed in to SAMWOO-ORCA yet."
             )}
           </TooltipContent>
         </Tooltip>

@@ -3784,7 +3784,7 @@ export default function ChecksPanel(): React.JSX.Element {
       reviewState.autoRetryAt !== undefined && reviewState.autoRetryAt > Date.now()
         ? translate(
             'auto.components.right.sidebar.ChecksPanel.review.auto_retry',
-            'Orca will retry at {{time}}.',
+            'SAMWOO-ORCA will retry at {{time}}.',
             { time: new Date(reviewState.autoRetryAt).toLocaleTimeString() }
           )
         : null
@@ -3952,7 +3952,7 @@ export default function ChecksPanel(): React.JSX.Element {
   const reviewShortLabel = activeReview.provider === 'gitlab' ? 'MR' : 'PR'
   const shouldShowReviewTriageStrip =
     activeConflictReview !== null || getBrokenChecks(checks).length > 0
-  // Why: mirror openHttpLink's routing inputs so the hint only appears when a plain click would open inside Orca.
+  // Why: mirror openHttpLink's routing inputs so the hint only appears when a plain click would open inside SAMWOO-ORCA.
   const showHostedReviewSystemBrowserHint =
     Boolean(activeWorktreeId) &&
     settings?.openLinksInApp === true &&

@@ -50,8 +50,8 @@ export function AutomationEditorPromptSection({
           .
         </p>
       </Field>
-      {/* Why: the Orca/Hermes target toggle changes form height; collapsing the
-          Orca-only precheck row keeps the dialog from snapping vertically. */}
+      {/* Why: the SAMWOO-ORCA/Hermes target toggle changes form height; collapsing the
+          SAMWOO-ORCA-only precheck row keeps the dialog from snapping vertically. */}
       <div
         className={cn(
           'grid overflow-hidden transition-[grid-template-rows] duration-200 ease-out',

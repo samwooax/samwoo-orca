@@ -210,7 +210,7 @@ type KeyboardHandlersDeps = {
 /**
  * Installs terminal-pane shortcuts on the tab keyboard scope.
  * Uses the shared shortcut policy before forwarding unmatched input to xterm
- * so configurable Orca actions remain consistent across local and SSH panes.
+ * so configurable SAMWOO-ORCA actions remain consistent across local and SSH panes.
  */
 export function useTerminalKeyboardShortcuts({
   tabId,

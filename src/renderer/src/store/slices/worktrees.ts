@@ -187,7 +187,7 @@ function showLocalBaseRefRefreshToast(result: LocalBaseRefRefreshResult | undefi
     {
       description: translate(
         'auto.store.slices.worktrees.903b51c2ed',
-        'Workspace created from {{value0}}, but Orca could not fast-forward local {{value1}} because {{value2}}',
+        'Workspace created from {{value0}}, but SAMWOO-ORCA could not fast-forward local {{value1}} because {{value2}}',
         { value0: result.baseRef, value1: result.localBranch, value2: reason }
       )
     }
@@ -589,7 +589,7 @@ function notifyRuntimeScopeForbiddenIfNeeded(error: unknown): boolean {
       id: RUNTIME_SCOPE_FORBIDDEN_TOAST_ID,
       description: translate(
         'auto.store.slices.worktrees.runtimeScopeForbiddenDescription',
-        'Workspaces are unavailable on a mobile-scope pairing. Reconnect using the browser access link from Settings → Runtime Environments → Share this Orca server.'
+        'Workspaces are unavailable on a mobile-scope pairing. Reconnect using the browser access link from Settings → Runtime Environments → Share this SAMWOO-ORCA server.'
       )
     }
   )
@@ -3215,7 +3215,7 @@ export const createWorktreeSlice: StateCreator<AppState, [], [], WorktreeSlice> 
       ) {
         throw new Error(WORKTREE_REMOVAL_AMBIGUOUS_ERROR)
       }
-      // Why: forget-local clears Orca's records via local IPC regardless of host — the remote is gone or unreachable.
+      // Why: forget-local clears SAMWOO-ORCA's records via local IPC regardless of host — the remote is gone or unreachable.
       const target = getActiveRuntimeTarget(
         hostId
           ? settingsForExecutionHostOwner(get().settings, hostId)

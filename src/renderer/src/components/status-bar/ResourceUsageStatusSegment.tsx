@@ -251,11 +251,11 @@ function AppSection({
             isCollapsed
               ? translate(
                   'auto.components.status.bar.ResourceUsageStatusSegment.e419d27083',
-                  'Expand Orca'
+                  'Expand SAMWOO-ORCA'
                 )
               : translate(
                   'auto.components.status.bar.ResourceUsageStatusSegment.53dd5560ae',
-                  'Collapse Orca'
+                  'Collapse SAMWOO-ORCA'
                 )
           }
           aria-expanded={!isCollapsed}
@@ -268,7 +268,7 @@ function AppSection({
         </button>
         <div className="flex-1 min-w-0 py-2 pr-3 flex items-center justify-between">
           <span className="text-[11px] font-semibold uppercase tracking-wide truncate text-muted-foreground">
-            {translate('auto.components.status.bar.ResourceUsageStatusSegment.288a4dd177', 'Orca')}
+            {translate('auto.components.status.bar.ResourceUsageStatusSegment.288a4dd177', 'SAMWOO-ORCA')}
           </span>
           <div className="flex items-center gap-2 shrink-0">
             <Sparkline samples={app.history} />
@@ -1339,7 +1339,7 @@ export function ResourceUsageStatusSegment({
                 <TooltipContent side="top" sideOffset={6} className="z-[70] max-w-xs">
                   {translate(
                     'auto.components.status.bar.ResourceUsageStatusSegment.9e2525c89f',
-                    "Resident memory held by Orca plus the processes under each worktree's terminals."
+                    "Resident memory held by SAMWOO-ORCA plus the processes under each worktree's terminals."
                   )}
                 </TooltipContent>
               </Tooltip>
@@ -1360,7 +1360,7 @@ export function ResourceUsageStatusSegment({
                 <TooltipContent side="top" sideOffset={6} className="z-[70] max-w-xs">
                   {translate(
                     'auto.components.status.bar.ResourceUsageStatusSegment.6449a95c78',
-                    "How much of this machine's physical RAM the Orca-tracked processes are sitting on."
+                    "How much of this machine's physical RAM the SAMWOO-ORCA-tracked processes are sitting on."
                   )}
                 </TooltipContent>
               </Tooltip>

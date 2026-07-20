@@ -2068,7 +2068,7 @@ export function useIpcEvents(): void {
         if (getRuntimeEnvironmentIdForWorktree(store, sourcePage.worktreeId)) {
           return
         }
-        // Why: only the renderer owns Orca's tab model, so main delegates link-open here.
+        // Why: only the renderer owns SAMWOO-ORCA's tab model, so main delegates link-open here.
         store.createBrowserTab(sourcePage.worktreeId, url, { title: url })
       })
     )

@@ -214,7 +214,7 @@ export function runWorktreeDelete(worktreeId: string): void {
   }
   if (target.isMainWorktree) {
     const repo = state.repos.find((entry) => entry.id === target.repoId)
-    // Why: git refuses to delete the primary checkout; users can still remove the owning project from Orca (disk contents kept).
+    // Why: git refuses to delete the primary checkout; users can still remove the owning project from SAMWOO-ORCA (disk contents kept).
     state.openModal('confirm-remove-folder', {
       repoId: target.repoId,
       displayName: repo?.displayName ?? target.displayName

@@ -148,7 +148,7 @@ export function searchBrowserPages(
         worktreeRange: null,
         // Why: empty-query browser ordering is intentionally deterministic and
         // context-first. The palette should not invent hidden browser recency
-        // semantics until Orca explicitly tracks them in state.
+        // semantics until SAMWOO-ORCA explicitly tracks them in state.
         score: entry.isCurrentPage
           ? -2
           : entry.isCurrentWorktree

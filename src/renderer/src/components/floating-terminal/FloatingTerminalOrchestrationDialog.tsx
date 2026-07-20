@@ -112,7 +112,7 @@ export function FloatingTerminalOrchestrationDialog({
           <DialogDescription className="sr-only">
             {translate(
               'auto.components.floating.terminal.FloatingTerminalOrchestrationDialog.6f0aed26b8',
-              'Install the Orca CLI and orchestration skill so agents can coordinate through Orca.'
+              'Install the SAMWOO-ORCA CLI and orchestration skill so agents can coordinate through SAMWOO-ORCA.'
             )}
           </DialogDescription>
         </DialogHeader>
@@ -124,7 +124,7 @@ export function FloatingTerminalOrchestrationDialog({
           )}
           description={translate(
             'auto.components.floating.terminal.FloatingTerminalOrchestrationDialog.f726054620',
-            'Enables agents to hand off context and coordinate work through Orca.'
+            'Enables agents to hand off context and coordinate work through SAMWOO-ORCA.'
           )}
           command={installCommand}
           installedCommand={updateCommand}

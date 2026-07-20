@@ -398,7 +398,7 @@ export function attachEditorAutosaveController(store: AppStoreApi): () => void {
     const reloadingFiles = matchingFiles.filter((file) => !file.isDirty)
     for (const file of matchingFiles) {
       if (file.isDirty) {
-        // Why: skip Orca's own-save echo, which routes here bypassing the watch hook's echo verification.
+        // Why: skip SAMWOO-ORCA's own-save echo, which routes here bypassing the watch hook's echo verification.
         if (!hasRecentSelfWrite(file.filePath, file.runtimeEnvironmentId)) {
           markFileChangedOnDisk(state, file, {
             connectionId: getConnectionIdForFile(file.worktreeId, file.filePath) ?? undefined,

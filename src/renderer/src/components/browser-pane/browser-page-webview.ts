@@ -57,7 +57,7 @@ export function ensureBrowserPageWebview({
   webview.style.border = 'none'
   webview.style.pointerEvents = inputLocked ? 'none' : 'auto'
   // Why: some pages never paint a background, and a white viewport matches
-  // normal browser behavior instead of leaking Orca chrome through the guest.
+  // normal browser behavior instead of leaking SAMWOO-ORCA chrome through the guest.
   webview.style.background = '#ffffff'
   registerPersistentWebview(browserTabId, webview)
   activeContainer.appendChild(webview)

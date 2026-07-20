@@ -301,7 +301,7 @@ function AiVaultVirtualRow({
   const resumeLabel = resumeState ? aiVaultSessionResumeLabel(resumeState) : ''
   const canOpenLocalSessionPaths =
     row.type === 'session' && canUseLocalAiVaultSessionPathActions(row.session.executionHostId)
-  // Why: in-Orca View Log additionally withholds synthetic (SQLite/OpenCode)
+  // Why: in-SAMWOO-ORCA View Log additionally withholds synthetic (SQLite/OpenCode)
   // identities that have no single file to open, while Reveal/CWD stay on the
   // existing local-path gate.
   const canOpenLogInOrca = row.type === 'session' && canOpenAiVaultSessionLogInOrca(row.session)

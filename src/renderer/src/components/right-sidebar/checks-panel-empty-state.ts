@@ -91,7 +91,7 @@ export function getChecksPanelReviewState(
       ),
       description: translate(
         'auto.components.right.sidebar.checks.panel.review.positive.body',
-        'Orca has saved {{reviewLabel}} information for this branch but could not confirm its current status.',
+        'SAMWOO-ORCA has saved {{reviewLabel}} information for this branch but could not confirm its current status.',
         { reviewLabel }
       ),
       composerMode: 'hidden',
@@ -163,7 +163,7 @@ export function getChecksPanelReviewState(
       ),
       description: translate(
         'auto.components.right.sidebar.checks.panel.review.active.body',
-        'Orca is checking {{provider}} for a {{reviewLabel}} on this branch.',
+        'SAMWOO-ORCA is checking {{provider}} for a {{reviewLabel}} on this branch.',
         { reviewLabel, provider: providerName }
       ),
       composerMode: mode,
@@ -182,7 +182,7 @@ export function getChecksPanelReviewState(
       ),
       description: translate(
         'auto.components.right.sidebar.checks.panel.review.git_loading.body',
-        'Orca is checking this branch before showing create or publish actions.'
+        'SAMWOO-ORCA is checking this branch before showing create or publish actions.'
       ),
       composerMode: 'hidden',
       workflowAction: null,
@@ -198,7 +198,7 @@ export function getChecksPanelReviewState(
       ),
       description: translate(
         'auto.components.right.sidebar.checks.panel.review.git_error.body',
-        "Orca could not confirm this branch's upstream from this environment. Retry before publishing or creating a {{reviewLabel}}.",
+        "SAMWOO-ORCA could not confirm this branch's upstream from this environment. Retry before publishing or creating a {{reviewLabel}}.",
         { reviewLabel }
       ),
       composerMode: 'hidden',
@@ -227,7 +227,7 @@ export function getChecksPanelReviewState(
     ),
     description: translate(
       'auto.components.right.sidebar.checks.panel.review.unknown.body',
-      'Orca has not confirmed the {{reviewLabel}} status for this branch. Retry to check again.',
+      'SAMWOO-ORCA has not confirmed the {{reviewLabel}} status for this branch. Retry to check again.',
       { reviewLabel }
     ),
     composerMode: 'hidden',
