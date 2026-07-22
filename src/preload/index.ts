@@ -2153,6 +2153,21 @@ const api = {
     }> => ipcRenderer.invoke('preflight:check', args),
     detectAgents: (args?: PreflightRuntimeContext): Promise<string[]> =>
       ipcRenderer.invoke('preflight:detectAgents', args),
+    listHermesProfiles: (args?: {
+      command?: string
+    }): Promise<{ ok: boolean; stdout: string; error?: string }> =>
+      ipcRenderer.invoke('hermes:listProfiles', args),
+    ensureHermesDashboardTunnel: (args?: {
+      host?: string
+      remotePort?: number
+    }): Promise<{ ok: boolean; port?: number; error?: string }> =>
+      ipcRenderer.invoke('hermes:ensureDashboardTunnel', args),
+    ensureHermesChatServer: (): Promise<{
+      ok: boolean
+      port?: number
+      token?: string
+      error?: string
+    }> => ipcRenderer.invoke('hermes:ensureChatServer'),
     refreshAgents: (args?: PreflightRuntimeContext): Promise<RefreshAgentsResult> =>
       ipcRenderer.invoke('preflight:refreshAgents', args),
     detectRemoteAgents: (args: { connectionId: string }): Promise<string[]> =>

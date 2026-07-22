@@ -2815,6 +2815,20 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
       }
       return callRuntimeResult<string[]>('preflight.detectAgents').catch(() => [])
     },
+    // SAMWOO-ORCA: profile listing runs on the desktop host only; web clients report unavailable.
+    listHermesProfiles: async () => ({
+      ok: false,
+      stdout: '',
+      error: 'Hermes profile listing is unavailable in the web client'
+    }),
+    ensureHermesDashboardTunnel: async () => ({
+      ok: false,
+      error: 'Hermes dashboard tunnel is unavailable in the web client'
+    }),
+    ensureHermesChatServer: async () => ({
+      ok: false,
+      error: 'Hermes chat server is unavailable in the web client'
+    }),
     refreshAgents: () =>
       requireActiveEnvironmentOrNull()
         ? callRuntimeResult('preflight.refreshAgents')

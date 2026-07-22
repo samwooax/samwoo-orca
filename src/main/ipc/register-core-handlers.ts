@@ -2,6 +2,9 @@ import { app } from 'electron'
 import { registerAppHandlers } from './app'
 import { registerCliHandlers } from './cli'
 import { registerPreflightHandlers } from './preflight'
+import { registerHermesProfilesHandlers } from './hermes-profiles'
+import { registerHermesDashboardTunnelHandlers } from './hermes-dashboard-tunnel'
+import { registerHermesChatServerHandlers } from './hermes-chat-server'
 import type { Store } from '../persistence'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { StatsCollector } from '../stats/collector'
@@ -141,6 +144,9 @@ export function registerCoreHandlers(
   registerAppHandlers(store, { onBeforeRelaunch: lifecycleOptions.onBeforeRelaunch })
   registerCliHandlers()
   registerPreflightHandlers()
+  registerHermesProfilesHandlers()
+  registerHermesDashboardTunnelHandlers()
+  registerHermesChatServerHandlers()
   registerClaudeUsageHandlers(claudeUsage)
   registerCodexUsageHandlers(codexUsage)
   registerOpenCodeUsageHandlers(openCodeUsage)

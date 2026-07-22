@@ -83,6 +83,7 @@ import TabGroupSplitLayout from './tab-group/TabGroupSplitLayout'
 import AiVaultSessionDropLayer from './tab-group/AiVaultSessionDropLayer'
 import { shouldAutoCreateInitialTerminal } from './terminal/initial-terminal'
 import { useActiveTerminalRepair } from './terminal/use-active-terminal-repair'
+import { useStartAgentPickerStore } from '@/lib/start-agent-picker-store'
 import { scheduleBackgroundTerminalWorktreeMeasure } from './terminal/background-terminal-worktree-visibility'
 import {
   applyBackgroundMountTabRestriction,
@@ -1461,6 +1462,10 @@ function Terminal(): React.JSX.Element | null {
     }
     // Why: host session-tabs are authoritative in the paired web client; a local fallback races the host's initial terminal and duplicates tabs.
     if (isWebRuntimeSessionActive(getActiveWorktreeRuntimeEnvironmentId(activeWorktreeId))) {
+      return
+    }
+    // Why: creating a shell while the picker is open would consume its deferred first tab.
+    if (useStartAgentPickerStore.getState().workspaceKey === activeWorktreeId) {
       return
     }
 

@@ -265,8 +265,11 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     localhostWorktreeLabelsEnabled: false,
     openLinksInAppPreferencePrompted: false,
     openLinksInAppModifierInverts: false,
-    openAgentTabsInChatByDefault: false,
-    experimentalNativeChat: false,
+    // Why: SAMWOO first-run users should reach the team picker without settings setup.
+    openAgentTabsInChatByDefault: true,
+    experimentalNativeChat: true,
+    startAgentPicker: true,
+    hermesUseWebChat: true,
     nativeChatSessionOptions: {},
     openInApplications: [...DEFAULT_OPEN_IN_APPLICATIONS],
     rightSidebarOpenByDefault: true,

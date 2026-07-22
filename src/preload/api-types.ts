@@ -720,9 +720,29 @@ export type PreflightRuntimeContext = {
   projectRuntime?: ProjectExecutionRuntimeResolution
 }
 
+export type HermesProfileListResult = {
+  ok: boolean
+  stdout: string
+  error?: string
+}
+
 export type PreflightApi = {
   check: (args?: PreflightRuntimeContext & { force?: boolean }) => Promise<PreflightStatus>
   detectAgents: (args?: PreflightRuntimeContext) => Promise<string[]>
+  /** SAMWOO-ORCA: run the configured Hermes profile-list command locally. */
+  listHermesProfiles: (args?: { command?: string }) => Promise<HermesProfileListResult>
+  /** SAMWOO-ORCA: ensure an SSH tunnel to the remote Hermes dashboard; returns the local loopback port. */
+  ensureHermesDashboardTunnel: (args?: {
+    host?: string
+    remotePort?: number
+  }) => Promise<{ ok: boolean; port?: number; error?: string }>
+  /** SAMWOO-ORCA: ensure the loopback chat-page server for Hermes team bots. */
+  ensureHermesChatServer: () => Promise<{
+    ok: boolean
+    port?: number
+    token?: string
+    error?: string
+  }>
   refreshAgents: (args?: PreflightRuntimeContext) => Promise<RefreshAgentsResult>
   detectRemoteAgents: (args: { connectionId: string }) => Promise<string[]>
   detectRemoteWindowsTerminalCapabilities: (args: { connectionId: string }) => Promise<{

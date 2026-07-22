@@ -58,6 +58,13 @@ import { seedNativeChatAppliedSessionOptions } from '@/components/native-chat/na
 import type { SessionOptionValue } from '../../../shared/native-chat-session-options'
 import type { ExecutionHostId } from '../../../shared/execution-host'
 import { findFolderWorkspaceOwner } from './folder-workspace-runtime-owner'
+import {
+  DEFAULT_HERMES_DASHBOARD_HOST,
+  DEFAULT_HERMES_LAUNCH_COMMAND,
+  hermesProfileLabel,
+  requestStartAgentPicker
+} from '@/lib/start-agent-picker-store'
+import { launchAgentInNewTab } from './launch-agent-in-new-tab'
 
 /** Telemetry threaded from the launch site to `pty:spawn`; main fires `agent_started`
  *  only after the spawn succeeds. See telemetry-plan.md§Agent launch semantics. */
@@ -249,7 +256,12 @@ export function activateAndRevealFolderWorkspace(
     state.recordWorktreeVisit(workspaceKey)
   }
   resumeSleepingAgentSessionsForWorktree(workspaceKey)
-  const primaryTabId = ensureFolderWorkspaceInitialTerminal(folderWorkspace, opts?.startup)
+  let primaryTabId: string | null = null
+  if (!opts?.startup && shouldOfferStartAgentPicker(workspaceKey)) {
+    requestStartAgentPicker(workspaceKey)
+  } else {
+    primaryTabId = ensureFolderWorkspaceInitialTerminal(folderWorkspace, opts?.startup)
+  }
 
   if (opts?.sidebarRevealBehavior) {
     state.revealWorktreeInSidebar(workspaceKey, { behavior: opts.sidebarRevealBehavior })
@@ -258,6 +270,81 @@ export function activateAndRevealFolderWorkspace(
   }
 
   return { primaryTabId }
+}
+
+export function shouldOfferStartAgentPicker(workspaceKey: string): boolean {
+  const state = useAppStore.getState()
+  if (state.settings?.startAgentPicker !== true || getConnectionId(workspaceKey)) {
+    return false
+  }
+  if (isWebRuntimeSessionActive(getRuntimeEnvironmentIdForWorktree(state, workspaceKey))) {
+    return false
+  }
+  return state.reconcileWorktreeTabModel(workspaceKey).renderableTabCount === 0
+}
+
+export type StartAgentPickerChoice =
+  | { kind: 'claude' }
+  | { kind: 'hermes'; profile: string }
+  | { kind: 'terminal' }
+
+export function launchStartAgentPickerChoice(
+  workspaceKey: string,
+  choice: StartAgentPickerChoice
+): void {
+  if (choice.kind === 'hermes') {
+    void launchHermesProfile(workspaceKey, choice.profile)
+    return
+  }
+  if (choice.kind === 'claude') {
+    launchAgentInNewTab({
+      agent: 'claude',
+      worktreeId: workspaceKey,
+      launchSource: 'sidebar'
+    })
+    return
+  }
+  const state = useAppStore.getState()
+  const tab = state.createTab(workspaceKey, undefined, undefined, {
+    pendingActivationSpawn: true,
+    recordInteraction: false
+  })
+  state.setActiveTab(tab.id)
+}
+
+async function launchHermesProfile(workspaceKey: string, profile: string): Promise<void> {
+  const state = useAppStore.getState()
+  if (state.settings?.hermesUseWebChat !== false) {
+    const host = state.settings?.hermesDashboardHost?.trim() || DEFAULT_HERMES_DASHBOARD_HOST
+    try {
+      const result = await window.api.preflight.ensureHermesChatServer()
+      if (result.ok && result.port && result.token) {
+        const params = new URLSearchParams({
+          profile,
+          label: hermesProfileLabel(profile),
+          host,
+          t: result.token
+        })
+        useAppStore.getState().createBrowserTab(workspaceKey, `http://127.0.0.1:${result.port}/chat?${params.toString()}`, {
+          title: hermesProfileLabel(profile)
+        })
+        return
+      }
+    } catch {
+      // The terminal fallback keeps the profile reachable when loopback chat setup fails.
+    }
+  }
+  const command =
+    state.settings?.hermesLaunchCommand?.trim() || DEFAULT_HERMES_LAUNCH_COMMAND
+  const fallbackState = useAppStore.getState()
+  const tab = fallbackState.createTab(workspaceKey, undefined, undefined, {
+    pendingActivationSpawn: true,
+    recordInteraction: false
+  })
+  fallbackState.setActiveTab(tab.id)
+  fallbackState.queueTabStartupCommand(tab.id, {
+    command: command.replaceAll('{profile}', profile)
+  })
 }
 
 export function activateAndRevealWorktree(
@@ -326,14 +413,19 @@ export function activateAndRevealWorktree(
   resumeSleepingAgentSessionsForWorktree(worktreeId)
 
   // 4. Ensure a focusable surface exists for externally-created worktrees
-  const primaryTabId = ensureWorktreeHasInitialTerminal(
-    useAppStore.getState(),
-    worktreeId,
-    opts?.startup,
-    opts?.setup,
-    opts?.issueCommand,
-    opts?.defaultTabs
-  )
+  let primaryTabId: string | null = null
+  if (!hasActivationWork && shouldOfferStartAgentPicker(worktreeId)) {
+    requestStartAgentPicker(worktreeId)
+  } else {
+    primaryTabId = ensureWorktreeHasInitialTerminal(
+      useAppStore.getState(),
+      worktreeId,
+      opts?.startup,
+      opts?.setup,
+      opts?.issueCommand,
+      opts?.defaultTabs
+    )
+  }
   if (primaryTabId && opts?.initialCwd) {
     useAppStore.getState().queueTabInitialCwd(primaryTabId, opts.initialCwd)
   }

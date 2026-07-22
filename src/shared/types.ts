@@ -2862,6 +2862,18 @@ export type GlobalSettings = {
   openLinksInAppModifierInverts?: boolean
   /** Opt-in: open new coding-agent tabs in native chat instead of the raw terminal; optional for legacy settings. */
   openAgentTabsInChatByDefault?: boolean
+  /** SAMWOO-ORCA: show an agent picker (Claude / Hermes profiles / plain terminal) when opening a project with no tabs. */
+  startAgentPicker?: boolean
+  /** SAMWOO-ORCA: command that prints the Hermes profile table; default `hermes profile list`. */
+  hermesProfileListCommand?: string
+  /** SAMWOO-ORCA: launch template for a Hermes profile tab; `{profile}` is replaced. Default `hermes --tui --profile {profile}`. */
+  hermesLaunchCommand?: string
+  /** SAMWOO-ORCA: open the Hermes web chat dashboard (SSH-tunneled) instead of the terminal TUI. Default true. */
+  hermesUseWebChat?: boolean
+  /** SAMWOO-ORCA: SSH target hosting the Hermes dashboard loopback port. Default `hermes@hermes-new-container`. */
+  hermesDashboardHost?: string
+  /** SAMWOO-ORCA: remote loopback port the Hermes dashboard listens on. Default 4862. */
+  hermesDashboardRemotePort?: number
   /** Experimental native chat surface for Claude/Codex sessions; off by default. */
   experimentalNativeChat?: boolean
   /** Last explicit native-chat model + option selections; live panes need an applied/dispatched record before showing a value. */
