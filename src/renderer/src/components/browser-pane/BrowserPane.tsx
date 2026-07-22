@@ -11,6 +11,14 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
+
+// SAMWOO-ORCA: Hermes team-bot chat tabs (SSH-tunneled dashboard /chat pages)
+// render as a chat surface — hide the browser toolbar so they don't look like
+// a web browser.
+function isHermesChatSurfaceUrl(url: string | undefined | null): boolean {
+  return !!url && /^http:\/\/127\.0\.0\.1:\d+\/chat([/?#]|$)/.test(url)
+}
+
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import { getConnectionId } from '@/lib/connection-context'
 import { detectLanguage } from '@/lib/language-detect'
@@ -2558,7 +2566,10 @@ function RemoteBrowserPagePane({
           )
         : null}
       <div
-        className="relative z-10 flex items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-1.5"
+        className={cn(
+            'relative z-10 flex items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-1.5',
+            isHermesChatSurfaceUrl(browserTab.url) && 'hidden'
+          )}
         data-contextual-tour-target="browser-toolbar"
       >
         <Button
@@ -4895,7 +4906,10 @@ function BrowserPagePane({
 
       <div ref={chromeHeaderRef} className="pointer-events-auto shrink-0">
         <div
-          className="relative z-10 flex items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-1.5"
+          className={cn(
+            'relative z-10 flex items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-1.5',
+            isHermesChatSurfaceUrl(browserTab.url) && 'hidden'
+          )}
           data-contextual-tour-target="browser-toolbar"
         >
           <Button

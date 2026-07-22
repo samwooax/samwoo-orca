@@ -253,8 +253,13 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     openLinksInApp: false,
     localhostWorktreeLabelsEnabled: false,
     openLinksInAppPreferencePrompted: false,
-    openAgentTabsInChatByDefault: false,
-    experimentalNativeChat: false,
+    // SAMWOO-ORCA: fresh installs start fully configured — native chat on,
+    // chat-by-default on, and the start-agent picker on so first-run users
+    // land on the team-bot picker without touching Settings.
+    openAgentTabsInChatByDefault: true,
+    experimentalNativeChat: true,
+    startAgentPicker: true,
+    hermesUseWebChat: true,
     nativeChatSessionOptions: {},
     openInApplications: [...DEFAULT_OPEN_IN_APPLICATIONS],
     rightSidebarOpenByDefault: true,

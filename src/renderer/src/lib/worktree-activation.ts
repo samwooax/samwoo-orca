@@ -66,6 +66,12 @@ import { initialAgentTabViewModeProps } from './native-chat-initial-view-mode'
 import { getConnectionId } from '@/lib/connection-context'
 import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { seedNativeChatAppliedSessionOptions } from '@/components/native-chat/native-chat-session-option-cache'
+import {
+  DEFAULT_HERMES_DASHBOARD_HOST,
+  DEFAULT_HERMES_LAUNCH_COMMAND,
+  hermesProfileLabel,
+  requestStartAgentPicker
+} from '@/lib/start-agent-picker-store'
 import { resolveNativeChatSessionOptionDefaults } from '../../../shared/native-chat-session-option-defaults'
 import type { SessionOptionValue } from '../../../shared/native-chat-session-options'
 
@@ -217,10 +223,16 @@ export function activateAndRevealFolderWorkspace(
     state.recordWorktreeVisit(workspaceKey)
   }
   resumeSleepingAgentSessionsForWorktree(workspaceKey)
-  const primaryTabId = ensureFolderWorkspaceInitialTerminal(
-    folderWorkspace,
-    opts?.startup ?? buildDefaultChatAgentStartup(null)
-  )
+  // SAMWOO-ORCA: same picker deferral as git worktrees, keyed by folder workspace key.
+  let primaryTabId: string | null = null
+  if (!opts?.startup && shouldOfferStartAgentPicker(folderWorkspaceKey(folderWorkspace.id))) {
+    requestStartAgentPicker(folderWorkspaceKey(folderWorkspace.id))
+  } else {
+    primaryTabId = ensureFolderWorkspaceInitialTerminal(
+      folderWorkspace,
+      opts?.startup ?? buildDefaultChatAgentStartup(null)
+    )
+  }
 
   if (opts?.sidebarRevealBehavior) {
     state.revealWorktreeInSidebar(workspaceKey, { behavior: opts.sidebarRevealBehavior })
@@ -239,6 +251,124 @@ function buildCreatedAgentReopenStartup(worktree: Worktree): WorktreeStartupPayl
   return buildAgentActivationStartup(worktree, agent)
 }
 
+/** SAMWOO-ORCA: true when a plain activation of this workspace should surface
+ *  the start-agent picker instead of auto-seeding a tab. Only local, tabless
+ *  workspaces qualify — web-runtime mirrors and already-populated workspaces
+ *  keep their existing behavior. */
+export function shouldOfferStartAgentPicker(workspaceKey: string): boolean {
+  const state = useAppStore.getState()
+  if (state.settings?.startAgentPicker !== true) {
+    return false
+  }
+  // Why: the picker's launch commands (ssh to the Hermes host) assume a LOCAL
+  // terminal. On an SSH-remote workspace the tab shell already runs on the
+  // remote host, so keep the stock behavior there.
+  if (getConnectionId(workspaceKey)) {
+    return false
+  }
+  if (isWebRuntimeSessionActive(getRuntimeEnvironmentIdForWorktree(state, workspaceKey))) {
+    return false
+  }
+  return state.reconcileWorktreeTabModel(workspaceKey).renderableTabCount === 0
+}
+
+export type StartAgentPickerChoice =
+  | { kind: 'claude' }
+  | { kind: 'hermes'; profile: string }
+  | { kind: 'terminal' }
+
+/** SAMWOO-ORCA: seed the picked agent (or a plain terminal) into a workspace
+ *  whose initial tab was deferred for the start-agent picker. */
+export function launchStartAgentPickerChoice(
+  workspaceKey: string,
+  choice: StartAgentPickerChoice
+): void {
+  const state = useAppStore.getState()
+  // Why: Hermes opens as a web chat (SSH-tunneled dashboard) so it looks like a
+  // real chat surface, not a terminal TUI. Async, with a TUI fallback.
+  if (choice.kind === 'hermes') {
+    void launchHermesProfile(workspaceKey, choice.profile)
+    return
+  }
+  let startup: WorktreeStartupPayload | undefined
+  let launchAgent: TuiAgent | undefined
+  if (choice.kind === 'claude') {
+    startup = buildAgentActivationStartup(state.getKnownWorktreeById(workspaceKey) ?? null, 'claude')
+    launchAgent = 'claude'
+  }
+  // Why: create + deliver directly instead of ensureWorktreeHasInitialTerminal.
+  // That helper no-ops when the workspace already has a renderable tab (e.g. an
+  // auto-healed empty terminal appeared while the picker was open), which would
+  // silently drop the startup command — the exact "picked a profile, plain
+  // shell, nothing ran" symptom. A dedicated tab always carries the command.
+  const tab = state.createTab(workspaceKey, undefined, undefined, {
+    pendingActivationSpawn: true,
+    recordInteraction: false,
+    ...(launchAgent
+      ? {
+          launchAgent,
+          ...initialAgentTabViewModeProps(state.settings ?? null, {
+            agent: launchAgent,
+            nativeChatTranscriptIsLocalReadable: isNativeChatTranscriptLocalReadable(
+              getConnectionId(workspaceKey)
+            )
+          })
+        }
+      : {})
+  })
+  state.setActiveTab(tab.id)
+  if (startup) {
+    if (launchAgent) {
+      seedNativeChatAppliedSessionOptions(tab.id, launchAgent, startup.sessionOptions)
+    }
+    state.queueTabStartupCommand(tab.id, startup)
+  }
+}
+
+/** SAMWOO-ORCA: open a Hermes profile's web chat in a browser tab via an SSH
+ *  tunnel to the remote dashboard's loopback port (auth-free on loopback). On
+ *  any tunnel failure, fall back to the terminal TUI so the profile is still
+ *  reachable. */
+async function launchHermesProfile(workspaceKey: string, profile: string): Promise<void> {
+  const state = useAppStore.getState()
+  const useWeb = state.settings?.hermesUseWebChat !== false
+  if (useWeb) {
+    const host = state.settings?.hermesDashboardHost?.trim() || DEFAULT_HERMES_DASHBOARD_HOST
+    try {
+      // Why: Orca's own loopback chat page (bubbles + composer, zero terminal
+      // chrome) relays each message to the remote profile over SSH. Served at
+      // /chat so BrowserPane's toolbar-hiding rule makes it read as a chat pane.
+      const result = await window.api.preflight.ensureHermesChatServer()
+      if (result.ok && result.port && result.token) {
+        const params = new URLSearchParams({
+          profile,
+          label: hermesProfileLabel(profile),
+          host,
+          t: result.token
+        })
+        const url = `http://127.0.0.1:${result.port}/chat?${params.toString()}`
+        useAppStore
+          .getState()
+          .createBrowserTab(workspaceKey, url, { title: hermesProfileLabel(profile) })
+        return
+      }
+    } catch {
+      // fall through to the TUI
+    }
+  }
+  // Terminal TUI fallback (or when web chat is disabled).
+  const template = state.settings?.hermesLaunchCommand?.trim() || DEFAULT_HERMES_LAUNCH_COMMAND
+  const startupState = useAppStore.getState()
+  const tab = startupState.createTab(workspaceKey, undefined, undefined, {
+    pendingActivationSpawn: true,
+    recordInteraction: false
+  })
+  startupState.setActiveTab(tab.id)
+  startupState.queueTabStartupCommand(tab.id, {
+    command: template.replaceAll('{profile}', profile)
+  })
+}
+
 /** SAMWOO-ORCA: when Settings > Experimental enables native chat plus
  *  chat-by-default, plain project activations seed a Claude agent tab (which
  *  opens in the chat view) instead of an idle shell terminal. Pass null for
@@ -249,6 +379,11 @@ function buildDefaultChatAgentStartup(worktree: Worktree | null): WorktreeStartu
     settings?.experimentalNativeChat !== true ||
     settings?.openAgentTabsInChatByDefault !== true
   ) {
+    return undefined
+  }
+  // Why: auto-launching Claude assumes a local terminal; SSH-remote workspaces
+  // keep the stock plain-terminal activation.
+  if (worktree && getConnectionId(worktree.id)) {
     return undefined
   }
   return buildAgentActivationStartup(worktree, 'claude')
@@ -368,14 +503,25 @@ export function activateAndRevealWorktree(
   resumeSleepingAgentSessionsForWorktree(worktreeId)
 
   // 4. Ensure a focusable surface exists for externally-created worktrees
-  const primaryTabId = ensureWorktreeHasInitialTerminal(
-    useAppStore.getState(),
-    worktreeId,
-    opts?.startup ?? buildCreatedAgentReopenStartup(wt) ?? buildDefaultChatAgentStartup(wt),
-    opts?.setup,
-    opts?.issueCommand,
-    opts?.defaultTabs
+  // SAMWOO-ORCA: with no explicit activation work, a tabless workspace defers
+  // its first tab to the start-agent picker when that setting is on.
+  const explicitStartup = opts?.startup ?? buildCreatedAgentReopenStartup(wt)
+  const hasExplicitActivationWork = Boolean(
+    explicitStartup || opts?.setup || opts?.issueCommand || opts?.defaultTabs
   )
+  let primaryTabId: string | null = null
+  if (!hasExplicitActivationWork && shouldOfferStartAgentPicker(worktreeId)) {
+    requestStartAgentPicker(worktreeId)
+  } else {
+    primaryTabId = ensureWorktreeHasInitialTerminal(
+      useAppStore.getState(),
+      worktreeId,
+      explicitStartup ?? buildDefaultChatAgentStartup(wt),
+      opts?.setup,
+      opts?.issueCommand,
+      opts?.defaultTabs
+    )
+  }
   if (primaryTabId && opts?.initialCwd) {
     useAppStore.getState().queueTabInitialCwd(primaryTabId, opts.initialCwd)
   }

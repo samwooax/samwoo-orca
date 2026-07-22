@@ -83,6 +83,7 @@ import { requestScrollToCurrentWorkspaceRevealAndRename } from '@/lib/scroll-to-
 import { OPEN_WORKSPACE_BOARD_EVENT } from './components/sidebar/useWorkspaceBoardPanel'
 import { WorkspacePortScanner } from './components/ports/WorkspacePortScanner'
 import { CrashReportDialog } from './components/crash-report/CrashReportDialog'
+import StartAgentPickerDialog from './components/StartAgentPickerDialog'
 import NewWorkspaceComposerModal from './components/NewWorkspaceComposerModal'
 import { RecoverableRenderErrorBoundary } from './components/error-boundaries/RecoverableRenderErrorBoundary'
 import { ConfirmationDialogProvider } from './components/confirmation-dialog'
@@ -2485,6 +2486,7 @@ function App(): React.JSX.Element {
             >
               <CrashReportDialog />
             </RecoverableRenderErrorBoundary>
+            <StartAgentPickerDialog />
             {onboarding && shouldRenderOnboarding && !onboardingSettingsDetourActive ? (
               <Suspense fallback={null}>
                 <RecoverableRenderErrorBoundary

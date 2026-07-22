@@ -8,6 +8,7 @@ import { HiddenExperimentalGroup } from './HiddenExperimentalGroup'
 import { NumberField, SettingsSwitch } from './SettingsFormControls'
 import { translate } from '@/i18n/i18n'
 import { NativeChatExperimentalSetting } from './NativeChatExperimentalSetting'
+import { StartAgentPickerSetting } from './StartAgentPickerSetting'
 import { EphemeralVmsExperimentalSetting } from './EphemeralVmsExperimentalSetting'
 import {
   MAX_AGENT_HIBERNATION_IDLE_MS,
@@ -151,6 +152,8 @@ export function ExperimentalPane({
       {showNativeChat ? (
         <NativeChatExperimentalSetting settings={settings} updateSettings={updateSettings} />
       ) : null}
+
+      <StartAgentPickerSetting settings={settings} updateSettings={updateSettings} />
 
       {showTerminalAttention ? (
         <SearchableSetting

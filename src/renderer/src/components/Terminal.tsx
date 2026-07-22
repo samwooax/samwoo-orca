@@ -58,6 +58,7 @@ import {
 import TabGroupSplitLayout from './tab-group/TabGroupSplitLayout'
 import AiVaultSessionDropLayer from './tab-group/AiVaultSessionDropLayer'
 import { shouldAutoCreateInitialTerminal } from './terminal/initial-terminal'
+import { useStartAgentPickerStore } from '@/lib/start-agent-picker-store'
 import { resolveRepairedActiveTerminalTabId } from './terminal/active-terminal-repair'
 import { scheduleBackgroundTerminalWorktreeMeasure } from './terminal/background-terminal-worktree-visibility'
 import {
@@ -1132,6 +1133,12 @@ function Terminal(): React.JSX.Element | null {
       return
     }
 
+    // SAMWOO-ORCA: while the start-agent picker is open for this workspace,
+    // the first tab is deferred to the user's choice. Auto-creating a plain
+    // terminal here would race the picker and make its launch command drop.
+    if (useStartAgentPickerStore.getState().workspaceKey === activeWorktreeId) {
+      return
+    }
     // Why: give a newly activated worktree a focusable surface when nothing renders, without recreating one after the user closes the last visible tab.
     const { renderableTabCount } = reconcileWorktreeTabModel(activeWorktreeId)
     if (!shouldAutoCreateInitialTerminal(renderableTabCount)) {
