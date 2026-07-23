@@ -743,6 +743,16 @@ export type PreflightApi = {
     token?: string
     error?: string
   }>
+  /** SAMWOO-ORCA: verify a groupware login and return the mapped team-bot role. */
+  samwooLogin: (args: { login: string; password: string; authUrl?: string }) => Promise<{
+    ok: boolean
+    login?: string
+    role?: string | null
+    profile?: string | null
+    label?: string | null
+    name?: string
+    error?: string
+  }>
   refreshAgents: (args?: PreflightRuntimeContext) => Promise<RefreshAgentsResult>
   detectRemoteAgents: (args: { connectionId: string }) => Promise<string[]>
   detectRemoteWindowsTerminalCapabilities: (args: { connectionId: string }) => Promise<{

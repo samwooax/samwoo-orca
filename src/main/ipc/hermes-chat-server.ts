@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
-import { ipcMain } from 'electron'
+import { join } from 'node:path'
+import { app, ipcMain } from 'electron'
 
 /** SAMWOO-ORCA: loopback HTTP server that serves a native-looking chat page
  *  (bubbles + composer, zero terminal chrome) and relays each message to the
@@ -12,9 +14,35 @@ import { ipcMain } from 'electron'
 const NAME_RE = /^[A-Za-z0-9._-]+$/
 const MESSAGE_TIMEOUT_MS = 180_000
 
+// Why: a FIXED port + STABLE token so a chat tab restored from a previous
+// session still resolves after a restart. An ephemeral port/token made every
+// restored tab point at a dead port ("can't reach 127.0.0.1:<old>").
+const FIXED_PORT = 47821
+
 let server: Server | null = null
 let port = 0
-const token = randomBytes(16).toString('hex')
+
+// Persist the token across launches so restored /chat URLs keep validating.
+function loadOrCreateToken(): string {
+  try {
+    const dir = join(app.getPath('userData'), 'samwoo')
+    mkdirSync(dir, { recursive: true })
+    const file = join(dir, 'chat-token')
+    if (existsSync(file)) {
+      const existing = readFileSync(file, 'utf8').trim()
+      if (existing) {
+        return existing
+      }
+    }
+    const fresh = randomBytes(16).toString('hex')
+    writeFileSync(file, fresh, { mode: 0o600 })
+    return fresh
+  } catch {
+    return randomBytes(16).toString('hex')
+  }
+}
+
+const token = loadOrCreateToken()
 
 const SSH_MUX_ARGS =
   process.platform === 'win32'
@@ -95,6 +123,21 @@ const CHAT_HTML = String.raw`<!doctype html>
     --bot: #202027; --bot-text: #ececf1;
     --muted: #8b8b96; --accent: #8fc1ff;
   }
+  /* Light palette: follows the OS/app scheme unless ?theme= forces one. */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f4f6; --panel: #ffffff; --border: #d9d9e0;
+      --me: #2563eb; --me-text: #ffffff;
+      --bot: #ffffff; --bot-text: #1c1c22;
+      --muted: #6c6c78; --accent: #1a4fa0;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f4f6; --panel: #ffffff; --border: #d9d9e0;
+    --me: #2563eb; --me-text: #ffffff;
+    --bot: #ffffff; --bot-text: #1c1c22;
+    --muted: #6c6c78; --accent: #1a4fa0;
+  }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
   body {
@@ -162,7 +205,13 @@ const CHAT_HTML = String.raw`<!doctype html>
   const profile = params.get('profile') || 'default'
   const label = params.get('label') || profile
   const host = params.get('host') || ''
-  const t = params.get('t') || ''
+  // Injected by the server on every /chat render so a restored tab with a
+  // stale URL token still authenticates its /api/send calls.
+  const t = '__ORCA_CHAT_TOKEN__'
+  const theme = params.get('theme')
+  if (theme === 'light' || theme === 'dark') {
+    document.documentElement.dataset.theme = theme
+  }
   document.getElementById('botName').textContent = label
   document.getElementById('botSub').textContent = 'SAMWOO 팀 에이전트 · ' + profile
   document.title = label + ' - SAMWOO-ORCA'
@@ -247,11 +296,13 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
     const srv = createServer((req, res) => {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1')
       if (req.method === 'GET' && url.pathname === '/chat') {
-        if (url.searchParams.get('t') !== token) {
-          res.writeHead(403).end('forbidden')
-          return
-        }
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(CHAT_HTML)
+        // Why: serve to any loopback GET and inject the CURRENT token into the
+        // page, instead of gating on a token in the URL. A chat tab restored
+        // from a previous session carries a stale token in its URL; requiring
+        // it would 403. The server binds 127.0.0.1 only, and /api/send still
+        // requires the current token, so injection keeps the send path guarded.
+        const html = CHAT_HTML.replace('__ORCA_CHAT_TOKEN__', token)
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(html)
         return
       }
       if (req.method === 'POST' && url.pathname === '/api/send') {
@@ -308,10 +359,18 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
       }
       res.writeHead(404).end()
     })
-    srv.on('error', (error) => {
-      resolvePromise({ ok: false, error: error.message })
+    let triedFixed = false
+    srv.on('error', () => {
+      // Why: if the fixed port is taken (another launch, or a leftover), fall
+      // back to an ephemeral port once so the chat still opens this session.
+      if (!triedFixed) {
+        triedFixed = true
+        srv.listen(0, '127.0.0.1')
+      } else {
+        resolvePromise({ ok: false, error: 'could not bind chat server' })
+      }
     })
-    srv.listen(0, '127.0.0.1', () => {
+    const onListening = (): void => {
       const addr = srv.address()
       if (addr && typeof addr === 'object') {
         server = srv
@@ -320,10 +379,17 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
       } else {
         resolvePromise({ ok: false, error: 'could not bind chat server' })
       }
-    })
+    }
+    srv.on('listening', onListening)
+    srv.listen(FIXED_PORT, '127.0.0.1')
   })
 }
 
 export function registerHermesChatServerHandlers(): void {
   ipcMain.handle('hermes:ensureChatServer', async () => ensureServer())
+  // Why: start the loopback chat server eagerly at app startup so port 47821 is
+  // already listening when a chat tab is restored from a previous session.
+  // Without this, a restored chat tab loads before any profile launch triggers
+  // the lazy start and fails with "can't reach 127.0.0.1:47821".
+  void ensureServer()
 }

@@ -2168,6 +2168,19 @@ const api = {
       token?: string
       error?: string
     }> => ipcRenderer.invoke('hermes:ensureChatServer'),
+    samwooLogin: (args: {
+      login: string
+      password: string
+      authUrl?: string
+    }): Promise<{
+      ok: boolean
+      login?: string
+      role?: string | null
+      profile?: string | null
+      label?: string | null
+      name?: string
+      error?: string
+    }> => ipcRenderer.invoke('samwoo:login', args),
     refreshAgents: (args?: PreflightRuntimeContext): Promise<RefreshAgentsResult> =>
       ipcRenderer.invoke('preflight:refreshAgents', args),
     detectRemoteAgents: (args: { connectionId: string }): Promise<string[]> =>

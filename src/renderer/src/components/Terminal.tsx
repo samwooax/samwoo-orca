@@ -84,6 +84,7 @@ import AiVaultSessionDropLayer from './tab-group/AiVaultSessionDropLayer'
 import { shouldAutoCreateInitialTerminal } from './terminal/initial-terminal'
 import { useActiveTerminalRepair } from './terminal/use-active-terminal-repair'
 import { useStartAgentPickerStore } from '@/lib/start-agent-picker-store'
+import { getSamwooAuth } from '@/lib/samwoo-auth-store'
 import { scheduleBackgroundTerminalWorktreeMeasure } from './terminal/background-terminal-worktree-visibility'
 import {
   applyBackgroundMountTabRestriction,
@@ -1468,7 +1469,10 @@ function Terminal(): React.JSX.Element | null {
     if (useStartAgentPickerStore.getState().workspaceKey === activeWorktreeId) {
       return
     }
-
+    // Why: mapped employees land on chat; a repair shell would race that launch.
+    if (getSamwooAuth()?.role) {
+      return
+    }
     // Why: give a newly activated worktree a focusable surface when nothing renders, without recreating one after the user closes the last visible tab.
     const { renderableTabCount } = reconcileWorktreeTabModel(activeWorktreeId)
     if (!shouldAutoCreateInitialTerminal(renderableTabCount)) {

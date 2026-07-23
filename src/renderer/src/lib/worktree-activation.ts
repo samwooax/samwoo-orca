@@ -65,6 +65,7 @@ import {
   requestStartAgentPicker
 } from '@/lib/start-agent-picker-store'
 import { launchAgentInNewTab } from './launch-agent-in-new-tab'
+import { getSamwooAuth } from '@/lib/samwoo-auth-store'
 
 /** Telemetry threaded from the launch site to `pty:spawn`; main fires `agent_started`
  *  only after the spawn succeeds. See telemetry-plan.md§Agent launch semantics. */
@@ -257,8 +258,10 @@ export function activateAndRevealFolderWorkspace(
   }
   resumeSleepingAgentSessionsForWorktree(workspaceKey)
   let primaryTabId: string | null = null
-  if (!opts?.startup && shouldOfferStartAgentPicker(workspaceKey)) {
-    requestStartAgentPicker(workspaceKey)
+  if (!opts?.startup && maybeAutoLaunchChat(workspaceKey)) {
+    // The chat launch owns the initial surface.
+  } else if (!opts?.startup && shouldOfferStartAgentPicker(workspaceKey)) {
+    offerOrAutoLaunch(workspaceKey)
   } else {
     primaryTabId = ensureFolderWorkspaceInitialTerminal(folderWorkspace, opts?.startup)
   }
@@ -288,6 +291,41 @@ export type StartAgentPickerChoice =
   | { kind: 'hermes'; profile: string }
   | { kind: 'terminal' }
 
+function offerOrAutoLaunch(workspaceKey: string): void {
+  const role = getSamwooAuth()?.role
+  if (role) {
+    void launchHermesProfile(workspaceKey, role)
+    return
+  }
+  requestStartAgentPicker(workspaceKey)
+}
+
+// Why: launch once per session so restored tabs neither duplicate nor steal focus repeatedly.
+const chatAutoLaunched = new Set<string>()
+
+function maybeAutoLaunchChat(workspaceKey: string): boolean {
+  const role = getSamwooAuth()?.role
+  if (!role || getConnectionId(workspaceKey)) {
+    return false
+  }
+  const state = useAppStore.getState()
+  if (isWebRuntimeSessionActive(getRuntimeEnvironmentIdForWorktree(state, workspaceKey))) {
+    return false
+  }
+  if (chatAutoLaunched.has(workspaceKey)) {
+    return false
+  }
+  chatAutoLaunched.add(workspaceKey)
+  const existingChat = (state.browserTabsByWorktree[workspaceKey] ?? []).find(
+    (tab) => typeof tab.url === 'string' && tab.url.includes('/chat?profile=')
+  )
+  if (existingChat) {
+    state.setActiveBrowserTab(existingChat.id)
+    return true
+  }
+  void launchHermesProfile(workspaceKey, role)
+  return true
+}
 export function launchStartAgentPickerChoice(
   workspaceKey: string,
   choice: StartAgentPickerChoice
@@ -319,11 +357,16 @@ async function launchHermesProfile(workspaceKey: string, profile: string): Promi
     try {
       const result = await window.api.preflight.ensureHermesChatServer()
       if (result.ok && result.port && result.token) {
+        // Why: pass the app's explicit theme so the chat page matches Orca even
+        // when it differs from the OS scheme; 'system' falls back to the
+        // page's prefers-color-scheme media query.
+        const appTheme = state.settings?.theme
         const params = new URLSearchParams({
           profile,
           label: hermesProfileLabel(profile),
           host,
-          t: result.token
+          t: result.token,
+          ...(appTheme === 'light' || appTheme === 'dark' ? { theme: appTheme } : {})
         })
         useAppStore.getState().createBrowserTab(workspaceKey, `http://127.0.0.1:${result.port}/chat?${params.toString()}`, {
           title: hermesProfileLabel(profile)
@@ -414,8 +457,10 @@ export function activateAndRevealWorktree(
 
   // 4. Ensure a focusable surface exists for externally-created worktrees
   let primaryTabId: string | null = null
-  if (!hasActivationWork && shouldOfferStartAgentPicker(worktreeId)) {
-    requestStartAgentPicker(worktreeId)
+  if (!hasActivationWork && maybeAutoLaunchChat(worktreeId)) {
+    // The chat launch owns the initial surface.
+  } else if (!hasActivationWork && shouldOfferStartAgentPicker(worktreeId)) {
+    offerOrAutoLaunch(worktreeId)
   } else {
     primaryTabId = ensureWorktreeHasInitialTerminal(
       useAppStore.getState(),
