@@ -84,6 +84,7 @@ import { OPEN_WORKSPACE_BOARD_EVENT } from './components/sidebar/useWorkspaceBoa
 import { WorkspacePortScanner } from './components/ports/WorkspacePortScanner'
 import { CrashReportDialog } from './components/crash-report/CrashReportDialog'
 import StartAgentPickerDialog from './components/StartAgentPickerDialog'
+import SamwooLoginGate from './components/SamwooLoginGate'
 import NewWorkspaceComposerModal from './components/NewWorkspaceComposerModal'
 import { RecoverableRenderErrorBoundary } from './components/error-boundaries/RecoverableRenderErrorBoundary'
 import { ConfirmationDialogProvider } from './components/confirmation-dialog'
@@ -2487,6 +2488,7 @@ function App(): React.JSX.Element {
               <CrashReportDialog />
             </RecoverableRenderErrorBoundary>
             <StartAgentPickerDialog />
+            <SamwooLoginGate />
             {onboarding && shouldRenderOnboarding && !onboardingSettingsDetourActive ? (
               <Suspense fallback={null}>
                 <RecoverableRenderErrorBoundary

@@ -72,6 +72,7 @@ import {
   hermesProfileLabel,
   requestStartAgentPicker
 } from '@/lib/start-agent-picker-store'
+import { getSamwooAuth } from '@/lib/samwoo-auth-store'
 import { resolveNativeChatSessionOptionDefaults } from '../../../shared/native-chat-session-option-defaults'
 import type { SessionOptionValue } from '../../../shared/native-chat-session-options'
 
@@ -224,9 +225,12 @@ export function activateAndRevealFolderWorkspace(
   }
   resumeSleepingAgentSessionsForWorktree(workspaceKey)
   // SAMWOO-ORCA: same picker deferral as git worktrees, keyed by folder workspace key.
+  const folderKey = folderWorkspaceKey(folderWorkspace.id)
   let primaryTabId: string | null = null
-  if (!opts?.startup && shouldOfferStartAgentPicker(folderWorkspaceKey(folderWorkspace.id))) {
-    requestStartAgentPicker(folderWorkspaceKey(folderWorkspace.id))
+  if (!opts?.startup && maybeAutoLaunchChat(folderKey)) {
+    // SAMWOO-ORCA: mapped employee — chat is the front surface, no terminal.
+  } else if (!opts?.startup && shouldOfferStartAgentPicker(folderKey)) {
+    offerOrAutoLaunch(folderKey)
   } else {
     primaryTabId = ensureFolderWorkspaceInitialTerminal(
       folderWorkspace,
@@ -276,6 +280,51 @@ export type StartAgentPickerChoice =
   | { kind: 'claude' }
   | { kind: 'hermes'; profile: string }
   | { kind: 'terminal' }
+
+/** SAMWOO-ORCA: when a signed-in employee has a mapped team-bot role, open that
+ *  bot's chat directly and skip the picker. Otherwise fall back to the picker. */
+function offerOrAutoLaunch(workspaceKey: string): void {
+  const role = getSamwooAuth()?.role
+  if (role) {
+    void launchHermesProfile(workspaceKey, role)
+    return
+  }
+  requestStartAgentPicker(workspaceKey)
+}
+
+// Why: a mapped employee should always land on their team-bot chat as the
+// front surface — even when a leftover terminal tab was restored — so the
+// terminal never appears first. Tracked per session so we neither stack
+// duplicate chats nor fight the user's own tab navigation after the first open.
+const chatAutoLaunched = new Set<string>()
+
+/** SAMWOO-ORCA: on the first activation of a workspace this session for a
+ *  mapped employee, bring the team-bot chat to the front (reusing a restored
+ *  chat tab if present, else launching one). Returns true when it handled the
+ *  workspace's initial surface, so the caller skips terminal creation. */
+function maybeAutoLaunchChat(workspaceKey: string): boolean {
+  const role = getSamwooAuth()?.role
+  if (!role || getConnectionId(workspaceKey)) {
+    return false
+  }
+  const state = useAppStore.getState()
+  if (isWebRuntimeSessionActive(getRuntimeEnvironmentIdForWorktree(state, workspaceKey))) {
+    return false
+  }
+  if (chatAutoLaunched.has(workspaceKey)) {
+    return false
+  }
+  chatAutoLaunched.add(workspaceKey)
+  const existingChat = (state.browserTabsByWorktree[workspaceKey] ?? []).find(
+    (tab) => typeof tab.url === 'string' && tab.url.includes('/chat?profile=')
+  )
+  if (existingChat) {
+    state.setActiveBrowserTab(existingChat.id)
+    return true
+  }
+  void launchHermesProfile(workspaceKey, role)
+  return true
+}
 
 /** SAMWOO-ORCA: seed the picked agent (or a plain terminal) into a workspace
  *  whose initial tab was deferred for the start-agent picker. */
@@ -340,11 +389,16 @@ async function launchHermesProfile(workspaceKey: string, profile: string): Promi
       // /chat so BrowserPane's toolbar-hiding rule makes it read as a chat pane.
       const result = await window.api.preflight.ensureHermesChatServer()
       if (result.ok && result.port && result.token) {
+        // Why: pass the app's explicit theme so the chat page matches Orca even
+        // when it differs from the OS scheme; 'system' falls back to the
+        // page's prefers-color-scheme media query.
+        const appTheme = state.settings?.theme
         const params = new URLSearchParams({
           profile,
           label: hermesProfileLabel(profile),
           host,
-          t: result.token
+          t: result.token,
+          ...(appTheme === 'light' || appTheme === 'dark' ? { theme: appTheme } : {})
         })
         const url = `http://127.0.0.1:${result.port}/chat?${params.toString()}`
         useAppStore
@@ -510,8 +564,10 @@ export function activateAndRevealWorktree(
     explicitStartup || opts?.setup || opts?.issueCommand || opts?.defaultTabs
   )
   let primaryTabId: string | null = null
-  if (!hasExplicitActivationWork && shouldOfferStartAgentPicker(worktreeId)) {
-    requestStartAgentPicker(worktreeId)
+  if (!hasExplicitActivationWork && maybeAutoLaunchChat(worktreeId)) {
+    // SAMWOO-ORCA: mapped employee — chat is the front surface, no terminal.
+  } else if (!hasExplicitActivationWork && shouldOfferStartAgentPicker(worktreeId)) {
+    offerOrAutoLaunch(worktreeId)
   } else {
     primaryTabId = ensureWorktreeHasInitialTerminal(
       useAppStore.getState(),

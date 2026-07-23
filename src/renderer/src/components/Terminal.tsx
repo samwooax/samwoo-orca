@@ -59,6 +59,7 @@ import TabGroupSplitLayout from './tab-group/TabGroupSplitLayout'
 import AiVaultSessionDropLayer from './tab-group/AiVaultSessionDropLayer'
 import { shouldAutoCreateInitialTerminal } from './terminal/initial-terminal'
 import { useStartAgentPickerStore } from '@/lib/start-agent-picker-store'
+import { getSamwooAuth } from '@/lib/samwoo-auth-store'
 import { resolveRepairedActiveTerminalTabId } from './terminal/active-terminal-repair'
 import { scheduleBackgroundTerminalWorktreeMeasure } from './terminal/background-terminal-worktree-visibility'
 import {
@@ -1137,6 +1138,12 @@ function Terminal(): React.JSX.Element | null {
     // the first tab is deferred to the user's choice. Auto-creating a plain
     // terminal here would race the picker and make its launch command drop.
     if (useStartAgentPickerStore.getState().workspaceKey === activeWorktreeId) {
+      return
+    }
+    // SAMWOO-ORCA: a signed-in employee (mapped team-bot role) always lands on
+    // their chat surface, which the activation flow launches. Auto-creating a
+    // plain terminal here would race that and make the terminal appear first.
+    if (getSamwooAuth()?.role) {
       return
     }
     // Why: give a newly activated worktree a focusable surface when nothing renders, without recreating one after the user closes the last visible tab.

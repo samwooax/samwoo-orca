@@ -2618,6 +2618,10 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
       ok: false,
       error: 'Hermes chat server is unavailable in the web client'
     }),
+    samwooLogin: async () => ({
+      ok: false,
+      error: 'Login is unavailable in the web client'
+    }),
     refreshAgents: () =>
       requireActiveEnvironmentOrNull()
         ? callRuntimeResult('preflight.refreshAgents')
