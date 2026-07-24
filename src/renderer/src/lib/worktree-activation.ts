@@ -350,6 +350,23 @@ export function launchStartAgentPickerChoice(
   state.setActiveTab(tab.id)
 }
 
+function resolveWorkspaceCwd(workspaceKey: string): string {
+  const scope = parseWorkspaceKey(workspaceKey)
+  if (scope?.type === 'folder') {
+    return (
+      useAppStore
+        .getState()
+        .folderWorkspaces.find((workspace) => workspace.id === scope.folderWorkspaceId)
+        ?.folderPath ?? ''
+    )
+  }
+  const worktreeId = scope?.type === 'worktree' ? scope.worktreeId : workspaceKey
+  const idx = worktreeId.indexOf('::')
+  if (idx >= 0) {
+    return worktreeId.slice(idx + 2)
+  }
+  return ''
+}
 async function launchHermesProfile(workspaceKey: string, profile: string): Promise<void> {
   const state = useAppStore.getState()
   if (state.settings?.hermesUseWebChat !== false) {
@@ -361,11 +378,13 @@ async function launchHermesProfile(workspaceKey: string, profile: string): Promi
         // when it differs from the OS scheme; 'system' falls back to the
         // page's prefers-color-scheme media query.
         const appTheme = state.settings?.theme
+        const cwd = resolveWorkspaceCwd(workspaceKey)
         const params = new URLSearchParams({
           profile,
           label: hermesProfileLabel(profile),
           host,
           t: result.token,
+          ...(cwd ? { cwd } : {}),
           ...(appTheme === 'light' || appTheme === 'dark' ? { theme: appTheme } : {})
         })
         useAppStore.getState().createBrowserTab(workspaceKey, `http://127.0.0.1:${result.port}/chat?${params.toString()}`, {
