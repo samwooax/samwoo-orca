@@ -13,7 +13,7 @@ export type SamwooLoginResult = {
 
 // Why: the auth service lives on the VPS host, reachable over Tailscale. Using
 // the MagicDNS name keeps it stable across the node's IP changes.
-const DEFAULT_AUTH_URL = 'http://server-host:8823'
+const DEFAULT_AUTH_URL = 'http://100.116.18.119:8823'
 
 function postLogin(
   baseUrl: string,
