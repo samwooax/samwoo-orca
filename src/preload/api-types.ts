@@ -682,6 +682,7 @@ export type PreflightApi = {
     profile?: string | null
     label?: string | null
     name?: string
+    token?: string
     error?: string
   }>
   refreshAgents: (args?: PreflightRuntimeContext) => Promise<RefreshAgentsResult>

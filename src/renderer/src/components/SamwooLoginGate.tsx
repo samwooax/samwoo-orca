@@ -47,7 +47,8 @@ export default function SamwooLoginGate(): React.JSX.Element | null {
         login: result.login ?? login.trim(),
         name: result.name ?? login.trim(),
         role: result.role ?? null,
-        label: result.label ?? null
+        label: result.label ?? null,
+        token: result.token
       })
     } catch (err) {
       setError(`연결 오류: ${String(err)}`)
