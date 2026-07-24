@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
+import { useAppStore } from '@/store'
 import logo from '../../../../resources/logo.svg'
 
 /** SAMWOO-ORCA: full-screen login shown at startup until the employee signs in
@@ -8,6 +9,14 @@ import logo from '../../../../resources/logo.svg'
 export default function SamwooLoginGate(): React.JSX.Element | null {
   const auth = useSamwooAuthStore((s) => s.auth)
   const setAuth = useSamwooAuthStore((s) => s.setAuth)
+  // Why: the SAMWOO wordmark asset is white. Under a light app theme the login
+  // background is light, so invert the logo to dark to keep it visible.
+  const theme = useAppStore((s) => s.settings?.theme)
+  const prefersDark =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  const isDark = theme === 'dark' || (theme !== 'light' && prefersDark)
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -85,7 +94,8 @@ export default function SamwooLoginGate(): React.JSX.Element | null {
             objectFit: 'contain',
             alignSelf: 'center',
             display: 'block',
-            marginBottom: 2
+            marginBottom: 2,
+            filter: isDark ? 'none' : 'invert(1)'
           }}
         />
         <div style={{ textAlign: 'center', fontSize: 13, opacity: 0.7, marginBottom: 4 }}>

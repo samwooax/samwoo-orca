@@ -15,7 +15,7 @@ export type HermesTunnelResult = {
 type Tunnel = { localPort: number; proc: ChildProcess }
 const tunnels = new Map<string, Tunnel>()
 
-const DEFAULT_HOST = 'hermes@hermes-new-container'
+const DEFAULT_HOST = 'hermes@100.68.242.83'
 const DEFAULT_REMOTE_PORT = 4862
 
 function findFreePort(): Promise<number> {

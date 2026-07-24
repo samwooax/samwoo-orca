@@ -327,7 +327,7 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
               }
               const profile = parsed.profile ?? ''
               const message = parsed.message ?? ''
-              const host = parsed.host?.trim() || 'hermes@hermes-new-container'
+              const host = parsed.host?.trim() || 'hermes@100.68.242.83'
               if (!NAME_RE.test(profile) || !message.trim() || !/^[A-Za-z0-9@.:_-]+$/.test(host)) {
                 res
                   .writeHead(400, { 'Content-Type': 'application/json' })
