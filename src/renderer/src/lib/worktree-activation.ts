@@ -379,12 +379,14 @@ async function launchHermesProfile(workspaceKey: string, profile: string): Promi
         // page's prefers-color-scheme media query.
         const appTheme = state.settings?.theme
         const cwd = resolveWorkspaceCwd(workspaceKey)
+        const mailToken = getSamwooAuth()?.token
         const params = new URLSearchParams({
           profile,
           label: hermesProfileLabel(profile),
           host,
           t: result.token,
           ...(cwd ? { cwd } : {}),
+          ...(mailToken ? { mailtoken: mailToken } : {}),
           ...(appTheme === 'light' || appTheme === 'dark' ? { theme: appTheme } : {})
         })
         useAppStore.getState().createBrowserTab(workspaceKey, `http://127.0.0.1:${result.port}/chat?${params.toString()}`, {

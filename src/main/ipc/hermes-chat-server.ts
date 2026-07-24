@@ -24,6 +24,9 @@ const LAPTOP_USER = (() => {
  *  The page lives at /chat so BrowserPane's toolbar-hiding rule applies. */
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
+// Why: the mail session handle is injected into the remote shell as an env var,
+// so it must be inline-safe (no quote/whitespace) AND never model-visible.
+const MAIL_TOKEN_RE = /^[A-Za-z0-9._-]{1,256}$/
 const MESSAGE_TIMEOUT_MS = 180_000
 
 // Why: a FIXED port + STABLE token so a chat tab restored from a previous
@@ -108,6 +111,10 @@ function runHermesMessage(args: {
   message: string
   cwd?: string
   laptopName?: string
+  /** Opaque mail-session handle. Passed to the remote as an env var (never in
+   *  the model-visible message) so the bot's mail skill can bearer-auth to the
+   *  /mail/* endpoints for THIS user without the LLM ever seeing the value. */
+  mailToken?: string
 }): Promise<{ ok: boolean; reply?: string; error?: string }> {
   return new Promise((resolvePromise) => {
     // Why: prepend a machine-readable context header so the bot works on the
@@ -119,7 +126,12 @@ function runHermesMessage(args: {
     if (args.cwd) ctxParts.push(`현재폴더=${args.cwd}`)
     const contextLine = ctxParts.length ? `[작업컨텍스트 ${ctxParts.join(' ')}]\n` : ''
     const fullMessage = contextLine + args.message
-    const remote = `sh -lc 'hermes --profile ${args.profile} -z "$(cat)" --cli --continue ${args.session} 2>/dev/null'`
+    // Why: keep the mail handle OUT of the message/context so it can't leak into
+    // the transcript or a model reply; the shell exports it and the skill reads
+    // $MAILTOKEN. Format-guarded so it can't break out of the single-quoted cmd.
+    const mailEnv =
+      args.mailToken && MAIL_TOKEN_RE.test(args.mailToken) ? `MAILTOKEN=${args.mailToken} ` : ''
+    const remote = `sh -lc '${mailEnv}hermes --profile ${args.profile} -z "$(cat)" --cli --continue ${args.session} 2>/dev/null'`
     const proc = spawn(
       'ssh',
       ['-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes', ...SSH_MUX_ARGS, args.host, remote],
@@ -262,6 +274,9 @@ const CHAT_HTML = String.raw`<!doctype html>
   const label = params.get('label') || profile
   const host = params.get('host') || ''
   const cwd = params.get('cwd') || ''
+  // Opaque mail-session handle from login; forwarded to the server, which maps
+  // it to server-held mail credentials. Never the password itself.
+  const mailtoken = params.get('mailtoken') || ''
   // Injected by the server on every /chat render so a restored tab with a
   // stale URL token still authenticates its /api/send calls.
   const t = '__ORCA_CHAT_TOKEN__'
@@ -311,7 +326,7 @@ const CHAT_HTML = String.raw`<!doctype html>
       const res = await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Orca-Token': t },
-        body: JSON.stringify({ profile, host, message, cwd })
+        body: JSON.stringify({ profile, host, message, cwd, mailtoken })
       })
       const data = await res.json()
       typing.remove()
@@ -382,11 +397,17 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
                 host?: string
                 message?: string
                 cwd?: string
+                mailtoken?: string
               }
               const profile = parsed.profile ?? ''
               const message = parsed.message ?? ''
               const host = parsed.host?.trim() || 'hermes@100.68.242.83'
               const cwd = typeof parsed.cwd === 'string' ? parsed.cwd.slice(0, 512) : ''
+              // Drop anything malformed rather than forwarding it to the shell.
+              const mailToken =
+                typeof parsed.mailtoken === 'string' && MAIL_TOKEN_RE.test(parsed.mailtoken)
+                  ? parsed.mailtoken
+                  : undefined
               if (!NAME_RE.test(profile) || !message.trim() || !/^[A-Za-z0-9@.:_-]+$/.test(host)) {
                 res
                   .writeHead(400, { 'Content-Type': 'application/json' })
@@ -400,7 +421,8 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
                 session: `orca-${profile}`,
                 message,
                 cwd,
-                laptopName
+                laptopName,
+                mailToken
               })
               res
                 .writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })

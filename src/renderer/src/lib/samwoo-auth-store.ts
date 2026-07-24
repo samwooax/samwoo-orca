@@ -8,6 +8,10 @@ export type SamwooAuth = {
   name: string
   role: string | null
   label: string | null
+  /** SAMWOO-ORCA: opaque session handle from the auth service. Maps to the
+   *  server-held mail credentials (never the password itself) so the team-bot
+   *  can read/send this user's mail during the session. */
+  token?: string
 }
 
 type SamwooAuthState = {

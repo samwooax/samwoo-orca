@@ -8,6 +8,8 @@ export type SamwooLoginResult = {
   profile?: string | null
   label?: string | null
   name?: string
+  /** Session handle for mail access (maps to server-held credentials). */
+  token?: string
   error?: string
 }
 
