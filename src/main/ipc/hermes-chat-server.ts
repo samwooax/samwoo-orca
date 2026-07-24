@@ -44,6 +44,39 @@ function loadOrCreateToken(): string {
 
 const token = loadOrCreateToken()
 
+// Why: the team-bot runs on the server and reaches this laptop's files over SSH.
+// Resolve this laptop's Tailscale hostname once and cache it, so every message
+// can tell the bot which machine to SSH into — no "what's your laptop name?".
+let cachedLaptopName: string | null = null
+function getLaptopName(): Promise<string> {
+  if (cachedLaptopName !== null) {
+    return Promise.resolve(cachedLaptopName)
+  }
+  return new Promise((resolveName) => {
+    const ts =
+      process.platform === 'win32'
+        ? 'C:\\Program Files\\Tailscale\\tailscale.exe'
+        : 'tailscale'
+    const proc = spawn(ts, ['status', '--self', '--json'], { stdio: ['ignore', 'pipe', 'ignore'] })
+    let out = ''
+    proc.stdout.on('data', (d: Buffer) => {
+      out += d.toString()
+    })
+    const done = (name: string): void => {
+      cachedLaptopName = name
+      resolveName(name)
+    }
+    proc.on('error', () => done(''))
+    proc.on('close', () => {
+      try {
+        done(String(JSON.parse(out)?.Self?.HostName ?? ''))
+      } catch {
+        done('')
+      }
+    })
+  })
+}
+
 const SSH_MUX_ARGS =
   process.platform === 'win32'
     ? []
@@ -61,8 +94,18 @@ function runHermesMessage(args: {
   profile: string
   session: string
   message: string
+  cwd?: string
+  laptopName?: string
 }): Promise<{ ok: boolean; reply?: string; error?: string }> {
   return new Promise((resolvePromise) => {
+    // Why: prepend a machine-readable context header so the bot works on the
+    // opened project folder of this exact laptop without asking. SOUL.md tells
+    // it how to read this block.
+    const ctxParts: string[] = []
+    if (args.laptopName) ctxParts.push(`노트북=${args.laptopName}`)
+    if (args.cwd) ctxParts.push(`현재폴더=${args.cwd}`)
+    const contextLine = ctxParts.length ? `[작업컨텍스트 ${ctxParts.join(' ')}]\n` : ''
+    const fullMessage = contextLine + args.message
     const remote = `sh -lc 'hermes --profile ${args.profile} -z "$(cat)" --cli --continue ${args.session} 2>/dev/null'`
     const proc = spawn(
       'ssh',
@@ -105,7 +148,7 @@ function runHermesMessage(args: {
         resolvePromise({ ok: false, error: stderr.trim() || `hermes exited with code ${code}` })
       }
     })
-    proc.stdin.write(args.message)
+    proc.stdin.write(fullMessage)
     proc.stdin.end()
   })
 }
@@ -205,6 +248,7 @@ const CHAT_HTML = String.raw`<!doctype html>
   const profile = params.get('profile') || 'default'
   const label = params.get('label') || profile
   const host = params.get('host') || ''
+  const cwd = params.get('cwd') || ''
   // Injected by the server on every /chat render so a restored tab with a
   // stale URL token still authenticates its /api/send calls.
   const t = '__ORCA_CHAT_TOKEN__'
@@ -254,7 +298,7 @@ const CHAT_HTML = String.raw`<!doctype html>
       const res = await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Orca-Token': t },
-        body: JSON.stringify({ profile, host, message })
+        body: JSON.stringify({ profile, host, message, cwd })
       })
       const data = await res.json()
       typing.remove()
@@ -324,21 +368,26 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
                 profile?: string
                 host?: string
                 message?: string
+                cwd?: string
               }
               const profile = parsed.profile ?? ''
               const message = parsed.message ?? ''
               const host = parsed.host?.trim() || 'hermes@100.68.242.83'
+              const cwd = typeof parsed.cwd === 'string' ? parsed.cwd.slice(0, 512) : ''
               if (!NAME_RE.test(profile) || !message.trim() || !/^[A-Za-z0-9@.:_-]+$/.test(host)) {
                 res
                   .writeHead(400, { 'Content-Type': 'application/json' })
                   .end(JSON.stringify({ ok: false, error: 'invalid request' }))
                 return
               }
+              const laptopName = await getLaptopName()
               const result = await runHermesMessage({
                 host,
                 profile,
                 session: `orca-${profile}`,
-                message
+                message,
+                cwd,
+                laptopName
               })
               res
                 .writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })

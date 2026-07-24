@@ -378,6 +378,20 @@ export function launchStartAgentPickerChoice(
  *  tunnel to the remote dashboard's loopback port (auth-free on loopback). On
  *  any tunnel failure, fall back to the terminal TUI so the profile is still
  *  reachable. */
+/** SAMWOO-ORCA: the local folder path behind a workspace, so the team-bot can
+ *  operate on the opened project directly (no "which laptop / which folder"
+ *  round-trip). Worktree ids are `${repoId}::${path}`; folder workspaces carry
+ *  `folderPath`. */
+function resolveWorkspaceCwd(workspaceKey: string): string {
+  const idx = workspaceKey.indexOf('::')
+  if (idx >= 0) {
+    return workspaceKey.slice(idx + 2)
+  }
+  const state = useAppStore.getState()
+  const fw = state.folderWorkspaces?.find((f) => f.id === workspaceKey)
+  return fw?.folderPath ?? ''
+}
+
 async function launchHermesProfile(workspaceKey: string, profile: string): Promise<void> {
   const state = useAppStore.getState()
   const useWeb = state.settings?.hermesUseWebChat !== false
@@ -393,11 +407,13 @@ async function launchHermesProfile(workspaceKey: string, profile: string): Promi
         // when it differs from the OS scheme; 'system' falls back to the
         // page's prefers-color-scheme media query.
         const appTheme = state.settings?.theme
+        const cwd = resolveWorkspaceCwd(workspaceKey)
         const params = new URLSearchParams({
           profile,
           label: hermesProfileLabel(profile),
           host,
           t: result.token,
+          ...(cwd ? { cwd } : {}),
           ...(appTheme === 'light' || appTheme === 'dark' ? { theme: appTheme } : {})
         })
         const url = `http://127.0.0.1:${result.port}/chat?${params.toString()}`
