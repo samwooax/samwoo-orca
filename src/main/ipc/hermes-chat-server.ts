@@ -2,8 +2,20 @@ import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
+import { userInfo } from 'node:os'
 import { join } from 'node:path'
 import { app, ipcMain } from 'electron'
+
+// Why: the bot SSHes back into this laptop as this OS user (the built-in
+// "administrator" account is usually disabled on Windows). The user is a local
+// admin, so the machine-wide administrators_authorized_keys still authorizes it.
+const LAPTOP_USER = (() => {
+  try {
+    return userInfo().username
+  } catch {
+    return ''
+  }
+})()
 
 /** SAMWOO-ORCA: loopback HTTP server that serves a native-looking chat page
  *  (bubbles + composer, zero terminal chrome) and relays each message to the
@@ -103,6 +115,7 @@ function runHermesMessage(args: {
     // it how to read this block.
     const ctxParts: string[] = []
     if (args.laptopName) ctxParts.push(`노트북=${args.laptopName}`)
+    if (LAPTOP_USER) ctxParts.push(`계정=${LAPTOP_USER}`)
     if (args.cwd) ctxParts.push(`현재폴더=${args.cwd}`)
     const contextLine = ctxParts.length ? `[작업컨텍스트 ${ctxParts.join(' ')}]\n` : ''
     const fullMessage = contextLine + args.message
