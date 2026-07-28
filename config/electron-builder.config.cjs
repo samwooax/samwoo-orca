@@ -487,9 +487,9 @@ module.exports = {
   npmRebuild: true,
   publish: {
     provider: 'github',
-    owner: 'stablyai',
-    repo: devChannelRepo ?? 'orca',
-    releaseType: devChannelRepo ? 'prerelease' : 'release'
+    owner: 'samwooax',
+    repo: 'samwoo-orca',
+    releaseType: 'release'
   }
 }
 
