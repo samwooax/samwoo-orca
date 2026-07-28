@@ -1,6 +1,6 @@
 # SAMWOO-ORCA — 작업 인수인계 (VS Code 이어서 작업용)
 
-> 마지막 정리: 2026-07-24. 이 문서 하나로 프로젝트 전체 상태·남은 작업·이어가는 법을 파악할 수 있습니다.
+> 마지막 정리: 2026-07-29. 이 문서 하나로 프로젝트 전체 상태·남은 작업·이어가는 법을 파악할 수 있습니다.
 
 ---
 
@@ -14,8 +14,8 @@
 
 ## 1. 리포 위치 & 빌드
 
-- **리포**: `~/samwoo-orca` (git, 원격 `origin` = `github.com/dhun827/samwoo-orca`, **비공개**)
-- **GitHub 계정**: dhun827 (gh CLI 인증됨). 회사 계정은 samwooax지만 리포는 dhun827 소유 — 원하면 이전 가능(HANDOFF §9).
+- **리포**: `~/samwoo-orca` (git, 원격 `origin` = `github.com/samwooax/samwoo-orca`, **비공개**)
+- **GitHub 소유 계정**: samwooax. 로컬 `gh` CLI는 이전 소유자 dhun827 계정으로도 협업 권한 사용 가능.
 - **Node**: 24 필요. 이 맥엔 시스템 node가 22라, 빌드 시 스크래치패드에 받아둔 node24를 PATH 앞에 둠.
   - 예: `export PATH="/private/tmp/.../scratchpad/node24/bin:$PATH"` (세션마다 경로 다름) → 없으면 `nvm use 24` 또는 node24 재설치
 - **패키지 매니저**: pnpm 10.24.0
@@ -174,11 +174,11 @@ cd ~/samwoo-orca && git stash pop   # WIP 복원 (5개 파일: token 추가)
 - **Tailscale**: samwooax 계정. pre-auth 키는 `deploy/install.ps1` 안(gitignore됨). 만료 2026-10-20.
 - **NextCloud**: samwoo_ax / `https://nextcloud-ebml.srv1808091.hstgr.cloud`
 - **그룹웨어**: 다우오피스, `play.samwooeleco.com` (SMTP 587 / IMAP 993).
-- **GitHub**: dhun827/samwoo-orca (비공개), Release: v1.4.147-samwoo.
+- **GitHub**: samwooax/samwoo-orca (비공개), Release: v1.4.147-samwoo.
 
-## 9. (선택) 리포를 samwooax 계정으로 이전
-- GitHub 웹 → dhun827/samwoo-orca → Settings → Transfer ownership → samwooax
-- 이전 후 코드의 업데이트 피드 주소(`dhun827/samwoo-orca`)를 samwooax로 바꾸고 재빌드.
+## 9. 리포 소유권 이전 완료
+- 2026-07-29에 `dhun827/samwoo-orca`를 `samwooax/samwoo-orca`로 이전 완료.
+- 원격 주소와 앱 업데이트·릴리스 피드도 `samwooax/samwoo-orca`를 사용.
 
 ---
 

@@ -170,7 +170,7 @@ export function GeneralUpdateSettingsSection(): React.JSX.Element {
               <a
                 href={
                   updateStatus.releaseUrl ??
-                  `https://github.com/dhun827/samwoo-orca/releases/tag/v${updateStatus.version}`
+                  `https://github.com/samwooax/samwoo-orca/releases/tag/v${updateStatus.version}`
                 }
                 target="_blank"
                 rel="noopener noreferrer"
@@ -208,7 +208,7 @@ export function GeneralUpdateSettingsSection(): React.JSX.Element {
               <a
                 href={
                   updateStatus.releaseUrl ??
-                  `https://github.com/dhun827/samwoo-orca/releases/tag/v${updateStatus.version}`
+                  `https://github.com/samwooax/samwoo-orca/releases/tag/v${updateStatus.version}`
                 }
                 target="_blank"
                 rel="noopener noreferrer"

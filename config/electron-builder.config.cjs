@@ -394,7 +394,7 @@ module.exports = {
   // auto-update can never replace the SAMWOO-ORCA branding with stock Orca.
   publish: {
     provider: 'github',
-    owner: 'dhun827',
+    owner: 'samwooax',
     repo: 'samwoo-orca',
     releaseType: 'release'
   }
