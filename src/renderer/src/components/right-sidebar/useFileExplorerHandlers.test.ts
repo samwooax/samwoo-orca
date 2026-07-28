@@ -148,4 +148,56 @@ describe('activateFileExplorerNode', () => {
       { preview: true, focusEditor: true, suppressActiveRuntimeFallback: true }
     )
   })
+
+  it('references a file in the active chat without opening an editor preview', async () => {
+    const fileNode: TreeNode = {
+      name: 'server.ts',
+      path: '/repo/src/server.ts',
+      relativePath: 'src/server.ts',
+      isDirectory: false,
+      depth: 1
+    }
+    const openFile = vi.fn()
+    const referenceFileInChat = vi.fn().mockReturnValue(true)
+
+    await activateFileExplorerNode({
+      node: fileNode,
+      activeWorktreeId: 'wt-1',
+      openFile,
+      toggleDir: vi.fn(),
+      loadDir: vi.fn(),
+      statPath: vi.fn(),
+      markPathAsDirectory: vi.fn(),
+      referenceFileInChat,
+      setSelectedPath: vi.fn()
+    })
+
+    expect(referenceFileInChat).toHaveBeenCalledWith(fileNode)
+    expect(openFile).not.toHaveBeenCalled()
+  })
+
+  it('opens the editor preview when no active chat accepts the file reference', async () => {
+    const fileNode: TreeNode = {
+      name: 'server.ts',
+      path: '/repo/src/server.ts',
+      relativePath: 'src/server.ts',
+      isDirectory: false,
+      depth: 1
+    }
+    const openFile = vi.fn()
+
+    await activateFileExplorerNode({
+      node: fileNode,
+      activeWorktreeId: 'wt-1',
+      openFile,
+      toggleDir: vi.fn(),
+      loadDir: vi.fn(),
+      statPath: vi.fn(),
+      markPathAsDirectory: vi.fn(),
+      referenceFileInChat: vi.fn().mockReturnValue(false),
+      setSelectedPath: vi.fn()
+    })
+
+    expect(openFile).toHaveBeenCalledOnce()
+  })
 })

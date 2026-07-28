@@ -34,6 +34,7 @@ export type NativeChatComposerProps = {
 export type NativeChatComposerHandle = {
   focus: () => boolean
   insertTypedText: (text: string) => boolean
+  insertFileReference: (relativePath: string) => boolean
   /** Routes pane-level paste events back to the composer field. */
   handlePasteEvent: (event: {
     clipboardData: DataTransfer | null

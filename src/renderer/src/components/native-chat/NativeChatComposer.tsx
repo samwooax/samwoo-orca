@@ -41,6 +41,7 @@ import type {
   NativeChatComposerHandle,
   NativeChatComposerProps
 } from './native-chat-composer-types'
+import { buildNativeChatFileReferenceInsertion } from './native-chat-file-reference'
 
 export type {
   NativeChatComposerHandle,
@@ -187,6 +188,23 @@ export const NativeChatComposer = forwardRef<NativeChatComposerHandle, NativeCha
       setHistory,
       setActiveSuggestion
     })
+    const insertFileReference = useCallback(
+      (relativePath: string): boolean => {
+        const textarea = textareaRef.current
+        if (!textarea || textarea.disabled) {
+          return false
+        }
+        return insertTypedText(
+          buildNativeChatFileReferenceInsertion({
+            draft,
+            selectionStart: textarea.selectionStart ?? caret,
+            selectionEnd: textarea.selectionEnd ?? textarea.selectionStart ?? caret,
+            relativePath
+          })
+        )
+      },
+      [caret, draft, insertTypedText]
+    )
 
     const { attachExternalPaths, resolveAttachmentOwner } = useNativeChatExternalAttachments({
       terminalTabId,
@@ -208,8 +226,14 @@ export const NativeChatComposer = forwardRef<NativeChatComposerHandle, NativeCha
 
     useImperativeHandle(
       ref,
-      () => ({ focus, insertTypedText, handlePasteEvent: handlePaste, pasteFromClipboard }),
-      [focus, insertTypedText, handlePaste, pasteFromClipboard]
+      () => ({
+        focus,
+        insertTypedText,
+        insertFileReference,
+        handlePasteEvent: handlePaste,
+        pasteFromClipboard
+      }),
+      [focus, insertTypedText, insertFileReference, handlePaste, pasteFromClipboard]
     )
 
     const { pickAttachment } = useNativeChatFileAttachmentActions(attachExternalPaths)
