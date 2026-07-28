@@ -55,6 +55,7 @@ import { CLOSE_ALL_CONTEXT_MENUS_EVENT } from '@/components/tab-bar/SortableTab'
 import type { RightSidebarExplorerView } from '../../../../shared/types'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { createNewTerminalTab } from '@/components/terminal/terminal-tab-create'
+import { requestNativeChatFileReference } from '@/components/native-chat/native-chat-file-reference'
 
 function FileExplorerFiles(): React.JSX.Element {
   const explorerView = useAppStore((s) => s.rightSidebarExplorerView)
@@ -78,6 +79,7 @@ function FileExplorerFiles(): React.JSX.Element {
     [nameFilterQuery, showRightSidebarFiles, showRightSidebarSearch]
   )
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
+  const activeTabId = useAppStore((s) => s.activeTabId)
   const activeWorktree = useActiveWorktree()
   const activeRepo = useRepoById(activeWorktree?.repoId ?? null)
   const supportsFolderDownload = useAppStore((s) => {
@@ -486,6 +488,11 @@ function FileExplorerFiles(): React.JSX.Element {
       getNameFilterCollapsedPathsAfterExpand(current, dirPath)
     )
   }, [])
+  const referenceFileInChat = useCallback(
+    (node: TreeNode) =>
+      activeTabId ? requestNativeChatFileReference(activeTabId, node.relativePath) : false,
+    [activeTabId]
+  )
   const { handleClick, handleDoubleClick, handleWheelCapture } = useFileExplorerHandlers({
     activeWorktreeId,
     runtimeEnvironmentId: activeRuntimeEnvironmentId,
@@ -495,6 +502,7 @@ function FileExplorerFiles(): React.JSX.Element {
     loadDir,
     statPath,
     markPathAsDirectory,
+    referenceFileInChat,
     setSelectedPath: setSingleSelectedPath,
     scrollRef
   })

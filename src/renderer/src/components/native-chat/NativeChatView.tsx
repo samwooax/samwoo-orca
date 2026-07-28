@@ -52,6 +52,7 @@ import { selectNativeChatRuntimeEnvironmentId } from './native-chat-runtime-owne
 import { useNativeChatPasteBridge } from './use-native-chat-paste-bridge'
 import { useNativeChatFileLinkClick } from './use-native-chat-file-link-click'
 import type { NativeChatViewProps } from './native-chat-view-types'
+import { useNativeChatFileReference } from './use-native-chat-file-reference'
 
 export type { NativeChatViewProps } from './native-chat-view-types'
 
@@ -161,6 +162,7 @@ function NativeChatResolvedView({
   const [questionActive, setQuestionActive] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<NativeChatComposerHandle>(null)
+  useNativeChatFileReference(terminalTabId, composerRef)
   // The question card's free-text row; keeps Paste working while the card
   // replaces the composer.
   const questionAnswerInputRef = useRef<HTMLInputElement>(null)

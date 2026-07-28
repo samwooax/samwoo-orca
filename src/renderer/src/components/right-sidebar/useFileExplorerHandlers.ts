@@ -31,6 +31,7 @@ type UseFileExplorerHandlersParams = {
   ) => Promise<boolean>
   statPath: (path: string) => Promise<{ isDirectory: boolean }>
   markPathAsDirectory: (path: string) => void
+  referenceFileInChat?: (node: TreeNode) => boolean
   setSelectedPath: (path: string) => void
   scrollRef: RefObject<HTMLDivElement | null>
 }
@@ -54,6 +55,7 @@ export async function activateFileExplorerNode(args: {
   loadDir: UseFileExplorerHandlersParams['loadDir']
   statPath: UseFileExplorerHandlersParams['statPath']
   markPathAsDirectory: (path: string) => void
+  referenceFileInChat?: (node: TreeNode) => boolean
   setSelectedPath: (path: string) => void
 }): Promise<void> {
   const {
@@ -66,6 +68,7 @@ export async function activateFileExplorerNode(args: {
     loadDir,
     statPath,
     markPathAsDirectory,
+    referenceFileInChat,
     setSelectedPath
   } = args
   if (!activeWorktreeId) {
@@ -115,6 +118,9 @@ export async function activateFileExplorerNode(args: {
       return
     }
   }
+  if (referenceFileInChat?.(node)) {
+    return
+  }
   openFile(
     {
       filePath: node.path,
@@ -143,6 +149,7 @@ export function useFileExplorerHandlers({
   loadDir,
   statPath,
   markPathAsDirectory,
+  referenceFileInChat,
   setSelectedPath,
   scrollRef
 }: UseFileExplorerHandlersParams): UseFileExplorerHandlersReturn {
@@ -158,6 +165,7 @@ export function useFileExplorerHandlers({
         loadDir,
         statPath,
         markPathAsDirectory,
+        referenceFileInChat,
         setSelectedPath
       })
     },
@@ -168,6 +176,7 @@ export function useFileExplorerHandlers({
       loadDir,
       markPathAsDirectory,
       openFile,
+      referenceFileInChat,
       statPath,
       toggleDir,
       setSelectedPath
