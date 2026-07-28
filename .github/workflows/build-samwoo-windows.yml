@@ -1,7 +1,7 @@
 # SAMWOO-ORCA rebranded Windows installer build.
 #
 # Based on windows-signing-rehearsal.yml with the SignPath signing steps
-# removed: this produces an UNSIGNED NSIS installer as a workflow artifact.
+# removed: this produces an UNSIGNED NSIS installer as a prerelease asset.
 name: Build SAMWOO-ORCA Windows installer
 
 on:
@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 180
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
@@ -65,13 +65,20 @@ jobs:
             throw 'electron-builder did not produce dist/samwoo-orca-windows-setup.exe'
           }
 
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: samwoo-orca-windows-setup
-          path: |
-            dist/samwoo-orca-windows-setup.exe
-            dist/samwoo-orca-windows-setup.exe.blockmap
-            dist/latest.yml
-          if-no-files-found: error
-          retention-days: 14
+      - name: Upload installer release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "samwoo-windows-${{ github.sha }}"
+          gh release create $tag `
+            --target "${{ github.sha }}" `
+            --title "SAMWOO-ORCA Windows ${{ github.sha }}" `
+            --notes "Unsigned internal Windows installer built from ${{ github.sha }}." `
+            --prerelease
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload $tag `
+            dist/samwoo-orca-windows-setup.exe `
+            dist/samwoo-orca-windows-setup.exe.blockmap `
+            dist/latest.yml `
+            --clobber
