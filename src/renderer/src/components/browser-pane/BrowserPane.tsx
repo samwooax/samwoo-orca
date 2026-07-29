@@ -12,7 +12,10 @@ import {
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { HermesTeamChatView } from '@/components/hermes-team-chat/HermesTeamChatView'
-import { parseHermesTeamChatRoute } from '@/components/hermes-team-chat/hermes-team-chat-route'
+import {
+  parseHermesTeamChatRoute,
+  type HermesTeamChatRoute
+} from '@/components/hermes-team-chat/hermes-team-chat-route'
 
 // SAMWOO-ORCA: Hermes team-bot chat tabs (SSH-tunneled dashboard /chat pages)
 // render as a chat surface — hide the browser toolbar so they don't look like
@@ -767,10 +770,35 @@ export default function BrowserPane(props: {
 }): React.JSX.Element {
   const route = parseHermesTeamChatRoute(props.browserTab.url)
   return route ? (
-    <HermesTeamChatView tabId={props.browserTab.id} route={route} />
+    <HermesTeamChatPane browserTab={props.browserTab} route={route} />
   ) : (
     <StandardBrowserPane {...props} />
   )
+}
+
+function HermesTeamChatPane({
+  browserTab,
+  route
+}: {
+  browserTab: BrowserWorkspaceState
+  route: HermesTeamChatRoute
+}): React.JSX.Element {
+  const browserPageIds = useMemo(
+    () =>
+      browserTab.pageIds && browserTab.pageIds.length > 0
+        ? browserTab.pageIds
+        : [browserTab.activePageId ?? browserTab.id],
+    [browserTab.activePageId, browserTab.id, browserTab.pageIds]
+  )
+
+  useLayoutEffect(() => {
+    // Why: persistent Electron webviews otherwise remain above the native chat and swallow its input.
+    for (const pageId of browserPageIds) {
+      parkBrowserPageViewport(pageId)
+    }
+  }, [browserPageIds])
+
+  return <HermesTeamChatView tabId={browserTab.id} route={route} />
 }
 
 function StandardBrowserPane({
