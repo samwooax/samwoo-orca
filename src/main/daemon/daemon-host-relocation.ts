@@ -17,7 +17,7 @@ import { parseDaemonPidFile, startTimeMatches } from './daemon-health'
  * Relocate the terminal daemon's process image out of the app install dir into LOCAL userData so it
  * survives Windows auto-updates: the NSIS installer deletes the old install and force-kills every process
  * imaged under it, which would otherwise kill the daemon and its live terminals. The relocated exe is a
- * run-as-node Orca.exe copy (not node.exe) so there's no console flash and asar still resolves. Fail-open:
+ * run-as-node Electron executable copy (not node.exe) so there's no console flash and asar still resolves. Fail-open:
  * any failure returns null and the caller forks the install-dir host (pre-relocation behavior).
  */
 
@@ -32,12 +32,12 @@ const HOST_SUBDIR = 'daemon-host'
 const MARKER_NAME = '.materialized.json'
 
 // LOCAL appData (not roaming) so OneDrive/roaming never syncs this ~260MB runtime. Shared with NSIS uninstall (config/nsis/daemon-host-uninstall.nsh) — keep in sync.
-const LOCAL_HOST_ROOT_NAME = 'Orca'
+const LOCAL_HOST_ROOT_NAME = 'SAMWOO-ORCA'
 
-// Copy of Orca.exe renamed to a distinct image name so the NSIS updater's `taskkill /IM Orca.exe` can't match it.
-const DAEMON_HOST_EXE_NAME = 'orca-terminal-daemon.exe'
+// Copy of the app exe renamed so the NSIS updater cannot match the live terminal host.
+const DAEMON_HOST_EXE_NAME = 'samwoo-orca-terminal-daemon.exe'
 
-// V8 snapshots + ICU data the Electron bootstrap reads even under ELECTRON_RUN_AS_NODE; siblings of Orca.exe.
+// V8 snapshots + ICU data the Electron bootstrap reads even under ELECTRON_RUN_AS_NODE.
 const RUNTIME_DATA_FILES = ['icudtl.dat', 'snapshot_blob.bin', 'v8_context_snapshot.bin']
 
 type CopyOp = {

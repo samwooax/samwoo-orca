@@ -6,7 +6,7 @@ import type { AppIdentity } from '../../shared/app-identity'
 // (AppUserModelID) or userData folder — a matching AUMID makes Windows reuse
 // the original Orca's cached taskbar icon for our windows.
 const BASE_APP_NAME = 'SAMWOO-ORCA'
-const BASE_APP_USER_MODEL_ID = 'com.samwoo.orca'
+const BASE_APP_USER_MODEL_ID = 'com.samwooax.samwoo-orca'
 const MAX_LABEL_LENGTH = 80
 
 export type DevInstanceIdentity = AppIdentity & {

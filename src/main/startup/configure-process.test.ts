@@ -209,14 +209,14 @@ describe('configureDevUserDataPath', () => {
     expect(app.setPath).toHaveBeenCalledWith('userData', join('/tmp/app-data', 'orca-dev'))
   })
 
-  it('leaves packaged runs on the default userData path', async () => {
+  it('keeps packaged SAMWOO-ORCA data separate from upstream Orca', async () => {
     const { app } = await import('electron')
     const { configureDevUserDataPath } = await import('./configure-process')
 
     vi.mocked(app.setPath).mockClear()
     configureDevUserDataPath(false)
 
-    expect(app.setPath).not.toHaveBeenCalled()
+    expect(app.setPath).toHaveBeenCalledWith('userData', join('/tmp/app-data', 'SAMWOO-ORCA'))
   })
 })
 
