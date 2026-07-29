@@ -272,7 +272,7 @@ export function HermesTeamChatView({
   const session = useMemo(() => createSession(messages, busy), [busy, messages])
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-background">
+    <div className="relative z-10 flex h-full min-h-0 w-full flex-col bg-background">
       <div className="absolute top-2 right-3 z-10">
         <Tooltip>
           <TooltipTrigger asChild>
