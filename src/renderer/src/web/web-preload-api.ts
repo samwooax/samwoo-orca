@@ -2829,6 +2829,11 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
       ok: false,
       error: 'Hermes chat server is unavailable in the web client'
     }),
+    sendHermesTeamChat: async () => ({
+      ok: false,
+      error: 'Hermes team chat is unavailable in the web client'
+    }),
+    cancelHermesTeamChat: async () => ({ ok: true, cancelled: false }),
     samwooLogin: async () => ({
       ok: false,
       error: 'Login is unavailable in the web client'

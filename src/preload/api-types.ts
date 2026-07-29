@@ -743,6 +743,19 @@ export type PreflightApi = {
     token?: string
     error?: string
   }>
+  sendHermesTeamChat: (args: {
+    requestId: string
+    profile: string
+    host: string
+    cwd?: string
+    mailtoken?: string
+    model: string
+    effort: string
+    message: string
+    history: { role: 'user' | 'assistant'; content: string }[]
+    attachments: { name: string; content: string }[]
+  }) => Promise<{ ok: boolean; reply?: string; error?: string }>
+  cancelHermesTeamChat: (requestId: string) => Promise<{ ok: boolean; cancelled: boolean }>
   /** SAMWOO-ORCA: verify a groupware login and return the mapped team-bot role. */
   samwooLogin: (args: { login: string; password: string; authUrl?: string }) => Promise<{
     ok: boolean

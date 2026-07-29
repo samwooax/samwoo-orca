@@ -82,6 +82,8 @@ function FileExplorerFiles(): React.JSX.Element {
   )
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
   const activeTabId = useAppStore((s) => s.activeTabId)
+  const activeTabType = useAppStore((s) => s.activeTabType)
+  const activeBrowserTabId = useAppStore((s) => s.activeBrowserTabId)
   const activeWorktree = useActiveWorktree()
   const activeRepo = useRepoById(activeWorktree?.repoId ?? null)
   const supportsFolderDownload = useAppStore((s) => {
@@ -497,10 +499,13 @@ function FileExplorerFiles(): React.JSX.Element {
       getNameFilterCollapsedPathsAfterExpand(current, dirPath)
     )
   }, [])
+  const activeChatReferenceTabId = activeTabType === 'browser' ? activeBrowserTabId : activeTabId
   const referenceFileInChat = useCallback(
     (node: TreeNode) =>
-      activeTabId ? requestNativeChatFileReference(activeTabId, node.relativePath) : false,
-    [activeTabId]
+      activeChatReferenceTabId
+        ? requestNativeChatFileReference(activeChatReferenceTabId, node.relativePath)
+        : false,
+    [activeChatReferenceTabId]
   )
   const { handleClick, handleDoubleClick, handleWheelCapture, cancelPendingDirToggle } =
     useFileExplorerHandlers({

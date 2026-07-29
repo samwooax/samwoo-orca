@@ -2168,6 +2168,10 @@ const api = {
       token?: string
       error?: string
     }> => ipcRenderer.invoke('hermes:ensureChatServer'),
+    sendHermesTeamChat: (args): Promise<{ ok: boolean; reply?: string; error?: string }> =>
+      ipcRenderer.invoke('hermes:sendTeamChat', args),
+    cancelHermesTeamChat: (requestId: string): Promise<{ ok: boolean; cancelled: boolean }> =>
+      ipcRenderer.invoke('hermes:cancelTeamChat', requestId),
     samwooLogin: (args: {
       login: string
       password: string

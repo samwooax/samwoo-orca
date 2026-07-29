@@ -11,6 +11,8 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
+import { HermesTeamChatView } from '@/components/hermes-team-chat/HermesTeamChatView'
+import { parseHermesTeamChatRoute } from '@/components/hermes-team-chat/hermes-team-chat-route'
 
 // SAMWOO-ORCA: Hermes team-bot chat tabs (SSH-tunneled dashboard /chat pages)
 // render as a chat surface — hide the browser toolbar so they don't look like
@@ -789,7 +791,20 @@ function browserOverlayOwnsShortcutTarget(
   )
 }
 
-export default function BrowserPane({
+export default function BrowserPane(props: {
+  browserTab: BrowserWorkspaceState
+  isActive: boolean
+  findShortcutScope?: BrowserFindShortcutScope
+}): React.JSX.Element {
+  const route = parseHermesTeamChatRoute(props.browserTab.url)
+  return route ? (
+    <HermesTeamChatView tabId={props.browserTab.id} route={route} />
+  ) : (
+    <StandardBrowserPane {...props} />
+  )
+}
+
+function StandardBrowserPane({
   browserTab,
   isActive,
   findShortcutScope
@@ -2603,9 +2618,9 @@ function RemoteBrowserPagePane({
         : null}
       <div
         className={cn(
-            'relative z-10 flex items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-1.5',
-            isHermesChatSurfaceUrl(browserTab.url) && 'hidden'
-          )}
+          'relative z-10 flex items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-1.5',
+          isHermesChatSurfaceUrl(browserTab.url) && 'hidden'
+        )}
         data-contextual-tour-target="browser-toolbar"
       >
         <Button
