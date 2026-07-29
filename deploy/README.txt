@@ -8,15 +8,22 @@ SAMWOO-ORCA 설치 안내
      "Generate auth key" → Reusable 체크 → 발급 키를 install.ps1 의 TS_AUTHKEY 에 교체
 2. 최신 samwoo-orca-windows-setup.exe 를 이 폴더에 같이 넣으세요.
    (tailscale-setup.msi 는 없으면 자동 다운로드되므로 선택사항)
+3. Python 및 uv 오프라인 설치파일을 같은 폴더에 유지하세요.
+   - Python 3.14.6: x64 및 ARM64
+   - uv 0.12.0: x64 및 ARM64
 
 [사용자용 — 새 PC 설치]
 1. 이 폴더를 통째로 PC에 복사
-2. install.bat 더블클릭 (관리자 권한 창이 뜨면 "예")
+2. install.bat 을 일반 더블클릭
+   - "관리자 권한으로 실행"을 직접 선택하지 마세요.
+   - 사용자 프로그램 설치 후 관리자 권한 창이 뜨면 "예"를 누르세요.
 3. 끝. 바탕화면의 SAMWOO-ORCA 실행
 
 설치되는 것:
-- SAMWOO-ORCA 앱 (자동 설치, 설정 완료 상태)
+- SAMWOO-ORCA 앱 (현재 사용자 계정에 설치)
+- Python 3.14.6 및 uv 0.12.0 (현재 사용자 계정에 설치)
 - Tailscale (사내 에이전트 서버 연결용, 로그인 불필요)
+- OpenSSH 및 Hermes 접근 키 (관리자 권한으로 설치)
 
 첫 실행 후 프로젝트를 열면 팀 에이전트 선택창이 뜹니다:
 - Claude Code (채팅) / 총무인사(hr) / CS(cs) / 재경(finance) /
