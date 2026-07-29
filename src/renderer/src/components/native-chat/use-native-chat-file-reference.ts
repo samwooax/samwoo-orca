@@ -7,7 +7,7 @@ import {
 
 export function useNativeChatFileReference(
   terminalTabId: string,
-  composerRef: RefObject<NativeChatComposerHandle | null>
+  composerRef: RefObject<Pick<NativeChatComposerHandle, 'insertFileReference'> | null>
 ): void {
   useEffect(() => {
     const handleFileReference = (event: Event): void => {

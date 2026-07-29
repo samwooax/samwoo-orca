@@ -43,6 +43,7 @@ function loadOrCreateToken(): string {
 const token = loadOrCreateToken()
 
 type TeamChatAttachment = { name: string; content: string }
+type TeamChatResult = { ok: boolean; reply?: string; error?: string }
 
 function normalizeAttachments(value: unknown): TeamChatAttachment[] {
   if (!Array.isArray(value)) {
@@ -104,48 +105,51 @@ function writeJson(res: ServerResponse, status: number, value: unknown): void {
 async function handleSend(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const parsed = JSON.parse(await readRequestBody(req)) as Record<string, unknown>
-    const profile = typeof parsed.profile === 'string' ? parsed.profile : ''
-    const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : ''
-    const host =
-      typeof parsed.host === 'string' && parsed.host.trim()
-        ? parsed.host.trim()
-        : 'hermes@100.68.242.83'
-    const cwd = typeof parsed.cwd === 'string' ? parsed.cwd.slice(0, 512) : ''
-    const message = typeof parsed.message === 'string' ? parsed.message.slice(0, 96_000) : ''
-    const attachments = normalizeAttachments(parsed.attachments)
-    if (
-      !NAME_RE.test(profile) ||
-      !NAME_RE.test(requestId) ||
-      !HOST_RE.test(host) ||
-      (!message.trim() && !attachments.length)
-    ) {
-      writeJson(res, 400, { ok: false, error: 'invalid request' })
-      return
-    }
-    const model = resolveTeamChatModel(parsed.model)
-    const effort = resolveTeamChatEffort(model.id, parsed.effort)
-    const mailToken =
-      typeof parsed.mailtoken === 'string' && MAIL_TOKEN_RE.test(parsed.mailtoken)
-        ? parsed.mailtoken
-        : undefined
-    const result = await runTeamChatMessage({
-      requestId,
-      host,
-      profile,
-      modelId: model.id,
-      effort,
-      message: appendAttachments(message, attachments),
-      history: normalizeTeamChatHistory(parsed.history),
-      cwd,
-      mailToken
-    })
-    writeJson(res, 200, result)
+    const result = await handleTeamChatRequest(parsed)
+    writeJson(res, result.ok || result.error !== 'invalid request' ? 200 : 400, result)
   } catch (error) {
     writeJson(res, 500, {
       ok: false,
       error: error instanceof Error ? error.message : String(error)
     })
   }
+}
+
+async function handleTeamChatRequest(parsed: Record<string, unknown>): Promise<TeamChatResult> {
+  const profile = typeof parsed.profile === 'string' ? parsed.profile : ''
+  const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : ''
+  const host =
+    typeof parsed.host === 'string' && parsed.host.trim()
+      ? parsed.host.trim()
+      : 'hermes@100.68.242.83'
+  const cwd = typeof parsed.cwd === 'string' ? parsed.cwd.slice(0, 512) : ''
+  const message = typeof parsed.message === 'string' ? parsed.message.slice(0, 96_000) : ''
+  const attachments = normalizeAttachments(parsed.attachments)
+  if (
+    !NAME_RE.test(profile) ||
+    !NAME_RE.test(requestId) ||
+    !HOST_RE.test(host) ||
+    (!message.trim() && !attachments.length)
+  ) {
+    return { ok: false, error: 'invalid request' }
+  }
+  const model = resolveTeamChatModel(parsed.model)
+  const effort = resolveTeamChatEffort(model.id, parsed.effort)
+  const mailToken =
+    typeof parsed.mailtoken === 'string' && MAIL_TOKEN_RE.test(parsed.mailtoken)
+      ? parsed.mailtoken
+      : undefined
+  return runTeamChatMessage({
+    requestId,
+    host,
+    profile,
+    modelId: model.id,
+    effort,
+    message: appendAttachments(message, attachments),
+    history: normalizeTeamChatHistory(parsed.history),
+    cwd,
+    mailToken
+  })
 }
 
 async function handleCancel(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -216,6 +220,18 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
 
 export function registerHermesChatServerHandlers(): void {
   ipcMain.handle('hermes:ensureChatServer', async () => ensureServer())
+  ipcMain.handle('hermes:sendTeamChat', async (_event, input: unknown) =>
+    input && typeof input === 'object'
+      ? handleTeamChatRequest(input as Record<string, unknown>)
+      : { ok: false, error: 'invalid request' }
+  )
+  ipcMain.handle('hermes:cancelTeamChat', async (_event, requestId: unknown) => ({
+    ok: true,
+    cancelled:
+      typeof requestId === 'string' && NAME_RE.test(requestId)
+        ? cancelTeamChatMessage(requestId)
+        : false
+  }))
   // Why: restored chat tabs load before profile launch can start the server lazily.
   void ensureServer()
 }
