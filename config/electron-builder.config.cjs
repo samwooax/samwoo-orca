@@ -51,7 +51,7 @@ const winSpeechNativeResource = {
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
-  appId: 'com.samwoo.orca',
+  appId: 'com.samwooax.samwoo-orca',
   productName: 'SAMWOO-ORCA',
   directories: {
     buildResources: 'resources/build'
@@ -184,7 +184,7 @@ module.exports = {
     }
   },
   win: {
-    executableName: 'Orca',
+    executableName: 'SAMWOO-ORCA',
     // Why: Windows installers are signed after electron-builder packaging by
     // SignPath, so the packager cannot infer the updater publisherName.
     signtoolOptions: {
@@ -218,6 +218,8 @@ module.exports = {
     shortcutName: '${productName}',
     uninstallDisplayName: '${productName}',
     createDesktopShortcut: 'always',
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
     // Why: on a real uninstall, stop and remove the relocated terminal daemon
     // (which lives outside the install dir under LOCALAPPDATA by design). Guarded
     // by ${isUpdated} inside so it never runs during an update's uninstallOldVersion.

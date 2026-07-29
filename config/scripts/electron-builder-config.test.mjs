@@ -19,6 +19,20 @@ const {
 } = require('../packaged-runtime-node-modules.cjs')
 
 describe('electron-builder config', () => {
+  it('keeps the Windows install separate from upstream Orca', () => {
+    expect(electronBuilderConfig).toMatchObject({
+      appId: 'com.samwooax.samwoo-orca',
+      productName: 'SAMWOO-ORCA',
+      win: { executableName: 'SAMWOO-ORCA' },
+      nsis: {
+        oneClick: false,
+        allowToChangeInstallationDirectory: true,
+        shortcutName: '${productName}',
+        uninstallDisplayName: '${productName}'
+      }
+    })
+  })
+
   it('excludes repo-only source trees from app.asar', () => {
     expect(electronBuilderConfig.files).toEqual(
       expect.arrayContaining([

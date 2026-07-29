@@ -167,6 +167,8 @@ export function configureDevUserDataPath(isDev: boolean): void {
   }
 
   if (!isDev) {
+    // Why: the upstream package name is still "orca"; pin a branded profile so both apps can coexist.
+    app.setPath('userData', join(app.getPath('appData'), 'SAMWOO-ORCA'))
     return
   }
   const overrideUserDataPath = process.env.ORCA_DEV_USER_DATA_PATH
