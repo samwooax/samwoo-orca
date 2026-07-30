@@ -7,8 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getOrchestrationUsageExamples } from '@/lib/orchestration-usage-examples'
 import { OrchestrationPane } from './OrchestrationPane'
 
-const INSTALL_COMMAND =
-  'npx skills add https://github.com/stablyai/orca --skill orchestration --global'
+const INSTALL_COMMAND = 'orca skills install --topics orchestration'
 const UPDATE_COMMAND = INSTALL_COMMAND
 const WINDOWS_INSTALL_COMMAND =
   'cmd.exe /d /s /c "where.exe npx >nul 2>nul & if errorlevel 1 (echo ERROR: npx was not found. Install Node.js LTS from https://nodejs.org/ to get npx. & echo Then close this terminal and start skill setup again - a new terminal picks up the updated PATH. & exit /b 1) else (npx skills add https://github.com/stablyai/orca --skill orchestration --global)"'

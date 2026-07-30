@@ -8,7 +8,7 @@ import { AgentSkillSetupPanel } from './AgentSkillSetupPanel'
 import { TooltipProvider } from '../ui/tooltip'
 
 const INSTALL_COMMAND = 'npx skills add https://github.com/stablyai/orca --skill orca-cli --global'
-const UPDATE_COMMAND = 'npx skills update orca-cli --global'
+const UPDATE_COMMAND = 'orca skills install --topics orca-cli'
 
 const mocks = vi.hoisted(() => ({
   clipboardWrite: vi.fn(),

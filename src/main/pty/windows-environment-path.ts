@@ -231,7 +231,7 @@ export async function readPersistedWindowsPathSegmentsAsync(
   }
 }
 
-export function __resetPersistedWindowsPathCacheForTests(): void {
+export function invalidatePersistedWindowsPathCache(): void {
   persistedWindowsPathCache = undefined
   pendingPersistedWindowsPathRefresh = undefined
 }
@@ -261,6 +261,8 @@ function mergeWindowsPathSegments(
     env[pathKey] = [...currentSegments, ...missing].join(pathDelimiter)
   }
 }
+
+export const __resetPersistedWindowsPathCacheForTests = invalidatePersistedWindowsPathCache
 
 export function mergePersistedWindowsPath(
   env: NodeJS.ProcessEnv,

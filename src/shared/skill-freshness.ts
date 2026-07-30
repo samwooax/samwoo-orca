@@ -209,7 +209,7 @@ export function canonicalizeSkillUpdateNames(names: readonly string[]): string[]
 
 export function buildTargetedSkillUpdateCommand(names: readonly string[]): string | null {
   const canonicalNames = canonicalizeSkillUpdateNames(names)
-  return canonicalNames ? `npx skills update ${canonicalNames.join(' ')} --global` : null
+  return canonicalNames ? `orca skills install --topics ${canonicalNames.join(',')}` : null
 }
 
 // Why: `skills update` has no --json (that flag only exists on `list`), so the

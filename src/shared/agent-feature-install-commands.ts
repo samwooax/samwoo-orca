@@ -1,7 +1,6 @@
 import { isSkillsCliAgentKeyShaped } from './skills-cli-agent-keys'
 
 export const ORCA_SKILLS_REPOSITORY_URL = 'https://github.com/stablyai/orca'
-
 export const ORCA_CLI_SKILL_NAME = 'orca-cli'
 export const COMPUTER_USE_SKILL_NAME = 'computer-use'
 export const ORCHESTRATION_SKILL_NAME = 'orchestration'
@@ -58,10 +57,12 @@ export function buildAgentFeatureSkillInstallArgs(
 }
 
 export function buildAgentFeatureSkillInstallCommand(
-  skillNames: readonly string[],
-  options: AgentFeatureSkillCommandOptions = {}
+  skillNames: readonly string[]
 ): string {
-  return `npx ${buildAgentFeatureSkillInstallArgs(skillNames, options).join(' ')}`
+  if (skillNames.length === 0) {
+    throw new Error('At least one skill name is required.')
+  }
+  return `orca skills install --topics ${skillNames.join(',')}`
 }
 
 export function buildAgentFeatureSkillUpdateArgs(
@@ -84,10 +85,14 @@ export function buildAgentFeatureSkillUpdateArgs(
 }
 
 export function buildAgentFeatureSkillUpdateCommand(
-  skillNames: string | readonly string[],
-  options: AgentFeatureSkillCommandOptions = {}
+  skillNames: string | readonly string[]
 ): string {
-  return `npx ${buildAgentFeatureSkillUpdateArgs(skillNames, options).join(' ')}`
+  const rawNames = typeof skillNames === 'string' ? [skillNames] : skillNames
+  const names = rawNames.map((name) => name.trim()).filter((name) => name.length > 0)
+  if (names.length === 0) {
+    throw new Error('A skill name is required.')
+  }
+  return `orca skills install --topics ${names.join(',')}`
 }
 
 export const ORCA_CLI_SKILL_INSTALL_COMMAND = buildAgentFeatureSkillInstallCommand([

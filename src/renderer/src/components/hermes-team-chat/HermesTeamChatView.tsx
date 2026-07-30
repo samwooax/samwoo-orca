@@ -76,7 +76,8 @@ function createSession(messages: TeamChatHistoryMessage[], busy: boolean): Nativ
     agent: 'hermes',
     hasMore: false,
     loadingEarlier: false,
-    loadEarlier: () => {}
+    loadEarlier: () => {},
+    readPhase: 'ready'
   }
 }
 

@@ -20,6 +20,7 @@ import {
   buildAgentFeatureSkillInstallArgs,
   buildAgentFeatureSkillUpdateArgs
 } from '../../shared/agent-feature-install-commands'
+import { installBundledSkillGuides } from '../bundled-skill-installer'
 
 type BundledSkillGuide = {
   name: string
@@ -262,6 +263,16 @@ function createSkillMutationHandler(verb: SkillMutationVerb): CommandHandler {
     // Why: keep the large generated table off the eager handler registry path.
     const { BUNDLED_SKILL_GUIDES } = await import('../bundled-skill-guides.js')
     const guides = canonicalGuides(BUNDLED_SKILL_GUIDES)
+    if (verb === 'install' && flags.has('topics')) {
+      const selected = requireTopics(flags, guides)
+      const result = await installBundledSkillGuides(selected)
+      writeStdout(
+        json
+          ? JSON.stringify(result, null, 2)
+          : `Installed ${result.names.join(', ')} to ${result.paths.length} agent skill locations.`
+      )
+      return
+    }
     const skillNames = resolveSelectedSkillNames(flags, guides)
 
     if (skillNames.length === 0) {
@@ -317,6 +328,38 @@ function createSkillMutationHandler(verb: SkillMutationVerb): CommandHandler {
     process.stderr.write(`Running: ${command}\n`)
     process.exitCode = await runNpxSkills(npxArgs)
   }
+}
+
+function requireTopics(
+  flags: Map<string, string | boolean>,
+  guides: BundledSkillGuide[]
+): BundledSkillGuide[] {
+  const rawTopics = flags.get('topics')
+  if (typeof rawTopics !== 'string' || rawTopics.trim().length === 0) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      'Flag --topics requires a comma-separated value.'
+    )
+  }
+  const guideByTopic = new Map<string, BundledSkillGuide>(
+    guides.flatMap((guide) => [guide.name, ...guide.aliases].map((name) => [name, guide]))
+  )
+  const selected = rawTopics.split(',').map((topic) => topic.trim())
+  const unknown = selected.filter((topic) => !guideByTopic.has(topic))
+  if (unknown.length > 0) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      `Unknown skill topic "${unknown[0]}". Available topics: ${guides.map((guide) => guide.name).join(', ')}`
+    )
+  }
+  return [
+    ...new Map(
+      selected.map((topic) => {
+        const guide = guideByTopic.get(topic) as BundledSkillGuide
+        return [guide.name, guide]
+      })
+    ).values()
+  ]
 }
 
 export const SKILL_HANDLERS: Record<string, CommandHandler> = {

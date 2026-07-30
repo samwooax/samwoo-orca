@@ -32,8 +32,8 @@ export const SKILL_COMMAND_SPECS: CommandSpec[] = [
     summary: 'Install bundled Orca skills via the community skills CLI',
     usage:
       'orca skills install [--skill <name>]... [--all] [--agent <name>[,<name>]] ' +
-      '[--local] [--dry-run] [--json]',
-    allowedFlags: [...GLOBAL_FLAGS, 'skill', 'all', 'agent', 'local', 'dry-run'],
+      '[--local] [--dry-run] [--json] | --topics <name,name,...> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'skill', 'all', 'agent', 'local', 'dry-run', 'topics'],
     notes: [
       'Reads the bundled skill registry locally without contacting the Orca runtime.',
       'Resolves to the same `npx skills add <repo> --skill <name> ...` command used by ' +
@@ -51,6 +51,7 @@ export const SKILL_COMMAND_SPECS: CommandSpec[] = [
       'With --json, the skill listing and --dry-run emit JSON; a real install streams ' +
         "npx's own non-JSON output live and rejects --json.",
       'Omit --skill and --all to list installable skill names.',
+      'Use --topics to install version-matched bundled guides locally without Node.js, npx, or network access.',
       'Intended for headless hosts (SSH, containers, CI) with no desktop Settings UI to copy the install command from.'
     ],
     examples: [
@@ -58,7 +59,8 @@ export const SKILL_COMMAND_SPECS: CommandSpec[] = [
       'orca skills install --skill orca-cli --skill orchestration',
       'orca skills install --skill orca-cli --local',
       'orca skills install --skill orca-cli --agent claude-code,codex',
-      'orca skills install --all --dry-run'
+      'orca skills install --all --dry-run',
+      'orca skills install --topics orca-cli,computer-use,orchestration'
     ]
   },
   {

@@ -171,7 +171,7 @@ describe('skill freshness name-scoped update eligibility', () => {
 
   it('builds only an explicit, deterministic global command', () => {
     expect(buildTargetedSkillUpdateCommand(['orchestration', 'orca-cli', 'orca-cli'])).toBe(
-      'npx skills update orca-cli orchestration --global'
+      'orca skills install --topics orca-cli,orchestration'
     )
     expect(buildTargetedSkillUpdateCommand([])).toBeNull()
     expect(buildTargetedSkillUpdateCommand(['orca-cli;echo unsafe'])).toBeNull()

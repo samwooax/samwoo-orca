@@ -7,12 +7,14 @@ import { WINDOWS_BATCH_UNSAFE_CHARACTERS_LABEL } from '../shared/windows-batch-s
 const {
   detectCommandsMock,
   guideModuleLoadMock,
+  installBundledSkillGuidesMock,
   resolveCliCommandMock,
   runtimeClientConstructorMock,
   spawnMock
 } = vi.hoisted(() => ({
   detectCommandsMock: vi.fn(() => new Set<string>(['claude'])),
   guideModuleLoadMock: vi.fn(),
+  installBundledSkillGuidesMock: vi.fn(),
   resolveCliCommandMock: vi.fn(() => 'npx'),
   runtimeClientConstructorMock: vi.fn(),
   spawnMock: vi.fn()
@@ -87,6 +89,10 @@ vi.mock('./runtime-client', async () => {
   }
 })
 
+vi.mock('./bundled-skill-installer', () => ({
+  installBundledSkillGuides: installBundledSkillGuidesMock
+}))
+
 import { dispatch } from './dispatch'
 import { main } from './index'
 
@@ -99,6 +105,11 @@ describe('orca skills CLI', () => {
     detectCommandsMock.mockReset()
     detectCommandsMock.mockReturnValue(new Set<string>(['claude']))
     spawnMock.mockReset()
+    installBundledSkillGuidesMock.mockReset()
+    installBundledSkillGuidesMock.mockResolvedValue({
+      names: ['alpha', 'zeta'],
+      paths: ['/home/test/.agents/skills/alpha/SKILL.md', '/home/test/.agents/skills/zeta/SKILL.md']
+    })
     process.exitCode = undefined
   })
 
@@ -158,6 +169,22 @@ describe('orca skills CLI', () => {
     await main(['skills', 'show', 'alpha'], '/tmp/repo')
 
     expect(stdoutText(stdoutSpy)).toBe('# Alpha\n\nShort.\n')
+  })
+
+  it('installs selected bundled guides locally without constructing RuntimeClient', async () => {
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    await main(['skills', 'install', '--topics', 'legacy-alpha,zeta', '--json'], '/tmp/repo')
+
+    expect(installBundledSkillGuidesMock).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'alpha' }),
+      expect.objectContaining({ name: 'zeta' })
+    ])
+    expect(JSON.parse(stdoutText(stdoutSpy))).toEqual({
+      names: ['alpha', 'zeta'],
+      paths: ['/home/test/.agents/skills/alpha/SKILL.md', '/home/test/.agents/skills/zeta/SKILL.md']
+    })
+    expect(runtimeClientConstructorMock).not.toHaveBeenCalled()
   })
 
   it('gives list --json a stable canonical schema', async () => {

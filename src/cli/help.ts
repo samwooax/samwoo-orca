@@ -25,7 +25,7 @@ Accounts:
 Skills:
   skills list               List version-matched skill guides bundled with this Orca CLI
   skills get                Print a version-matched skill guide as Markdown
-  skills install            Install bundled Orca skills globally via the community skills CLI
+  skills install            Install bundled Orca skills via local bundle or community CLI
   skills update             Update already-installed Orca skills via the community skills CLI
 
 Environments:
