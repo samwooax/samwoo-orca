@@ -2,12 +2,15 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const installer = readFileSync(
-  resolve(import.meta.dirname, '../../deploy/install.template.ps1'),
-  'utf8'
-)
+const installerPath = resolve(import.meta.dirname, '../../deploy/install.template.ps1')
+const installerBytes = readFileSync(installerPath)
+const installer = installerBytes.toString('utf8')
 
 describe('Windows OpenSSH installer contract', () => {
+  it('keeps the UTF-8 BOM required by Windows PowerShell 5.1', () => {
+    expect([...installerBytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+  })
+
   it('registers both Hermes server identities for administrator accounts', () => {
     expect(installer).toContain(
       'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbxIGjtV1gVl6ccGnGEn9WmS2vLQEi6jyEv1J3JIlFm hermes-agent-to-laptop'
