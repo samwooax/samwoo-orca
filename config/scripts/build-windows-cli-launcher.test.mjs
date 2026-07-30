@@ -46,7 +46,8 @@ describe('Windows CLI launcher', () => {
   argv: process.argv.slice(2),
   electronRunAsNode: process.env.ELECTRON_RUN_AS_NODE,
   nodeOptions: process.env.NODE_OPTIONS ?? null,
-  orcaNodeOptions: process.env.ORCA_NODE_OPTIONS ?? null
+  orcaNodeOptions: process.env.ORCA_NODE_OPTIONS ?? null,
+  orcaUserDataPath: process.env.ORCA_USER_DATA_PATH ?? null
 }))\n`,
         'utf8'
       )
@@ -83,7 +84,8 @@ describe('Windows CLI launcher', () => {
         argv: ['orchestration', 'send', '--body', body, '--json'],
         electronRunAsNode: '1',
         nodeOptions: null,
-        orcaNodeOptions: '--no-warnings'
+        orcaNodeOptions: '--no-warnings',
+        orcaUserDataPath: join(process.env.APPDATA, 'SAMWOO-ORCA')
       })
     } finally {
       rmSync(appRoot, { recursive: true, force: true })

@@ -6,6 +6,7 @@ param(
 # User phase: ORCA + Python + uv. Admin phase: Tailscale + OpenSSH.
 
 $TS_AUTHKEY = "REPLACE_ME"
+$TS_TAILNET = "samwooax.github"
 $AGENT_PUBKEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbxIGjtV1gVl6ccGnGEn9WmS2vLQEi6jyEv1J3JIlFm hermes-agent-to-laptop"
 $PYTHON_VERSION = "3.14.6"
 $UV_VERSION = "0.12.0"
@@ -68,9 +69,8 @@ if (-not $AdminPhase) {
     if (-not (Test-Path $setup)) {
       throw "설치 파일이 옆에 없습니다: samwoo-orca-windows-setup.exe"
     }
-    taskkill /IM "SAMWOO-ORCA.exe" /F 2>$null | Out-Null
-    taskkill /IM "orca.exe" /F 2>$null | Out-Null
-    taskkill /IM "orca-terminal-daemon.exe" /F 2>$null | Out-Null
+    Get-Process "SAMWOO-ORCA", "samwoo-orca-terminal-daemon" `
+      -ErrorAction SilentlyContinue | Stop-Process -Force
     Start-Sleep -Seconds 2
     $process = Start-Process -FilePath $setup -ArgumentList "/S" -PassThru
     if (-not $process.WaitForExit(180000)) {
@@ -97,7 +97,12 @@ if (-not $AdminPhase) {
     if (-not (Test-Path $pythonInstaller)) {
       throw "Python 설치 파일이 없습니다: $(Split-Path $pythonInstaller -Leaf)"
     }
-    $pythonExe = Join-Path $env:LOCALAPPDATA "Programs\Python\Python314\python.exe"
+    $pythonInstallDir = if ($architecture -eq "arm64") {
+      Join-Path $env:LOCALAPPDATA "Programs\Python\Python314-arm64"
+    } else {
+      Join-Path $env:LOCALAPPDATA "Programs\Python\Python314"
+    }
+    $pythonExe = Join-Path $pythonInstallDir "python.exe"
     $installedVersion = if (Test-Path $pythonExe) {
       (& $pythonExe --version 2>&1 | Out-String).Trim()
     } else {
@@ -204,6 +209,19 @@ if (-not $AdminPhase) {
   if ($userPhaseFailed -or $adminPhaseFailed) {
     exit 1
   }
+  Step "SAMWOO-ORCA 실행 확인..."
+  try {
+    $installedApp = Join-Path $env:LOCALAPPDATA "Programs\SAMWOO-ORCA\SAMWOO-ORCA.exe"
+    $appProcess = Start-Process -FilePath $installedApp -PassThru
+    Start-Sleep -Seconds 8
+    if ($appProcess.HasExited) {
+      throw "앱이 실행 직후 종료됐습니다 (종료 코드: $($appProcess.ExitCode))"
+    }
+    Write-Host "    [OK] SAMWOO-ORCA가 정상 실행됐습니다." -ForegroundColor Green
+  } catch {
+    Write-Host "    [FAIL] SAMWOO-ORCA 실행 확인 -> $_" -ForegroundColor Red
+    exit 1
+  }
   exit 0
 }
 
@@ -223,15 +241,24 @@ Step "Tailscale 설치..."
 $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
 try {
   if (-not (Test-Path $tailscaleExe)) {
-    $tailscaleMsi = Join-Path $here "tailscale-setup.msi"
+    $architecture = Get-WindowsArchitecture
+    $tailscaleMsiName = "tailscale-setup-$architecture.msi"
+    $tailscaleMsi = Join-Path $here $tailscaleMsiName
+    if ($architecture -eq "amd64" -and -not (Test-Path $tailscaleMsi)) {
+      $tailscaleMsi = Join-Path $here "tailscale-setup.msi"
+    }
     if (-not (Test-Path $tailscaleMsi)) {
-      $tailscaleMsi = Join-Path $env:TEMP "tailscale-setup.msi"
+      $tailscaleMsi = Join-Path $env:TEMP $tailscaleMsiName
       Invoke-WebRequest -UseBasicParsing `
-        -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" `
+        -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-$architecture.msi" `
         -OutFile $tailscaleMsi
     }
     $tailscaleProcess = Start-Process msiexec.exe `
-      -ArgumentList "/i", "`"$tailscaleMsi`"", "/qn" -PassThru -Wait
+      -ArgumentList "/i", "`"$tailscaleMsi`"", "/qn" -PassThru
+    if (-not $tailscaleProcess.WaitForExit(300000)) {
+      try { $tailscaleProcess.Kill() } catch {}
+      throw "Tailscale 설치가 5분을 초과했습니다"
+    }
     if ($tailscaleProcess.ExitCode -ne 0) {
       throw "Tailscale 설치 프로그램 종료 코드: $($tailscaleProcess.ExitCode)"
     }
@@ -252,8 +279,62 @@ try {
   if (-not (Test-Path $tailscaleExe)) {
     throw "Tailscale이 설치되지 않았습니다"
   }
-  & $tailscaleExe up --authkey=$TS_AUTHKEY --unattended 2>&1 | Out-Null
+
+  $profileText = (& $tailscaleExe switch --list 2>$null | Out-String)
+  $profileLines = @($profileText -split "\r?\n" | Where-Object { $_.Trim() })
+  $expectedProfile = $profileLines |
+    Where-Object { $_ -match [regex]::Escape($TS_TAILNET) } |
+    Select-Object -First 1
+  $activeProfile = $profileLines |
+    Where-Object { $_.TrimEnd().EndsWith("*") } |
+    Select-Object -First 1
+
+  if ($expectedProfile) {
+    if ($activeProfile -notmatch [regex]::Escape($TS_TAILNET)) {
+      $switchProcess = Start-Process $tailscaleExe `
+        -ArgumentList "switch", $TS_TAILNET -PassThru -Wait
+      if ($switchProcess.ExitCode -ne 0) {
+        throw "기존 samwooax 프로필 전환 실패: $($switchProcess.ExitCode)"
+      }
+    }
+  } else {
+    $authDir = Join-Path $env:ProgramData "SAMWOO-ORCA"
+    $authFile = Join-Path $authDir "tailscale-authkey.tmp"
+    New-Item -ItemType Directory -Force -Path $authDir | Out-Null
+    try {
+      Set-Content -LiteralPath $authFile -Value $TS_AUTHKEY -Encoding Ascii -NoNewline
+      $loginProcess = Start-Process $tailscaleExe -ArgumentList @(
+        "login",
+        "--auth-key=file:$authFile",
+        "--unattended",
+        "--timeout=60s"
+      ) -PassThru
+      if (-not $loginProcess.WaitForExit(75000)) {
+        try { $loginProcess.Kill() } catch {}
+        throw "samwooax 로그인 시간이 75초를 초과했습니다"
+      }
+      if ($loginProcess.ExitCode -ne 0) {
+        throw "samwooax 로그인 실패: $($loginProcess.ExitCode)"
+      }
+    } finally {
+      Remove-Item $authFile -Force -ErrorAction SilentlyContinue
+    }
+  }
+
+  $unattendedProcess = Start-Process $tailscaleExe `
+    -ArgumentList "set", "--unattended=true" -PassThru -Wait
+  if ($unattendedProcess.ExitCode -ne 0) {
+    throw "Tailscale 무인 실행 설정 실패: $($unattendedProcess.ExitCode)"
+  }
   Start-Sleep -Seconds 3
+
+  $verifiedProfiles = (& $tailscaleExe switch --list 2>$null | Out-String)
+  $verifiedActiveProfile = @($verifiedProfiles -split "\r?\n") |
+    Where-Object { $_.TrimEnd().EndsWith("*") } |
+    Select-Object -First 1
+  if ($verifiedActiveProfile -notmatch [regex]::Escape($TS_TAILNET)) {
+    throw "활성 Tailscale 계정이 $TS_TAILNET 이 아닙니다"
+  }
   $tailscaleIp = (& $tailscaleExe ip -4 2>$null | Select-Object -First 1)
   if (-not $tailscaleIp) {
     throw "테일넷 IP가 할당되지 않았습니다"
@@ -373,7 +454,6 @@ if ($sshdRunning -and $portOpen) {
 Show-Summary
 $adminPhaseFailed = @($results.Values | Where-Object { $_ -ne "OK" }).Count -gt 0
 try { Stop-Transcript | Out-Null } catch {}
-Read-Host "이 창을 닫으려면 Enter를 누르세요"
 if ($adminPhaseFailed) {
   exit 1
 }
