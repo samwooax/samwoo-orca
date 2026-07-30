@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { guideModuleLoadMock, runtimeClientConstructorMock } = vi.hoisted(() => ({
-  guideModuleLoadMock: vi.fn(),
-  runtimeClientConstructorMock: vi.fn()
-}))
+const { guideModuleLoadMock, installBundledSkillGuidesMock, runtimeClientConstructorMock } =
+  vi.hoisted(() => ({
+    guideModuleLoadMock: vi.fn(),
+    installBundledSkillGuidesMock: vi.fn(),
+    runtimeClientConstructorMock: vi.fn()
+  }))
 
 vi.mock('./bundled-skill-guides.js', () => {
   guideModuleLoadMock()
@@ -63,6 +65,10 @@ vi.mock('./runtime-client', () => {
   }
 })
 
+vi.mock('./bundled-skill-installer', () => ({
+  installBundledSkillGuides: installBundledSkillGuidesMock
+}))
+
 import { dispatch } from './dispatch'
 import { main } from './index'
 
@@ -70,6 +76,11 @@ describe('orca skills CLI', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     runtimeClientConstructorMock.mockClear()
+    installBundledSkillGuidesMock.mockReset()
+    installBundledSkillGuidesMock.mockResolvedValue({
+      names: ['alpha', 'zeta'],
+      paths: ['/home/test/.agents/skills/alpha/SKILL.md', '/home/test/.agents/skills/zeta/SKILL.md']
+    })
     process.exitCode = undefined
   })
 
@@ -121,6 +132,22 @@ describe('orca skills CLI', () => {
     await main(['skills', 'show', 'alpha'], '/tmp/repo')
 
     expect(stdoutText(stdoutSpy)).toBe('# Alpha\n\nShort.\n')
+  })
+
+  it('installs selected bundled guides locally without constructing RuntimeClient', async () => {
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    await main(['skills', 'install', '--topics', 'legacy-alpha,zeta', '--json'], '/tmp/repo')
+
+    expect(installBundledSkillGuidesMock).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'alpha' }),
+      expect.objectContaining({ name: 'zeta' })
+    ])
+    expect(JSON.parse(stdoutText(stdoutSpy))).toEqual({
+      names: ['alpha', 'zeta'],
+      paths: ['/home/test/.agents/skills/alpha/SKILL.md', '/home/test/.agents/skills/zeta/SKILL.md']
+    })
+    expect(runtimeClientConstructorMock).not.toHaveBeenCalled()
   })
 
   it('gives list --json a stable canonical schema', async () => {
@@ -175,6 +202,9 @@ describe('orca skills CLI', () => {
     )
     expect(String(logSpy.mock.calls[1]?.[0])).toContain(
       'get                Print a version-matched skill guide'
+    )
+    expect(String(logSpy.mock.calls[1]?.[0])).toContain(
+      'install            Install bundled skill guides'
     )
     expect(String(logSpy.mock.calls[2]?.[0])).toContain('Skills:\n  skills list')
     expect(runtimeClientConstructorMock).not.toHaveBeenCalled()

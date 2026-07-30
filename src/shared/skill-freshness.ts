@@ -98,5 +98,7 @@ export function buildTargetedSkillUpdateCommand(names: readonly string[]): strin
   if (canonicalNames.some((name) => !/^[a-z0-9][a-z0-9._-]*$/.test(name))) {
     return null
   }
-  return canonicalNames.length > 0 ? `npx skills update ${canonicalNames.join(' ')} --global` : null
+  return canonicalNames.length > 0
+    ? `orca skills install --topics ${canonicalNames.join(',')}`
+    : null
 }

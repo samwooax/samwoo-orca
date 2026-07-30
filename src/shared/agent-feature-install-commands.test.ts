@@ -14,26 +14,26 @@ import {
 describe('agent feature skill commands', () => {
   it('builds single-skill update commands', () => {
     expect(buildAgentFeatureSkillUpdateCommand('orchestration')).toBe(
-      'npx skills update orchestration --global'
+      'orca skills install --topics orchestration'
     )
   })
 
   it('trims and rejects blank update skill names', () => {
     expect(buildAgentFeatureSkillUpdateCommand('  orca-cli  ')).toBe(
-      'npx skills update orca-cli --global'
+      'orca skills install --topics orca-cli'
     )
     expect(() => buildAgentFeatureSkillUpdateCommand('   ')).toThrow('A skill name is required.')
   })
 
   it('exports single-skill update constants without changing install bundles', () => {
-    expect(ORCA_CLI_SKILL_UPDATE_COMMAND).toBe('npx skills update orca-cli --global')
-    expect(COMPUTER_USE_SKILL_UPDATE_COMMAND).toBe('npx skills update computer-use --global')
-    expect(ORCHESTRATION_SKILL_UPDATE_COMMAND).toBe('npx skills update orchestration --global')
+    expect(ORCA_CLI_SKILL_UPDATE_COMMAND).toBe('orca skills install --topics orca-cli')
+    expect(COMPUTER_USE_SKILL_UPDATE_COMMAND).toBe('orca skills install --topics computer-use')
+    expect(ORCHESTRATION_SKILL_UPDATE_COMMAND).toBe('orca skills install --topics orchestration')
     expect(EPHEMERAL_VMS_SKILL_UPDATE_COMMAND).toBe(
-      'npx skills update orca-per-workspace-env --global'
+      'orca skills install --topics orca-per-workspace-env'
     )
-    expect(ORCA_LINEAR_SKILL_UPDATE_COMMAND).toBe('npx skills update orca-linear --global')
-    expect(LINEAR_TICKETS_SKILL_UPDATE_COMMAND).toBe('npx skills update linear-tickets --global')
+    expect(ORCA_LINEAR_SKILL_UPDATE_COMMAND).toBe('orca skills install --topics orca-linear')
+    expect(LINEAR_TICKETS_SKILL_UPDATE_COMMAND).toBe('orca skills install --topics linear-tickets')
     expect(ORCA_CLI_ORCHESTRATION_SKILL_INSTALL_COMMAND).toBe(
       buildAgentFeatureSkillInstallCommand(['orca-cli', 'orchestration'])
     )

@@ -192,7 +192,7 @@ describe('SkillFreshnessUpdateDialog', () => {
     expect(container?.textContent).toContain('Update skills')
     expect(container?.textContent).toContain('1 skill can be updated safely')
     expect(mocks.terminalProps.at(-1)).toMatchObject({
-      command: 'npx skills update orca-cli --global',
+      command: 'orca skills install --topics orca-cli',
       description: 'Review the pre-filled command, then press Enter to run it.'
     })
   })
@@ -208,7 +208,7 @@ describe('SkillFreshnessUpdateDialog', () => {
     mocks.inventory = eligibleInventory()
     await rerender()
 
-    expect(mocks.terminalProps.at(-1)?.command).toBe('npx skills update orca-cli --global')
+    expect(mocks.terminalProps.at(-1)?.command).toBe('orca skills install --topics orca-cli')
   })
 
   it('shows the up-to-date state once every installation is current', async () => {
@@ -226,8 +226,8 @@ describe('SkillFreshnessUpdateDialog', () => {
     }
     await rerender()
 
-    expect(mocks.terminalCommits).toContainEqual(['npx skills update orca-cli --global', true])
-    expect(container?.textContent).toContain('All installed Orca skills are up to date.')
+    expect(mocks.terminalCommits).toContainEqual(['orca skills install --topics orca-cli', true])
+    expect(container?.textContent).toContain('All installed SAMWOO-ORCA skills are up to date.')
     expect(container?.querySelector('[data-testid="update-terminal"]')).toBeNull()
   })
 
@@ -259,7 +259,7 @@ describe('SkillFreshnessUpdateDialog', () => {
     await rerender()
 
     expect(container?.querySelector('[data-testid="update-terminal"]')?.textContent).toBe(
-      'npx skills update orca-cli --global'
+      'orca skills install --topics orca-cli'
     )
 
     mocks.inventory = {
@@ -273,9 +273,9 @@ describe('SkillFreshnessUpdateDialog', () => {
     mocks.loading = false
     await rerender()
 
-    expect(container?.textContent).toContain('All installed Orca skills are up to date.')
+    expect(container?.textContent).toContain('All installed SAMWOO-ORCA skills are up to date.')
     expect(container?.querySelector('[data-testid="update-terminal"]')?.textContent).toBe(
-      'npx skills update orca-cli --global'
+      'orca skills install --topics orca-cli'
     )
   })
 
@@ -295,7 +295,7 @@ describe('SkillFreshnessUpdateDialog', () => {
     mocks.loading = true
     await rerender()
 
-    expect(container?.textContent).toContain('Checking installed Orca skills')
+    expect(container?.textContent).toContain('Checking installed SAMWOO-ORCA skills')
     expect(container?.querySelector('[data-testid="update-terminal"]')).toBe(firstTerminal)
     expect(terminalWrapper?.hasAttribute('inert')).toBe(true)
     terminalInput?.blur()
@@ -348,7 +348,7 @@ describe('SkillFreshnessUpdateDialog', () => {
     await rerender()
 
     expect(container?.querySelector('[data-testid="update-terminal"]')?.textContent).toBe(
-      'npx skills update orca-cli --global'
+      'orca skills install --topics orca-cli'
     )
     expect(mocks.terminalProps.at(-1)).not.toBe(firstTerminal)
   })
@@ -391,7 +391,7 @@ describe('SkillFreshnessUpdateDialog', () => {
     await openViaRequest()
 
     expect(container?.textContent).toContain(
-      'read-only location, so Orca left it out of the update'
+      'read-only location, so SAMWOO-ORCA left it out of the update'
     )
     expect(container?.textContent).toContain('Read only')
   })

@@ -25,5 +25,16 @@ export const SKILL_COMMAND_SPECS: CommandSpec[] = [
       'Use --json for a deterministic object containing canonical topic metadata and content.'
     ],
     examples: ['orca skills get orca-cli', 'orca skills get orchestration --full']
+  },
+  {
+    path: ['skills', 'install'],
+    summary: 'Install bundled skill guides without requiring Node.js or npx',
+    usage: 'orca skills install --topics <name,name,...> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'topics'],
+    notes: [
+      'Installs the version-matched bundled guides into supported global agent skill homes.',
+      'Runs locally without contacting the Orca runtime or requiring Node.js/npm.'
+    ],
+    examples: ['orca skills install --topics orca-cli,computer-use,orchestration']
   }
 ]

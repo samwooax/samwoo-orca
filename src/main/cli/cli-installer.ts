@@ -24,6 +24,7 @@ import {
   readWindowsUserPathRegistry,
   type WindowsUserPathReadResult
 } from './windows-user-path-registry'
+import { invalidatePersistedWindowsPathCache } from '../pty/windows-environment-path'
 
 const execFileAsync = promisify(execFile)
 const DEFAULT_MAC_COMMAND_PATH = '/usr/local/bin/orca'
@@ -883,6 +884,8 @@ export class CliInstaller {
     try {
       await this.userPathWriter(value)
       this.userPathCacheInvalidator()
+      // Why: a terminal may have cached PATH before CLI registration; its next spawn must see the new launcher immediately.
+      invalidatePersistedWindowsPathCache()
     } catch (error) {
       if (!isWindowsUserPathPermissionError(error)) {
         throw error

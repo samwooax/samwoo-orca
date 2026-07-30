@@ -1,5 +1,6 @@
 import type { CommandHandler } from '../dispatch'
 import { RuntimeClientError } from '../runtime-client'
+import { installBundledSkillGuides } from '../bundled-skill-installer'
 
 type BundledSkillGuide = {
   name: string
@@ -46,6 +47,38 @@ function writeStdout(value: string): void {
   process.stdout.write(value.endsWith('\n') ? value : `${value}\n`)
 }
 
+function requireTopics(
+  flags: Map<string, string | boolean>,
+  guides: BundledSkillGuide[]
+): BundledSkillGuide[] {
+  const rawTopics = flags.get('topics')
+  if (typeof rawTopics !== 'string' || rawTopics.trim().length === 0) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      'Flag --topics requires a comma-separated value.'
+    )
+  }
+  const guideByTopic = new Map<string, BundledSkillGuide>(
+    guides.flatMap((guide) => [guide.name, ...guide.aliases].map((name) => [name, guide]))
+  )
+  const selected = rawTopics.split(',').map((topic) => topic.trim())
+  const unknown = selected.filter((topic) => !guideByTopic.has(topic))
+  if (unknown.length > 0) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      `Unknown skill topic "${unknown[0]}". Available topics: ${guides.map((guide) => guide.name).join(', ')}`
+    )
+  }
+  return [
+    ...new Map(
+      selected.map((topic) => {
+        const guide = guideByTopic.get(topic) as BundledSkillGuide
+        return [guide.name, guide]
+      })
+    ).values()
+  ]
+}
+
 export const SKILL_HANDLERS: Record<string, CommandHandler> = {
   'skills list': async ({ json }) => {
     // Why: the embedded guide table is large, so unrelated CLI commands must not
@@ -72,5 +105,16 @@ export const SKILL_HANDLERS: Record<string, CommandHandler> = {
     const full = flags.has('full')
     const markdown = full ? guide.fullMarkdown : guide.markdown
     writeStdout(json ? JSON.stringify({ name: guide.name, full, markdown }, null, 2) : markdown)
+  },
+  'skills install': async ({ flags, json }) => {
+    const { BUNDLED_SKILL_GUIDES } = await import('../bundled-skill-guides.js')
+    const guides = canonicalGuides(BUNDLED_SKILL_GUIDES)
+    const selected = requireTopics(flags, guides)
+    const result = await installBundledSkillGuides(selected)
+    writeStdout(
+      json
+        ? JSON.stringify(result, null, 2)
+        : `Installed ${result.names.join(', ')} to ${result.paths.length} agent skill locations.`
+    )
   }
 }
