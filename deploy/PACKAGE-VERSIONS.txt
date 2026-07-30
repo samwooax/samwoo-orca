@@ -9,4 +9,8 @@ uv: 0.12.0
 - https://github.com/astral-sh/uv/releases/download/0.12.0/uv-x86_64-pc-windows-msvc.zip
 - https://github.com/astral-sh/uv/releases/download/0.12.0/uv-aarch64-pc-windows-msvc.zip
 
+Tailscale: 1.98.10
+- https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi
+- https://pkgs.tailscale.com/stable/tailscale-setup-latest-arm64.msi
+
 The installer detects Windows x64 or ARM64 and selects the matching files.

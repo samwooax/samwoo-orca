@@ -52,6 +52,11 @@ internal static class OrcaCliLauncher
                 "NODE_REPL_EXTERNAL_MODULE",
                 "ORCA_NODE_REPL_EXTERNAL_MODULE"
             );
+            // Why: the branded app and upstream Orca coexist, so the CLI must read SAMWOO-ORCA's runtime metadata.
+            startInfo.EnvironmentVariables["ORCA_USER_DATA_PATH"] = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "SAMWOO-ORCA"
+            );
             startInfo.EnvironmentVariables["ELECTRON_RUN_AS_NODE"] = "1";
 
             using (Process child = Process.Start(startInfo))
