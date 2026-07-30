@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { resolveSamwooLoginProfile } from '@/lib/samwoo-login-profile'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useAppStore } from '@/store'
 import logo from '../../../../resources/logo.svg'
@@ -46,7 +47,7 @@ export default function SamwooLoginGate(): React.JSX.Element | null {
       setAuth({
         login: result.login ?? login.trim(),
         name: result.name ?? login.trim(),
-        role: result.role ?? null,
+        role: resolveSamwooLoginProfile(result),
         label: result.label ?? null,
         token: result.token
       })
