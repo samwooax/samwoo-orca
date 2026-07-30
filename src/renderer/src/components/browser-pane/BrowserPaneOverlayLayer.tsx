@@ -7,6 +7,7 @@ import BrowserPane from './BrowserPane'
 import { tabGroupBodyAnchorName } from '../tab-group/tab-group-body-anchor'
 import { useBrowserAutomationVisibilityForAny } from './browser-automation-visibility'
 import { useBrowserMobileDriverForAny } from '@/lib/pane-manager/browser-mobile-driver-state'
+import { parseHermesTeamChatRoute } from '../hermes-team-chat/hermes-team-chat-route'
 
 // Why: Electron <webview> destroys its guest on DOM reparent, so BrowserPanes render at worktree level and moving a tab between groups only swaps the overlay's CSS position-anchor.
 
@@ -52,8 +53,10 @@ const BrowserOverlaySlot = memo(function BrowserOverlaySlot({
   const automationVisible = useBrowserAutomationVisibilityForAny(browserPageIds)
   const mobileDriven = useBrowserMobileDriverForAny(browserPageIds)
   const isPaintable = isActive || automationVisible || mobileDriven
+  const isTeamChat = parseHermesTeamChatRoute(browserTab.url) !== null
   // Why: hidden worktrees keep lightweight overlay slots, but park their webviews unless a remote controller needs the guest.
-  const shouldMountPane = isWorktreeActive || automationVisible || mobileDriven
+  // Team chat has no webview guest, and keeping it mounted preserves replies that finish while another project is active.
+  const shouldMountPane = isWorktreeActive || automationVisible || mobileDriven || isTeamChat
   // Why: CSS anchor positioning pins the overlay to its owning group's body — a tab move only swaps positionAnchor, no measurement/state.
   // Orphan branch (no anchorName) stays display:none until the tab is reassigned or destroyed.
   const style: React.CSSProperties = useMemo(

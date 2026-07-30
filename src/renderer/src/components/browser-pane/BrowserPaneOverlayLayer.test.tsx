@@ -99,6 +99,18 @@ describe('BrowserPaneOverlayLayer', () => {
     expect(markup).toContain('data-browser-pane-id="browser-b"')
     expect(markup).toContain('data-browser-pane-active="false"')
   })
+
+  it('keeps hidden team chat mounted while parking ordinary browser panes', () => {
+    mocks.state = createState({
+      browserBUrl: 'http://127.0.0.1:47821/chat?profile=ai_center&host=hermes%40100.68.242.83'
+    })
+
+    const markup = renderOverlay({ isWorktreeActive: false })
+
+    expect(markup).not.toContain('data-browser-pane-id="browser-a"')
+    expect(markup).toContain('data-browser-pane-id="browser-b"')
+    expect(markup).toContain('data-browser-pane-active="false"')
+  })
 })
 
 function renderOverlay({ isWorktreeActive }: { isWorktreeActive: boolean }): string {
@@ -107,9 +119,9 @@ function renderOverlay({ isWorktreeActive }: { isWorktreeActive: boolean }): str
   )
 }
 
-function createState(): MockAppState {
+function createState(options: { browserBUrl?: string } = {}): MockAppState {
   const browserA = createBrowserTab('browser-a', ['page-a'])
-  const browserB = createBrowserTab('browser-b', ['page-b'])
+  const browserB = createBrowserTab('browser-b', ['page-b'], options.browserBUrl)
   const tabA = createUnifiedBrowserTab('tab-a', browserA.id, 0)
   const tabB = createUnifiedBrowserTab('tab-b', browserB.id, 1)
 
@@ -145,7 +157,7 @@ function createUnifiedBrowserTab(id: string, browserTabId: string, sortOrder: nu
   }
 }
 
-function createBrowserTab(id: string, pageIds: string[]): BrowserTabState {
+function createBrowserTab(id: string, pageIds: string[], url = 'about:blank'): BrowserTabState {
   return {
     id,
     worktreeId: 'wt-1',
@@ -153,7 +165,7 @@ function createBrowserTab(id: string, pageIds: string[]): BrowserTabState {
     sessionProfileId: null,
     activePageId: pageIds[0] ?? null,
     pageIds,
-    url: 'about:blank',
+    url,
     title: id,
     loading: false,
     faviconUrl: null,

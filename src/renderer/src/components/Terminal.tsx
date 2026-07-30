@@ -40,6 +40,7 @@ import type { Tab, TabContentType, TabGroupLayoutNode, TuiAgent } from '../../..
 import { hasFeatureInteraction } from '../../../shared/feature-interactions'
 import BrowserPane from './browser-pane/BrowserPane'
 import BrowserPaneOverlayLayer from './browser-pane/BrowserPaneOverlayLayer'
+import { parseHermesTeamChatRoute } from './hermes-team-chat/hermes-team-chat-route'
 import EmulatorPaneOverlayLayer from './emulator-pane/EmulatorPaneOverlayLayer'
 import { useBrowserAutomationVisibilityForAny } from './browser-pane/browser-automation-visibility'
 import { useBrowserMobileDriverForAny } from '@/lib/pane-manager/browser-mobile-driver-state'
@@ -2233,12 +2234,13 @@ function Terminal(): React.JSX.Element | null {
                       isVisibleWorktree &&
                       activeTabType === 'browser' &&
                       browserTab.id === activeBrowserTabId
+                    const keepTeamChatMounted = parseHermesTeamChatRoute(browserTab.url) !== null
                     return (
                       <div
                         key={browserTab.id}
                         className={`absolute inset-0${isBrowserActive ? '' : ' pointer-events-none hidden'}`}
                       >
-                        {isBrowserActive ? (
+                        {isBrowserActive || keepTeamChatMounted ? (
                           <BrowserPane browserTab={browserTab} isActive={isBrowserActive} />
                         ) : null}
                       </div>
