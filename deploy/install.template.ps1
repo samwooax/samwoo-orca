@@ -59,8 +59,28 @@ function Get-WindowsArchitecture {
   }
   return "amd64"
 }
+function Test-IsAdministrator {
+  $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+  $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+  return $principal.IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator
+  )
+}
 
 if (-not $AdminPhase) {
+  if (Test-IsAdministrator) {
+    Write-Host ""
+    Write-Host "  [중지] install.bat을 관리자 권한으로 실행하면 안 됩니다." `
+      -ForegroundColor Red
+    Write-Host "  이 창을 닫고 install.bat을 일반 더블클릭하세요." `
+      -ForegroundColor Yellow
+    Write-Host "  필요한 관리자 권한은 설치 도중 별도로 요청됩니다." `
+      -ForegroundColor Yellow
+    Write-Host ""
+    try { Stop-Transcript | Out-Null } catch {}
+    exit 64
+  }
+
   Write-Host ""
   Write-Host "  사용자 프로그램 설치를 시작합니다. (로그: $log)" -ForegroundColor White
   Write-Host ""
