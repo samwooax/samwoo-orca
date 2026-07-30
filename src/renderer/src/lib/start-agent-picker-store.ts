@@ -46,6 +46,7 @@ const PROFILE_NAME_RE = /^[A-Za-z0-9._-]+$/
 /** SAMWOO-ORCA: Korean display names matching the Slack bot names (minus the
  *  "봇" suffix). Unmapped profiles fall back to their raw name. */
 export const HERMES_PROFILE_LABELS: Record<string, string> = {
+  ai_center: 'AI 센터',
   hr: '총무인사',
   cs: '영업1팀 CS',
   finance: '재경',
