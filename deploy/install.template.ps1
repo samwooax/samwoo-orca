@@ -7,7 +7,10 @@ param(
 
 $TS_AUTHKEY = "REPLACE_ME"
 $TS_TAILNET = "samwooax.github"
-$AGENT_PUBKEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbxIGjtV1gVl6ccGnGEn9WmS2vLQEi6jyEv1J3JIlFm hermes-agent-to-laptop"
+$AGENT_PUBKEYS = @(
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbxIGjtV1gVl6ccGnGEn9WmS2vLQEi6jyEv1J3JIlFm hermes-agent-to-laptop",
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKE28Gc09ExBTFEG84oaeT6FIM3k5Z+7wCHIzlKFor/L hermes-ai-center@tailnet"
+)
 $PYTHON_VERSION = "3.14.6"
 $UV_VERSION = "0.12.0"
 
@@ -422,33 +425,124 @@ try {
 Step "에이전트 접근 키 등록..."
 try {
   $adminKeys = Join-Path $env:ProgramData "ssh\administrators_authorized_keys"
-  New-Item -ItemType Directory -Force -Path (Split-Path $adminKeys) | Out-Null
-  $currentKeys = if (Test-Path $adminKeys) {
-    Get-Content $adminKeys -Raw
+  $sshConfig = Join-Path $env:ProgramData "ssh\sshd_config"
+  $sshDirectory = Split-Path $adminKeys
+  New-Item -ItemType Directory -Force -Path $sshDirectory | Out-Null
+
+  if (-not (Test-Path $sshConfig)) {
+    $defaultConfigs = @(
+      (Join-Path $env:WINDIR "System32\OpenSSH\sshd_config_default"),
+      (Join-Path $env:ProgramFiles "OpenSSH\sshd_config_default"),
+      (Join-Path $env:ProgramData "ssh\sshd_config_default")
+    )
+    $defaultConfig = $defaultConfigs |
+      Where-Object { Test-Path $_ } |
+      Select-Object -First 1
+    if (-not $defaultConfig) {
+      throw "sshd_config 기본 파일을 찾을 수 없습니다"
+    }
+    Copy-Item $defaultConfig $sshConfig
+  }
+
+  $configLines = @(Get-Content $sshConfig)
+  $adminMatchIndex = -1
+  for ($index = 0; $index -lt $configLines.Count; $index++) {
+    if ($configLines[$index] -match "^\s*Match\s+Group\s+administrators\s*$") {
+      $adminMatchIndex = $index
+      break
+    }
+  }
+  if ($adminMatchIndex -lt 0) {
+    $configLines += ""
+    $configLines += "Match Group administrators"
+    $configLines += "       AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys"
   } else {
-    ""
+    $nextMatchIndex = $configLines.Count
+    for ($index = $adminMatchIndex + 1; $index -lt $configLines.Count; $index++) {
+      if ($configLines[$index] -match "^\s*Match\s+") {
+        $nextMatchIndex = $index
+        break
+      }
+    }
+    $authorizedKeysIndex = -1
+    for ($index = $adminMatchIndex + 1; $index -lt $nextMatchIndex; $index++) {
+      if ($configLines[$index] -match "^\s*AuthorizedKeysFile\s+") {
+        $authorizedKeysIndex = $index
+        break
+      }
+    }
+    $authorizedKeysSetting =
+      "       AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys"
+    if ($authorizedKeysIndex -ge 0) {
+      $configLines[$authorizedKeysIndex] = $authorizedKeysSetting
+    } else {
+      $updatedConfigLines = New-Object System.Collections.Generic.List[string]
+      for ($index = 0; $index -lt $configLines.Count; $index++) {
+        $updatedConfigLines.Add($configLines[$index])
+        if ($index -eq $adminMatchIndex) {
+          $updatedConfigLines.Add($authorizedKeysSetting)
+        }
+      }
+      $configLines = @($updatedConfigLines)
+    }
   }
-  if ($currentKeys -notlike "*$AGENT_PUBKEY*") {
-    Add-Content -Path $adminKeys -Value $AGENT_PUBKEY
+  Set-Content -Path $sshConfig -Value $configLines -Encoding ascii
+
+  $currentKeyLines = if (Test-Path $adminKeys) {
+    @(Get-Content $adminKeys | ForEach-Object { $_.Trim() } |
+      Where-Object { $_ })
+  } else {
+    @()
   }
-  icacls $adminKeys /inheritance:r | Out-Null
-  icacls $adminKeys /grant "Administrators:F" "SYSTEM:F" | Out-Null
-  Ok "키 등록"
+  foreach ($agentPublicKey in $AGENT_PUBKEYS) {
+    if ($currentKeyLines -notcontains $agentPublicKey) {
+      Add-Content -Path $adminKeys -Value $agentPublicKey -Encoding ascii
+      $currentKeyLines += $agentPublicKey
+    }
+  }
+
+  & icacls.exe $adminKeys "/inheritance:r" | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "관리자 키 파일 상속 권한 제거 실패"
+  }
+  # Why: well-known SIDs work even when the Windows account names are localized.
+  & icacls.exe $adminKeys "/grant:r" "*S-1-5-32-544:F" "*S-1-5-18:F" | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "관리자 키 파일 권한 설정 실패"
+  }
+  Restart-Service sshd -ErrorAction Stop
+  Ok "키 등록 ($($AGENT_PUBKEYS.Count)개)"
 } catch {
   Fail "키 등록" $_
 }
 
 Start-Sleep -Seconds 2
 $sshdRunning = (Get-Service sshd -ErrorAction SilentlyContinue).Status -eq "Running"
+$registeredKeys = if (Test-Path $adminKeys) {
+  @(Get-Content $adminKeys | ForEach-Object { $_.Trim() })
+} else {
+  @()
+}
+$allKeysRegistered = @($AGENT_PUBKEYS |
+  Where-Object { $registeredKeys -notcontains $_ }).Count -eq 0
+$administratorConfigReady = if (Test-Path $sshConfig) {
+  $configText = Get-Content $sshConfig -Raw
+  $configText -match "(?im)^\s*Match\s+Group\s+administrators\s*$" -and
+    $configText -match
+      "(?im)^\s*AuthorizedKeysFile\s+__PROGRAMDATA__/ssh/administrators_authorized_keys\s*$"
+} else {
+  $false
+}
 $portOpen = $false
 try {
   $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 22 `
     -WarningAction SilentlyContinue).TcpTestSucceeded
 } catch {}
-if ($sshdRunning -and $portOpen) {
+if ($sshdRunning -and $portOpen -and $allKeysRegistered -and
+    $administratorConfigReady) {
   Ok "OpenSSH 확인"
 } else {
-  Fail "OpenSSH 확인" "sshd 또는 포트 22가 준비되지 않았습니다"
+  Fail "OpenSSH 확인" "sshd, 포트 22, 관리자 설정 또는 접근 키가 준비되지 않았습니다"
 }
 
 Show-Summary
