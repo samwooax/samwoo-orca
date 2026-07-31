@@ -1,6 +1,10 @@
 SAMWOO-ORCA one-click package versions
 ========================================
 
+Git for Windows: 2.55.0.windows.3
+- https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.3/Git-2.55.0.3-64-bit.exe
+- https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.3/Git-2.55.0.3-arm64.exe
+
 Python: 3.14.6
 - https://www.python.org/ftp/python/3.14.6/python-3.14.6-amd64.exe
 - https://www.python.org/ftp/python/3.14.6/python-3.14.6-arm64.exe
