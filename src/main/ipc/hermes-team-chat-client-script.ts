@@ -177,12 +177,12 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
   }
   async function cancel() {
     if (!busy) return
-    controller.abort()
-    await fetch("/api/cancel", {
+    const response = await fetch("/api/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Orca-Token": token },
       body: JSON.stringify({ requestId: requestId })
     }).catch(function () {})
+    if (response && (await response.json()).cancelled) controller.abort()
   }
   async function send() {
     const text = elements.input.value.trim()
