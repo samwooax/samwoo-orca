@@ -49,6 +49,30 @@ jobs:
           retry_wait_seconds: 30
           command: pnpm install --frozen-lockfile
 
+      - name: Verify SAMWOO local file bridge and installer
+        shell: pwsh
+        run: |
+          pnpm exec vitest run --config config/vitest.config.ts `
+            src/main/ipc/register-core-handlers.test.ts `
+            src/main/ipc/hermes-team-chat-runner.test.ts `
+            src/main/ipc/hermes-local-project-files.test.ts `
+            src/main/ipc/hermes-team-chat-device-context.test.ts `
+            src/main/ipc/hermes-team-chat-models.test.ts `
+            config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
+            config/scripts/windows-one-click-launch-contract.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'deploy/install.template.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          ) > $null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'deploy/install.template.ps1 has PowerShell parse errors'
+          }
+
       - name: Build app
         run: pnpm build:release
         env:

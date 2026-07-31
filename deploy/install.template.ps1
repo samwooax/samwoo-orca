@@ -3,14 +3,10 @@
 )
 
 # SAMWOO-ORCA one-click setup.
-# User phase: ORCA + Python + uv. Admin phase: Tailscale + OpenSSH.
+# User phase: ORCA + Python + uv. Admin phase: Tailscale + outbound SSH client.
 
 $TS_AUTHKEY = "REPLACE_ME"
 $TS_TAILNET = "samwooax.github"
-$AGENT_PUBKEYS = @(
-  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbxIGjtV1gVl6ccGnGEn9WmS2vLQEi6jyEv1J3JIlFm hermes-agent-to-laptop",
-  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKE28Gc09ExBTFEG84oaeT6FIM3k5Z+7wCHIzlKFor/L hermes-ai-center@tailnet"
-)
 $PYTHON_VERSION = "3.14.6"
 $UV_VERSION = "0.12.0"
 
@@ -207,7 +203,7 @@ if (-not $AdminPhase) {
 
   Show-Summary
   $userPhaseFailed = @($results.Values | Where-Object { $_ -ne "OK" }).Count -gt 0
-  Step "Tailscale와 OpenSSH 설치를 위한 관리자 권한 요청..."
+  Step "Tailscale와 보안 연결 구성을 위한 관리자 권한 요청..."
   $adminPhaseFailed = $false
   try {
     $adminProcess = Start-Process powershell -Verb RunAs -PassThru -ArgumentList @(
@@ -345,7 +341,7 @@ try {
   }
 
   $unattendedProcess = Start-Process $tailscaleExe `
-    -ArgumentList "set", "--unattended=true", "--shields-up=false" -PassThru -Wait
+    -ArgumentList "set", "--unattended=true", "--shields-up=true" -PassThru -Wait
   if ($unattendedProcess.ExitCode -ne 0) {
     throw "Tailscale 무인 실행 설정 실패: $($unattendedProcess.ExitCode)"
   }
@@ -367,210 +363,63 @@ try {
   Fail "테일넷 합류" $_
 }
 
-Step "OpenSSH 서버 설치..."
-$sshInstalled = $false
+Step "OpenSSH 클라이언트 설치..."
 try {
-  $localZip = Join-Path $here "OpenSSH-Win64.zip"
-  if (Test-Path "$env:ProgramFiles\OpenSSH\sshd.exe") {
-    $sshInstalled = $true
-  }
-  if (-not $sshInstalled -and (Test-Path $localZip)) {
-    $sshZip = $localZip
-  }
-  if (-not $sshInstalled -and -not (Test-Path $localZip)) {
-    $capability = Get-WindowsCapability -Online -Name "OpenSSH.Server*" `
+  $sshExe = Join-Path $env:WINDIR "System32\OpenSSH\ssh.exe"
+  if (-not (Test-Path $sshExe)) {
+    $clientCapability = Get-WindowsCapability -Online -Name "OpenSSH.Client*" `
       -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($capability -and $capability.State -eq "Installed") {
-      $sshInstalled = $true
-    } elseif ($capability) {
-      try {
-        Add-WindowsCapability -Online -Name $capability.Name -ErrorAction Stop | Out-Null
-        $sshInstalled = $true
-      } catch {}
+    if (-not $clientCapability) {
+      throw "OpenSSH Client 기능을 찾을 수 없습니다"
     }
-    if (-not $sshInstalled) {
-      $sshZip = Join-Path $env:TEMP "OpenSSH-Win64.zip"
-      $release = Invoke-RestMethod -UseBasicParsing `
-        "https://api.github.com/repos/PowerShell/Win32-OpenSSH/releases/latest"
-      $downloadUrl = ($release.assets |
-        Where-Object { $_.name -eq "OpenSSH-Win64.zip" }).browser_download_url
-      Invoke-WebRequest -UseBasicParsing -Uri $downloadUrl -OutFile $sshZip
+    if ($clientCapability.State -ne "Installed") {
+      Add-WindowsCapability -Online -Name $clientCapability.Name -ErrorAction Stop | Out-Null
     }
   }
-  if (-not $sshInstalled -and $sshZip -and (Test-Path $sshZip)) {
-    $sshTemp = "$env:ProgramFiles\OpenSSH-tmp"
-    if (Test-Path $sshTemp) {
-      Remove-Item $sshTemp -Recurse -Force
-    }
-    Expand-Archive -Path $sshZip -DestinationPath $sshTemp -Force
-    $sourceDir = Get-ChildItem $sshTemp -Directory | Select-Object -First 1
-    if (-not $sourceDir) {
-      throw "OpenSSH 압축 구조를 확인할 수 없습니다"
-    }
-    if (Test-Path "$env:ProgramFiles\OpenSSH") {
-      Remove-Item "$env:ProgramFiles\OpenSSH" -Recurse -Force
-    }
-    Move-Item $sourceDir.FullName "$env:ProgramFiles\OpenSSH"
-    Remove-Item $sshTemp -Recurse -Force
-    & powershell -ExecutionPolicy Bypass `
-      -File "$env:ProgramFiles\OpenSSH\install-sshd.ps1" | Out-Null
-    $sshInstalled = $true
+  if (-not (Test-Path $sshExe)) {
+    throw "ssh.exe를 찾을 수 없습니다"
   }
-  if (-not $sshInstalled -and (Test-Path "$env:ProgramFiles\OpenSSH\sshd.exe")) {
-    $sshInstalled = $true
-  }
-  if (-not $sshInstalled) {
-    throw "OpenSSH 설치 실패"
-  }
-  Ok "OpenSSH 설치"
+  Ok "OpenSSH 클라이언트"
 } catch {
-  Fail "OpenSSH 설치" $_
+  Fail "OpenSSH 클라이언트" $_
 }
 
-Step "OpenSSH 서비스 시작..."
+Step "노트북 인바운드 SSH 차단..."
 try {
-  Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
-  Start-Service sshd -ErrorAction Stop
+  $sshdService = Get-Service sshd -ErrorAction SilentlyContinue
+  if ($sshdService) {
+    if ($sshdService.Status -ne "Stopped") {
+      Stop-Service sshd -Force -ErrorAction Stop
+    }
+    Set-Service sshd -StartupType Disabled -ErrorAction Stop
+  }
   $sshFirewallRule = Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" `
     -ErrorAction SilentlyContinue
   if ($sshFirewallRule) {
-    $sshFirewallRule | Set-NetFirewallRule -Enabled True -Profile Any `
-      -Direction Inbound -Action Allow | Out-Null
-  } else {
-    New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" `
-      -DisplayName "OpenSSH Server (sshd)" -Enabled True -Direction Inbound `
-      -Protocol TCP -Action Allow -Profile Any -LocalPort 22 | Out-Null
+    $sshFirewallRule | Set-NetFirewallRule -Enabled False | Out-Null
   }
-  Ok "sshd 서비스"
-} catch {
-  Fail "sshd 서비스" $_
-}
-
-Step "에이전트 접근 키 등록..."
-try {
   $adminKeys = Join-Path $env:ProgramData "ssh\administrators_authorized_keys"
-  $sshConfig = Join-Path $env:ProgramData "ssh\sshd_config"
-  $sshDirectory = Split-Path $adminKeys
-  New-Item -ItemType Directory -Force -Path $sshDirectory | Out-Null
-
-  if (-not (Test-Path $sshConfig)) {
-    $defaultConfigs = @(
-      (Join-Path $env:WINDIR "System32\OpenSSH\sshd_config_default"),
-      (Join-Path $env:ProgramFiles "OpenSSH\sshd_config_default"),
-      (Join-Path $env:ProgramData "ssh\sshd_config_default")
-    )
-    $defaultConfig = $defaultConfigs |
-      Where-Object { Test-Path $_ } |
-      Select-Object -First 1
-    if (-not $defaultConfig) {
-      throw "sshd_config 기본 파일을 찾을 수 없습니다"
-    }
-    Copy-Item $defaultConfig $sshConfig
+  if (Test-Path $adminKeys) {
+    $keptKeys = @(Get-Content $adminKeys | Where-Object {
+      $_ -notmatch "hermes-agent-to-laptop|hermes-ai-center@tailnet"
+    })
+    Set-Content -Path $adminKeys -Value $keptKeys -Encoding ascii
   }
-
-  $configLines = @(Get-Content $sshConfig)
-  $adminMatchIndex = -1
-  for ($index = 0; $index -lt $configLines.Count; $index++) {
-    if ($configLines[$index] -match "^\s*Match\s+Group\s+administrators\s*$") {
-      $adminMatchIndex = $index
-      break
-    }
-  }
-  if ($adminMatchIndex -lt 0) {
-    $configLines += ""
-    $configLines += "Match Group administrators"
-    $configLines += "       AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys"
-  } else {
-    $nextMatchIndex = $configLines.Count
-    for ($index = $adminMatchIndex + 1; $index -lt $configLines.Count; $index++) {
-      if ($configLines[$index] -match "^\s*Match\s+") {
-        $nextMatchIndex = $index
-        break
-      }
-    }
-    $authorizedKeysIndex = -1
-    for ($index = $adminMatchIndex + 1; $index -lt $nextMatchIndex; $index++) {
-      if ($configLines[$index] -match "^\s*AuthorizedKeysFile\s+") {
-        $authorizedKeysIndex = $index
-        break
-      }
-    }
-    $authorizedKeysSetting =
-      "       AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys"
-    if ($authorizedKeysIndex -ge 0) {
-      $configLines[$authorizedKeysIndex] = $authorizedKeysSetting
-    } else {
-      $updatedConfigLines = New-Object System.Collections.Generic.List[string]
-      for ($index = 0; $index -lt $configLines.Count; $index++) {
-        $updatedConfigLines.Add($configLines[$index])
-        if ($index -eq $adminMatchIndex) {
-          $updatedConfigLines.Add($authorizedKeysSetting)
-        }
-      }
-      $configLines = @($updatedConfigLines)
-    }
-  }
-  Set-Content -Path $sshConfig -Value $configLines -Encoding ascii
-
-  $currentKeyLines = if (Test-Path $adminKeys) {
-    @(Get-Content $adminKeys | ForEach-Object { $_.Trim() } |
-      Where-Object { $_ })
-  } else {
-    @()
-  }
-  foreach ($agentPublicKey in $AGENT_PUBKEYS) {
-    if ($currentKeyLines -notcontains $agentPublicKey) {
-      Add-Content -Path $adminKeys -Value $agentPublicKey -Encoding ascii
-      $currentKeyLines += $agentPublicKey
-    }
-  }
-
-  & icacls.exe $adminKeys "/inheritance:r" | Out-Null
-  if ($LASTEXITCODE -ne 0) {
-    throw "관리자 키 파일 상속 권한 제거 실패"
-  }
-  # Why: well-known SIDs work even when the Windows account names are localized.
-  & icacls.exe $adminKeys "/grant:r" "*S-1-5-32-544:F" "*S-1-5-18:F" | Out-Null
-  if ($LASTEXITCODE -ne 0) {
-    throw "관리자 키 파일 권한 설정 실패"
-  }
-  Restart-Service sshd -ErrorAction Stop
-  Ok "키 등록 ($($AGENT_PUBKEYS.Count)개)"
+  Ok "인바운드 SSH 차단"
 } catch {
-  Fail "키 등록" $_
+  Fail "인바운드 SSH 차단" $_
 }
 
-Start-Sleep -Seconds 2
-$sshdRunning = (Get-Service sshd -ErrorAction SilentlyContinue).Status -eq "Running"
-$registeredKeys = if (Test-Path $adminKeys) {
-  @(Get-Content $adminKeys | ForEach-Object { $_.Trim() })
+$sshClientReady = Test-Path (Join-Path $env:WINDIR "System32\OpenSSH\ssh.exe")
+$sshdStopped = (Get-Service sshd -ErrorAction SilentlyContinue).Status -ne "Running"
+$sshFirewallDisabled = @(
+  Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Enabled -eq "True" }
+).Count -eq 0
+if ($sshClientReady -and $sshdStopped -and $sshFirewallDisabled) {
+  Ok "로컬 연결 보안 확인"
 } else {
-  @()
-}
-$allKeysRegistered = @($AGENT_PUBKEYS |
-  Where-Object { $registeredKeys -notcontains $_ }).Count -eq 0
-$administratorConfigReady = if (Test-Path $sshConfig) {
-  $configText = Get-Content $sshConfig -Raw
-  $configText -match "(?im)^\s*Match\s+Group\s+administrators\s*$" -and
-    $configText -match
-      "(?im)^\s*AuthorizedKeysFile\s+__PROGRAMDATA__/ssh/administrators_authorized_keys\s*$"
-} else {
-  $false
-}
-$portOpen = $false
-try {
-  $loopbackPortOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 22 `
-      -WarningAction SilentlyContinue).TcpTestSucceeded
-  $tailnetPortOpen = $tailscaleIp -and
-    (Test-NetConnection -ComputerName $tailscaleIp -Port 22 `
-      -WarningAction SilentlyContinue).TcpTestSucceeded
-  $portOpen = $loopbackPortOpen -and $tailnetPortOpen
-} catch {}
-if ($sshdRunning -and $portOpen -and $allKeysRegistered -and
-    $administratorConfigReady) {
-  Ok "OpenSSH 확인"
-} else {
-  Fail "OpenSSH 확인" "sshd, 포트 22, 관리자 설정 또는 접근 키가 준비되지 않았습니다"
+  Fail "로컬 연결 보안 확인" "SSH 클라이언트 또는 인바운드 차단 상태를 확인하세요"
 }
 
 Show-Summary

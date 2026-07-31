@@ -1,4 +1,11 @@
 import { spawn } from 'node:child_process'
+import type { Store } from '../persistence'
+import { executeLocalFileRequest } from './hermes-local-project-files'
+import {
+  formatLocalFileResults,
+  LOCAL_PROJECT_FILE_PROTOCOL_PROMPT,
+  parseLocalFileRequest
+} from './hermes-local-file-protocol'
 import {
   buildTeamChatCancelRemoteCommand,
   buildTeamChatRemoteCommand,
@@ -14,10 +21,17 @@ import {
 
 const MESSAGE_TIMEOUT_MS = 180_000
 const CANCEL_TIMEOUT_MS = 15_000
-const inFlight = new Map<
-  string,
-  { proc: ReturnType<typeof spawn>; stop: (reason: 'cancelled' | 'timeout') => Promise<boolean> }
->()
+const MAX_LOCAL_FILE_ROUNDS = 8
+
+type TeamChatResult = { ok: boolean; reply?: string; error?: string }
+type RunningProcess = ReturnType<typeof spawn>
+type InFlightController = {
+  proc: RunningProcess | null
+  cancelledReason: 'cancelled' | 'timeout' | null
+  stop: (reason: 'cancelled' | 'timeout') => Promise<boolean>
+}
+
+const inFlight = new Map<string, InFlightController>()
 
 const SSH_MUX_ARGS =
   process.platform === 'win32'
@@ -70,93 +84,43 @@ function stopRemoteTeamChat(host: string, requestId: string): Promise<boolean> {
   })
 }
 
-export async function runTeamChatMessage(args: {
+function runRemoteTeamChat(args: {
   requestId: string
   host: string
   profile: string
   modelId: TeamChatModelId
   effort: TeamChatEffort
-  message: string
-  history: TeamChatHistoryMessage[]
-  cwd: string
   mailToken?: string
-}): Promise<{ ok: boolean; reply?: string; error?: string }> {
-  const deviceContext = await getTeamChatDeviceContext(args.cwd)
-  const fullMessage = formatTeamChatMessage({
-    contextLine: formatTeamChatDeviceContext(deviceContext),
-    history: args.history,
-    message: args.message
-  })
-  const remote = buildTeamChatRemoteCommand({
-    requestId: args.requestId,
-    profile: args.profile,
-    modelId: args.modelId,
-    effort: args.effort,
-    mailToken: args.mailToken
-  })
+  message: string
+  controller: InFlightController
+}): Promise<TeamChatResult> {
+  const remote = buildTeamChatRemoteCommand(args)
   return new Promise((resolvePromise) => {
     const proc = spawn('ssh', sshArgs(args.host, remote), { stdio: ['pipe', 'pipe', 'pipe'] })
+    args.controller.proc = proc
     let stdout = ''
     let stderr = ''
     let settled = false
-    let stopping = false
-    let deferredResult: { ok: boolean; reply?: string; error?: string } | null = null
-    const finish = (result: { ok: boolean; reply?: string; error?: string }): void => {
+    const finish = (result: TeamChatResult): void => {
       if (settled) {
         return
       }
       settled = true
-      clearTimeout(timer)
-      inFlight.delete(args.requestId)
+      if (args.controller.proc === proc) {
+        args.controller.proc = null
+      }
       resolvePromise(result)
     }
-    const stop = async (reason: 'cancelled' | 'timeout'): Promise<boolean> => {
-      if (settled || stopping) {
-        return false
-      }
-      stopping = true
-      // Why: UI readiness must follow confirmed remote termination, not merely local SSH disconnection.
-      const stopped = await stopRemoteTeamChat(args.host, args.requestId)
-      if (!stopped) {
-        stopping = false
-        if (deferredResult) {
-          finish(deferredResult)
-        }
-        return false
-      }
-      proc.kill()
-      finish({
-        ok: false,
-        error: reason === 'timeout' ? 'timeout waiting for team agent reply' : 'cancelled'
-      })
-      return true
-    }
-    inFlight.set(args.requestId, { proc, stop })
-    const timer = setTimeout(() => {
-      void stop('timeout')
-    }, MESSAGE_TIMEOUT_MS)
     proc.stdout.on('data', (data: Buffer) => {
       stdout += data.toString()
     })
     proc.stderr.on('data', (data: Buffer) => {
       stderr += data.toString()
     })
-    proc.on('error', (error) => {
-      if (!settled) {
-        const result = { ok: false, error: error.message }
-        if (stopping) {
-          deferredResult = result
-        } else {
-          finish(result)
-        }
-      }
-    })
+    proc.on('error', (error) => finish({ ok: false, error: error.message }))
     proc.on('close', (code) => {
-      if (settled) {
-        return
-      }
       const reply = stdout.trim()
-      const result =
+      finish(
         code === 0 && reply
           ? { ok: true, reply }
           : {
@@ -166,15 +130,117 @@ export async function runTeamChatMessage(args: {
                   ? 'timeout waiting for team agent reply'
                   : stderr.trim() || `team agent exited with code ${code}`
             }
-      if (stopping) {
-        deferredResult = result
-      } else {
-        finish(result)
-      }
+      )
     })
-    proc.stdin.write(fullMessage)
+    proc.stdin.write(args.message)
     proc.stdin.end()
   })
+}
+
+function cancellationResult(reason: InFlightController['cancelledReason']): TeamChatResult | null {
+  if (!reason) {
+    return null
+  }
+  return {
+    ok: false,
+    error: reason === 'timeout' ? 'timeout waiting for team agent reply' : 'cancelled'
+  }
+}
+
+export async function runTeamChatMessage(args: {
+  requestId: string
+  host: string
+  profile: string
+  modelId: TeamChatModelId
+  effort: TeamChatEffort
+  message: string
+  history: TeamChatHistoryMessage[]
+  cwd: string
+  store: Store
+  mailToken?: string
+}): Promise<TeamChatResult> {
+  const controller: InFlightController = {
+    proc: null,
+    cancelledReason: null,
+    stop: async (reason) => {
+      if (controller.cancelledReason) {
+        return false
+      }
+      const activeProcess = controller.proc
+      if (activeProcess && !(await stopRemoteTeamChat(args.host, args.requestId))) {
+        return false
+      }
+      controller.cancelledReason = reason
+      activeProcess?.kill()
+      return true
+    }
+  }
+  inFlight.set(args.requestId, controller)
+  const timer = setTimeout(() => {
+    void controller.stop('timeout')
+  }, MESSAGE_TIMEOUT_MS)
+
+  try {
+    const deviceContext = await getTeamChatDeviceContext(args.cwd)
+    let conversationMessage = args.message
+    for (let round = 0; round <= MAX_LOCAL_FILE_ROUNDS; round += 1) {
+      const cancelled = cancellationResult(controller.cancelledReason)
+      if (cancelled) {
+        return cancelled
+      }
+      const fullMessage = formatTeamChatMessage({
+        contextLine: `${formatTeamChatDeviceContext(deviceContext)}${LOCAL_PROJECT_FILE_PROTOCOL_PROMPT}\n`,
+        history: args.history,
+        message: conversationMessage
+      })
+      const result = await runRemoteTeamChat({
+        requestId: args.requestId,
+        host: args.host,
+        profile: args.profile,
+        modelId: args.modelId,
+        effort: args.effort,
+        mailToken: args.mailToken,
+        message: fullMessage,
+        controller
+      })
+      const stopped = cancellationResult(controller.cancelledReason)
+      if (stopped) {
+        return stopped
+      }
+      if (!result.ok || !result.reply) {
+        return result
+      }
+      const localRequest = parseLocalFileRequest(result.reply)
+      if (!localRequest) {
+        return result
+      }
+      if (round === MAX_LOCAL_FILE_ROUNDS) {
+        return { ok: false, error: 'local file request limit exceeded' }
+      }
+      const localResults = await executeLocalFileRequest({
+        cwd: args.cwd,
+        request: localRequest,
+        store: args.store
+      }).catch((error: unknown) =>
+        localRequest.operations.map((operation) => ({
+          id: operation.id,
+          ok: false,
+          path: operation.path,
+          error: error instanceof Error ? error.message : String(error)
+        }))
+      )
+      conversationMessage = [
+        conversationMessage,
+        `에이전트 로컬파일 요청:\n${result.reply}`,
+        `Orca 로컬파일 결과:\n${formatLocalFileResults(localResults)}`,
+        '위 결과를 사용해 계속 진행하세요. 추가 파일 작업이 필요하면 로컬파일도구 형식만 출력하고, 완료됐으면 사용자에게 최종 답변하세요.'
+      ].join('\n\n')
+    }
+    return { ok: false, error: 'local file request limit exceeded' }
+  } finally {
+    clearTimeout(timer)
+    inFlight.delete(args.requestId)
+  }
 }
 
 export async function cancelTeamChatMessage(requestId: string): Promise<boolean> {
