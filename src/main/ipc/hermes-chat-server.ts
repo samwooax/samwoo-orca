@@ -156,7 +156,7 @@ async function handleCancel(req: IncomingMessage, res: ServerResponse): Promise<
   try {
     const parsed = JSON.parse(await readRequestBody(req)) as { requestId?: unknown }
     const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : ''
-    const cancelled = NAME_RE.test(requestId) && cancelTeamChatMessage(requestId)
+    const cancelled = NAME_RE.test(requestId) && (await cancelTeamChatMessage(requestId))
     writeJson(res, 200, { ok: true, cancelled })
   } catch (error) {
     writeJson(res, 400, {
@@ -225,13 +225,13 @@ export function registerHermesChatServerHandlers(): void {
       ? handleTeamChatRequest(input as Record<string, unknown>)
       : { ok: false, error: 'invalid request' }
   )
-  ipcMain.handle('hermes:cancelTeamChat', async (_event, requestId: unknown) => ({
-    ok: true,
-    cancelled:
+  ipcMain.handle('hermes:cancelTeamChat', async (_event, requestId: unknown) => {
+    const cancelled =
       typeof requestId === 'string' && NAME_RE.test(requestId)
-        ? cancelTeamChatMessage(requestId)
+        ? await cancelTeamChatMessage(requestId)
         : false
-  }))
+    return { ok: true, cancelled }
+  })
   // Why: restored chat tabs load before profile launch can start the server lazily.
   void ensureServer()
 }

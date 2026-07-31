@@ -251,12 +251,14 @@ export function HermesTeamChatView({
     }
   }, [attachments, busy, draft, effort, messages, model, route])
 
-  const stop = useCallback(() => {
+  const stop = useCallback(async () => {
     const requestId = requestIdRef.current
     if (requestId) {
-      requestIdRef.current = null
-      setBusy(false)
-      void window.api.preflight.cancelHermesTeamChat(requestId)
+      const result = await window.api.preflight.cancelHermesTeamChat(requestId)
+      if (result.cancelled && requestIdRef.current === requestId) {
+        requestIdRef.current = null
+        setBusy(false)
+      }
     }
   }, [])
 

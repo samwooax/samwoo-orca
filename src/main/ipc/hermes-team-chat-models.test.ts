@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildTeamChatCancelRemoteCommand,
   buildTeamChatRemoteCommand,
   formatTeamChatMessage,
   normalizeTeamChatHistory,
@@ -31,6 +32,7 @@ describe('team chat remote commands', () => {
   it('routes Fable through Claude with the profile persona and effort', () => {
     expect(
       buildTeamChatRemoteCommand({
+        requestId: 'request-1',
         profile: 'hr',
         modelId: 'fable',
         effort: 'high',
@@ -41,6 +43,7 @@ describe('team chat remote commands', () => {
     )
     expect(
       buildTeamChatRemoteCommand({
+        requestId: 'request-1',
         profile: 'hr',
         modelId: 'fable',
         effort: 'high'
@@ -51,11 +54,29 @@ describe('team chat remote commands', () => {
   it('routes GPT-5.6 through the selected Hermes profile', () => {
     expect(
       buildTeamChatRemoteCommand({
+        requestId: 'request-2',
         profile: 'hr',
         modelId: 'gpt-5.6-sol',
         effort: 'medium'
       })
     ).toContain('hermes --profile hr --model gpt-5.6-sol')
+  })
+
+  it('runs each request in a bounded session and can stop that entire session', () => {
+    const run = buildTeamChatRemoteCommand({
+      requestId: 'request-3',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium'
+    })
+    const cancel = buildTeamChatCancelRemoteCommand('request-3')
+
+    expect(run).toContain('setsid sh -c')
+    expect(run).toContain('timeout --signal=TERM --kill-after=5s 180s')
+    expect(run).toContain('/tmp/samwoo-team-chat-request-3.pid')
+    expect(cancel).toContain('pkill -TERM -s')
+    expect(cancel).toContain('pkill -KILL -s')
+    expect(cancel).toContain('pgrep -s')
   })
 })
 

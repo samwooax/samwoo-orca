@@ -47,6 +47,15 @@ export type TeamChatHistoryMessage = {
 const MODEL_BY_ID = new Map(TEAM_CHAT_MODELS.map((model) => [model.id, model]))
 const MAX_HISTORY_MESSAGES = 24
 const MAX_HISTORY_CHARS = 48_000
+const REMOTE_MESSAGE_TIMEOUT_SECONDS = 180
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`
+}
+
+function teamChatRunFile(requestId: string): string {
+  return `/tmp/samwoo-team-chat-${requestId}.pid`
+}
 
 export function resolveTeamChatModel(id: unknown) {
   return MODEL_BY_ID.get(String(id) as TeamChatModelId) ?? MODEL_BY_ID.get('gpt-5.5')!
@@ -102,6 +111,7 @@ export function formatTeamChatMessage(args: {
 }
 
 export function buildTeamChatRemoteCommand(args: {
+  requestId: string
   profile: string
   modelId: TeamChatModelId
   effort: TeamChatEffort
@@ -110,17 +120,49 @@ export function buildTeamChatRemoteCommand(args: {
   const model = resolveTeamChatModel(args.modelId)
   const profileHome = `/opt/data/profiles/${args.profile}`
   const mailEnv = args.mailToken ? `MAILTOKEN=${args.mailToken} ` : ''
+  let agentCommand: string
   if (model.provider === 'claude') {
     const profilePrompt =
       '$(cat SOUL.md; printf "\\n\\n필요한 업무 도구는 이 프로필의 skills/*/SKILL.md 지침을 먼저 읽고 사용하세요.")'
-    return (
+    agentCommand =
       `sh -lc 'cd ${profileHome} && ${mailEnv}claude -p --model ${model.id} ` +
       `--effort ${args.effort} --permission-mode bypassPermissions ` +
       `--dangerously-skip-permissions --append-system-prompt "${profilePrompt}" "$(cat)" 2>/dev/null'`
-    )
+  } else {
+    agentCommand =
+      `sh -lc 'cd ${profileHome} && ${mailEnv}hermes --profile ${args.profile} ` +
+      `--model ${model.id} -z "$(cat)" --cli 2>/dev/null'`
   }
-  return (
-    `sh -lc 'cd ${profileHome} && ${mailEnv}hermes --profile ${args.profile} ` +
-    `--model ${model.id} -z "$(cat)" --cli 2>/dev/null'`
-  )
+
+  const runFile = teamChatRunFile(args.requestId)
+  // Why: the SSH client can disappear without terminating remote descendants; a dedicated session gives cancellation a verifiable boundary.
+  const sessionScript = [
+    `run_file=${shellQuote(runFile)}`,
+    'cleanup() { rm -f "$run_file"; }',
+    'trap cleanup EXIT',
+    'printf "%s\\n" "$$" > "$run_file"',
+    `timeout --signal=TERM --kill-after=5s ${REMOTE_MESSAGE_TIMEOUT_SECONDS}s ${agentCommand}`
+  ].join('; ')
+  return `setsid sh -c ${shellQuote(sessionScript)}`
+}
+
+export function buildTeamChatCancelRemoteCommand(requestId: string): string {
+  const runFile = teamChatRunFile(requestId)
+  // Why: TERM allows cleanup, while KILL prevents an uncooperative tool from surviving the confirmed stop.
+  const script = [
+    `run_file=${shellQuote(runFile)}`,
+    'attempt=0',
+    'while [ ! -s "$run_file" ] && [ "$attempt" -lt 20 ]; do sleep 0.1; attempt=$((attempt + 1)); done',
+    '[ -s "$run_file" ] || exit 3',
+    'sid=$(cat "$run_file")',
+    `case "$sid" in ''|*[!0-9]*) exit 4 ;; esac`,
+    'pkill -TERM -s "$sid" 2>/dev/null || true',
+    'attempt=0',
+    'while pgrep -s "$sid" >/dev/null 2>&1 && [ "$attempt" -lt 20 ]; do sleep 0.25; attempt=$((attempt + 1)); done',
+    'if pgrep -s "$sid" >/dev/null 2>&1; then pkill -KILL -s "$sid" 2>/dev/null || true; sleep 0.25; fi',
+    'pgrep -s "$sid" >/dev/null 2>&1 && exit 5',
+    'rm -f "$run_file"',
+    'printf stopped'
+  ].join('; ')
+  return `sh -c ${shellQuote(script)}`
 }
