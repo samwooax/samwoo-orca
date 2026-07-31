@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process'
-import { userInfo } from 'node:os'
 import {
   buildTeamChatCancelRemoteCommand,
   buildTeamChatRemoteCommand,
@@ -8,6 +7,10 @@ import {
   type TeamChatHistoryMessage,
   type TeamChatModelId
 } from './hermes-team-chat-models'
+import {
+  formatTeamChatDeviceContext,
+  getTeamChatDeviceContext
+} from './hermes-team-chat-device-context'
 
 const MESSAGE_TIMEOUT_MS = 180_000
 const CANCEL_TIMEOUT_MS = 15_000
@@ -15,44 +18,6 @@ const inFlight = new Map<
   string,
   { proc: ReturnType<typeof spawn>; stop: (reason: 'cancelled' | 'timeout') => Promise<boolean> }
 >()
-
-const LAPTOP_USER = (() => {
-  try {
-    return userInfo().username
-  } catch {
-    return ''
-  }
-})()
-
-let cachedLaptopName: string | null = null
-function getLaptopName(): Promise<string> {
-  if (cachedLaptopName !== null) {
-    return Promise.resolve(cachedLaptopName)
-  }
-  return new Promise((resolveName) => {
-    const tailscale =
-      process.platform === 'win32' ? 'C:\\Program Files\\Tailscale\\tailscale.exe' : 'tailscale'
-    const proc = spawn(tailscale, ['status', '--self', '--json'], {
-      stdio: ['ignore', 'pipe', 'ignore']
-    })
-    let output = ''
-    proc.stdout.on('data', (data: Buffer) => {
-      output += data.toString()
-    })
-    const done = (name: string): void => {
-      cachedLaptopName = name
-      resolveName(name)
-    }
-    proc.on('error', () => done(''))
-    proc.on('close', () => {
-      try {
-        done(String(JSON.parse(output)?.Self?.HostName ?? ''))
-      } catch {
-        done('')
-      }
-    })
-  })
-}
 
 const SSH_MUX_ARGS =
   process.platform === 'win32'
@@ -65,20 +30,6 @@ const SSH_MUX_ARGS =
         '-o',
         'ControlPersist=10m'
       ]
-
-function buildContextLine(laptopName: string, cwd: string): string {
-  const parts: string[] = []
-  if (laptopName) {
-    parts.push(`노트북=${laptopName}`)
-  }
-  if (LAPTOP_USER) {
-    parts.push(`계정=${LAPTOP_USER}`)
-  }
-  if (cwd) {
-    parts.push(`현재폴더=${cwd}`)
-  }
-  return parts.length ? `[작업컨텍스트 ${parts.join(' ')}]\n` : ''
-}
 
 function sshArgs(host: string, remote: string): string[] {
   return [
@@ -130,9 +81,9 @@ export async function runTeamChatMessage(args: {
   cwd: string
   mailToken?: string
 }): Promise<{ ok: boolean; reply?: string; error?: string }> {
-  const laptopName = await getLaptopName()
+  const deviceContext = await getTeamChatDeviceContext(args.cwd)
   const fullMessage = formatTeamChatMessage({
-    contextLine: buildContextLine(laptopName, args.cwd),
+    contextLine: formatTeamChatDeviceContext(deviceContext),
     history: args.history,
     message: args.message
   })
