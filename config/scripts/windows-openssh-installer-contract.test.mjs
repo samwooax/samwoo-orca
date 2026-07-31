@@ -33,5 +33,11 @@ describe('Windows OpenSSH installer contract', () => {
   it('fails verification unless sshd, port 22, config, and both keys are ready', () => {
     expect(installer).toContain('$sshdRunning -and $portOpen -and $allKeysRegistered -and')
     expect(installer).toContain('$administratorConfigReady')
+    expect(installer).toContain('Test-NetConnection -ComputerName $tailscaleIp -Port 22')
+  })
+
+  it('keeps inbound SSH enabled on reused Tailscale and firewall installs', () => {
+    expect(installer).toContain('"--unattended=true", "--shields-up=false"')
+    expect(installer).toContain('Set-NetFirewallRule -Enabled True -Profile Any')
   })
 })

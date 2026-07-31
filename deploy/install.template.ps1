@@ -345,7 +345,7 @@ try {
   }
 
   $unattendedProcess = Start-Process $tailscaleExe `
-    -ArgumentList "set", "--unattended=true" -PassThru -Wait
+    -ArgumentList "set", "--unattended=true", "--shields-up=false" -PassThru -Wait
   if ($unattendedProcess.ExitCode -ne 0) {
     throw "Tailscale 무인 실행 설정 실패: $($unattendedProcess.ExitCode)"
   }
@@ -431,11 +431,15 @@ Step "OpenSSH 서비스 시작..."
 try {
   Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
   Start-Service sshd -ErrorAction Stop
-  if (-not (Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" `
-      -ErrorAction SilentlyContinue)) {
+  $sshFirewallRule = Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" `
+    -ErrorAction SilentlyContinue
+  if ($sshFirewallRule) {
+    $sshFirewallRule | Set-NetFirewallRule -Enabled True -Profile Any `
+      -Direction Inbound -Action Allow | Out-Null
+  } else {
     New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" `
       -DisplayName "OpenSSH Server (sshd)" -Enabled True -Direction Inbound `
-      -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
+      -Protocol TCP -Action Allow -Profile Any -LocalPort 22 | Out-Null
   }
   Ok "sshd 서비스"
 } catch {
@@ -555,8 +559,12 @@ $administratorConfigReady = if (Test-Path $sshConfig) {
 }
 $portOpen = $false
 try {
-  $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 22 `
-    -WarningAction SilentlyContinue).TcpTestSucceeded
+  $loopbackPortOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 22 `
+      -WarningAction SilentlyContinue).TcpTestSucceeded
+  $tailnetPortOpen = $tailscaleIp -and
+    (Test-NetConnection -ComputerName $tailscaleIp -Port 22 `
+      -WarningAction SilentlyContinue).TcpTestSucceeded
+  $portOpen = $loopbackPortOpen -and $tailnetPortOpen
 } catch {}
 if ($sshdRunning -and $portOpen -and $allKeysRegistered -and
     $administratorConfigReady) {
