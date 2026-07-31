@@ -6,6 +6,10 @@ const {
   callRuntimeEnvironmentMock,
   registerCliHandlersMock,
   registerPreflightHandlersMock,
+  registerHermesProfilesHandlersMock,
+  registerHermesDashboardTunnelHandlersMock,
+  registerHermesChatServerHandlersMock,
+  registerSamwooAuthHandlersMock,
   registerClaudeUsageHandlersMock,
   registerCodexUsageHandlersMock,
   registerOpenCodeUsageHandlersMock,
@@ -71,6 +75,10 @@ const {
   callRuntimeEnvironmentMock: vi.fn(),
   registerCliHandlersMock: vi.fn(),
   registerPreflightHandlersMock: vi.fn(),
+  registerHermesProfilesHandlersMock: vi.fn(),
+  registerHermesDashboardTunnelHandlersMock: vi.fn(),
+  registerHermesChatServerHandlersMock: vi.fn(),
+  registerSamwooAuthHandlersMock: vi.fn(),
   registerClaudeUsageHandlersMock: vi.fn(),
   registerCodexUsageHandlersMock: vi.fn(),
   registerOpenCodeUsageHandlersMock: vi.fn(),
@@ -172,6 +180,22 @@ vi.mock('./cli', () => ({
 
 vi.mock('./preflight', () => ({
   registerPreflightHandlers: registerPreflightHandlersMock
+}))
+
+vi.mock('./hermes-profiles', () => ({
+  registerHermesProfilesHandlers: registerHermesProfilesHandlersMock
+}))
+
+vi.mock('./hermes-dashboard-tunnel', () => ({
+  registerHermesDashboardTunnelHandlers: registerHermesDashboardTunnelHandlersMock
+}))
+
+vi.mock('./hermes-chat-server', () => ({
+  registerHermesChatServerHandlers: registerHermesChatServerHandlersMock
+}))
+
+vi.mock('./samwoo-auth', () => ({
+  registerSamwooAuthHandlers: registerSamwooAuthHandlersMock
 }))
 
 vi.mock('./claude-usage', () => ({
@@ -548,6 +572,10 @@ describe('registerCoreHandlers', () => {
     expect(registerNativeChatHandlersMock).toHaveBeenCalled()
     expect(registerCliHandlersMock).toHaveBeenCalled()
     expect(registerPreflightHandlersMock).toHaveBeenCalled()
+    expect(registerHermesProfilesHandlersMock).toHaveBeenCalled()
+    expect(registerHermesDashboardTunnelHandlersMock).toHaveBeenCalled()
+    expect(registerHermesChatServerHandlersMock).toHaveBeenCalledWith(store)
+    expect(registerSamwooAuthHandlersMock).toHaveBeenCalled()
     expect(registerShellHandlersMock).toHaveBeenCalledWith(store)
     expect(registerClipboardHandlersMock).toHaveBeenCalledWith(store)
     expect(registerUpdaterHandlersMock).toHaveBeenCalled()

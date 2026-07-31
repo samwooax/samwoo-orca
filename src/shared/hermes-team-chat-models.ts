@@ -127,11 +127,11 @@ export function buildTeamChatRemoteCommand(args: {
     agentCommand =
       `sh -lc 'cd ${profileHome} && ${mailEnv}claude -p --model ${model.id} ` +
       `--effort ${args.effort} --permission-mode bypassPermissions ` +
-      `--dangerously-skip-permissions --append-system-prompt "${profilePrompt}" "$(cat)" 2>/dev/null'`
+      `--dangerously-skip-permissions --append-system-prompt "${profilePrompt}" "$(cat)"'`
   } else {
     agentCommand =
-      `sh -lc 'cd ${profileHome} && ${mailEnv}hermes --profile ${args.profile} ` +
-      `--model ${model.id} -z "$(cat)" --cli 2>/dev/null'`
+      `sh -lc 'cd ${profileHome} && ${mailEnv}HERMES_HOME=${profileHome} hermes ` +
+      `--model ${model.id} -z "$(cat)" --cli'`
   }
 
   const runFile = teamChatRunFile(args.requestId)

@@ -51,15 +51,17 @@ describe('team chat remote commands', () => {
     ).toContain('skills/*/SKILL.md')
   })
 
-  it('routes GPT-5.6 through the selected Hermes profile', () => {
-    expect(
-      buildTeamChatRemoteCommand({
-        requestId: 'request-2',
-        profile: 'hr',
-        modelId: 'gpt-5.6-sol',
-        effort: 'medium'
-      })
-    ).toContain('hermes --profile hr --model gpt-5.6-sol')
+  it('routes GPT-5.6 through the selected Hermes profile directory', () => {
+    const command = buildTeamChatRemoteCommand({
+      requestId: 'request-2',
+      profile: 'hr',
+      modelId: 'gpt-5.6-sol',
+      effort: 'medium'
+    })
+
+    expect(command).toContain('HERMES_HOME=/opt/data/profiles/hr hermes --model gpt-5.6-sol')
+    expect(command).not.toContain('hermes --profile')
+    expect(command).not.toContain('2>/dev/null')
   })
 
   it('runs each request in a bounded session and can stop that entire session', () => {

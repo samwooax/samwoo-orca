@@ -147,7 +147,7 @@ export function registerCoreHandlers(
   registerPreflightHandlers()
   registerHermesProfilesHandlers()
   registerHermesDashboardTunnelHandlers()
-  registerHermesChatServerHandlers()
+  registerHermesChatServerHandlers(store)
   registerSamwooAuthHandlers()
   registerClaudeUsageHandlers(claudeUsage)
   registerCodexUsageHandlers(codexUsage)

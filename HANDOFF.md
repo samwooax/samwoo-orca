@@ -1,6 +1,6 @@
 # SAMWOO-ORCA — 작업 인수인계 (VS Code 이어서 작업용)
 
-> 마지막 정리: 2026-07-29. 이 문서 하나로 프로젝트 전체 상태·남은 작업·이어가는 법을 파악할 수 있습니다.
+> 마지막 정리: 2026-07-31. 이 문서 하나로 프로젝트 전체 상태·남은 작업·이어가는 법을 파악할 수 있습니다.
 
 ---
 
@@ -38,7 +38,7 @@ gh workflow run build-samwoo-windows.yml
 ## 2. 아키텍처
 
 ```
-[직원 PC (Win/Mac)]  SAMWOO-ORCA 앱 + 로컬 채팅서버(loopback:47821) + Windows OpenSSH서버
+[직원 PC (Win/Mac)]  SAMWOO-ORCA 앱 + 로컬 채팅서버(loopback:47821) + 로컬 파일 브리지
         │  (Tailscale WireGuard 암호화)
 [Tailscale 테일넷: samwooax 계정]
         │
@@ -65,9 +65,9 @@ gh workflow run build-samwoo-windows.yml
 | 자동 업데이트 → 자체 리포로 분리 | `src/main/updater.ts`, `updater-prerelease-feed.ts`, `src/renderer/.../UpdateCard.tsx` |
 | 그룹웨어 SMTP 로그인 게이트 | `src/renderer/src/components/SamwooLoginGate.tsx`, `src/renderer/src/lib/samwoo-auth-store.ts`, `src/main/ipc/samwoo-auth.ts`, `src/preload/index.ts`+`api-types.ts` |
 | 직무 자동 매핑 → 팀봇 채팅 자동실행 | `src/renderer/src/lib/worktree-activation.ts` (offerOrAutoLaunch/maybeAutoLaunchChat/launchHermesProfile) |
-| 팀봇 말풍선 채팅(로컬 서버+SSH 중계) | `src/main/ipc/hermes-chat-server.ts` (고정포트 47821, 토큰주입, 컨텍스트: 노트북/계정/폴더) |
+| 팀봇 말풍선 채팅(로컬 서버+아웃바운드 SSH) | `src/main/ipc/hermes-chat-server.ts` (고정포트 47821, 토큰주입) |
 | 시작 에이전트 피커 | `src/renderer/src/components/StartAgentPickerDialog.tsx`, `src/renderer/src/lib/start-agent-picker-store.ts` |
-| 노트북 로컬파일 접근(봇 SSH) | 봇이 `ssh <계정>@<노트북>` 으로 접근. 컨텍스트로 노트북명·계정·폴더 자동 전달 |
+| 선택 프로젝트 로컬파일 접근 | `hermes-local-file-protocol.ts`, `hermes-local-project-files.ts`가 상대경로 요청을 로컬 검증·실행. 서버의 노트북 SSH 없음 |
 | 터미널 자동생성 억제(로그인 사용자) | `src/renderer/src/components/Terminal.tsx` (getSamwooAuth().role 가드) |
 | 기본값 굽기(피커·채팅 ON) | `src/shared/constants.ts` |
 
@@ -86,17 +86,15 @@ gh workflow run build-samwoo-windows.yml
 ### 봇 접속 (팀봇 컨테이너)
 - `ssh hermes@100.68.242.83` (Tailscale SSH, 키 불필요)
 - 프로필: `/opt/data/profiles/<role>/` — SOUL.md(성격), skills/
-- 봇→노트북 SSH용 키: `/opt/data/.ssh/id_ed25519` (공개키는 install.ps1에 등록됨)
 - 공유 스킬: `/opt/data/skills/<category>/<skill>/SKILL.md`
 
-### SOUL.md에 넣은 규칙 (hr 프로필)
-`/opt/data/profiles/hr/SOUL.md` 하단에:
-- "노트북 파일 접근" 규칙 (컨텍스트의 노트북/계정으로 SSH)
-- ⚠️ 이건 스킬로 옮기는 게 나음 (아래 §5 참고)
+### 로컬 파일 규칙
+- 노트북 직접 SSH는 금지. 앱이 전달하는 `orca_local_files` 요청 형식만 사용.
+- 앱은 현재 선택 프로젝트 안에서 list/read/write만 실행하고 삭제는 허용하지 않음.
 
 ### NextCloud (배포 호스팅)
 - URL: `https://nextcloud-ebml.srv1808091.hstgr.cloud`, 계정: samwoo_ax
-- 배포 폴더: `SAMWOO-ORCA설치/` (install.bat, install.ps1, samwoo-orca-windows-setup.exe, OpenSSH-Win64.zip, README.txt)
+- 배포 폴더: `SAMWOO-ORCA설치/` (install.bat, install.ps1, samwoo-orca-windows-setup.exe, README.txt)
 - 파일 갱신법(컨테이너 내부 복사 + 스캔):
   ```bash
   # VPS에서:
@@ -110,9 +108,8 @@ gh workflow run build-samwoo-windows.yml
 ## 5. 원클릭 설치 키트 (`deploy/`)
 
 - `deploy/install.bat` → `install.ps1` 호출 (관리자 권한 자동 승격)
-- `deploy/install.ps1`: 앱설치(실행중이면 종료 후) → Tailscale 설치·합류(pre-auth키) → OpenSSH 서버 켜기(+GitHub/번들 폴백) → 봇 공개키 등록. **UTF-8 BOM 필수**(한국어 Windows PowerShell 파싱). 배포 시 BOM 붙여야 함.
+- `deploy/install.ps1`: 앱설치 → Tailscale 설치·합류(pre-auth키, shields-up) → OpenSSH Client 설치 → 기존 sshd/인바운드 규칙 비활성화. **UTF-8 BOM 필수**.
 - `deploy/install.ps1` 은 Tailscale pre-auth 키 포함 → `.gitignore` 처리됨. 템플릿만 커밋(`install.template.ps1` 있으면).
-- OpenSSH는 Windows Update 차단 환경 대비 **OpenSSH-Win64.zip 번들** 우선 사용.
 
 ---
 
@@ -163,7 +160,7 @@ cd ~/samwoo-orca && git stash pop   # WIP 복원 (5개 파일: token 추가)
 - Windows에서 MagicDNS 짧은이름 해석 실패 → 반드시 **테일스케일 IP** 사용(코드에 반영됨).
 - install.ps1은 **UTF-8 BOM** 없으면 한국어 Windows에서 "missing catch or finally" 파싱에러.
 - exe 재설치 시 "파일 사용중" → 작업관리자에서 SAMWOO-ORCA 종료 후.
-- 봇 SSH 대상 계정은 `administrator`(비활성) 아니라 **실제 로그인 계정**(예: dhoon).
+- 노트북은 인바운드 SSH를 사용하지 않으며, 선택 프로젝트 파일 작업은 Orca 프로세스가 로컬 수행.
 - 죽은 채팅탭 복원으로 "can't reach 127.0.0.1:포트" 났던 이슈 → 채팅서버 고정포트(47821)+토큰주입으로 해결됨.
 
 ---

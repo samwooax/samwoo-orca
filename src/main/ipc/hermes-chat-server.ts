@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import { app, ipcMain } from 'electron'
+import type { Store } from '../persistence'
 import { getHermesTeamChatPage } from './hermes-team-chat-page'
 import {
   normalizeTeamChatHistory,
@@ -102,10 +103,10 @@ function writeJson(res: ServerResponse, status: number, value: unknown): void {
     .end(JSON.stringify(value))
 }
 
-async function handleSend(req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function handleSend(req: IncomingMessage, res: ServerResponse, store: Store): Promise<void> {
   try {
     const parsed = JSON.parse(await readRequestBody(req)) as Record<string, unknown>
-    const result = await handleTeamChatRequest(parsed)
+    const result = await handleTeamChatRequest(parsed, store)
     writeJson(res, result.ok || result.error !== 'invalid request' ? 200 : 400, result)
   } catch (error) {
     writeJson(res, 500, {
@@ -115,7 +116,10 @@ async function handleSend(req: IncomingMessage, res: ServerResponse): Promise<vo
   }
 }
 
-async function handleTeamChatRequest(parsed: Record<string, unknown>): Promise<TeamChatResult> {
+async function handleTeamChatRequest(
+  parsed: Record<string, unknown>,
+  store: Store
+): Promise<TeamChatResult> {
   const profile = typeof parsed.profile === 'string' ? parsed.profile : ''
   const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : ''
   const host =
@@ -148,6 +152,7 @@ async function handleTeamChatRequest(parsed: Record<string, unknown>): Promise<T
     message: appendAttachments(message, attachments),
     history: normalizeTeamChatHistory(parsed.history),
     cwd,
+    store,
     mailToken
   })
 }
@@ -166,7 +171,9 @@ async function handleCancel(req: IncomingMessage, res: ServerResponse): Promise<
   }
 }
 
-function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; error?: string }> {
+function ensureServer(
+  store: Store
+): Promise<{ ok: boolean; port?: number; token?: string; error?: string }> {
   if (server && port) {
     return Promise.resolve({ ok: true, port, token })
   }
@@ -189,7 +196,7 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
           res.writeHead(403).end()
           return
         }
-        void (url.pathname === '/api/send' ? handleSend(req, res) : handleCancel(req, res))
+        void (url.pathname === '/api/send' ? handleSend(req, res, store) : handleCancel(req, res))
         return
       }
       res.writeHead(404).end()
@@ -218,11 +225,11 @@ function ensureServer(): Promise<{ ok: boolean; port?: number; token?: string; e
   })
 }
 
-export function registerHermesChatServerHandlers(): void {
-  ipcMain.handle('hermes:ensureChatServer', async () => ensureServer())
+export function registerHermesChatServerHandlers(store: Store): void {
+  ipcMain.handle('hermes:ensureChatServer', async () => ensureServer(store))
   ipcMain.handle('hermes:sendTeamChat', async (_event, input: unknown) =>
     input && typeof input === 'object'
-      ? handleTeamChatRequest(input as Record<string, unknown>)
+      ? handleTeamChatRequest(input as Record<string, unknown>, store)
       : { ok: false, error: 'invalid request' }
   )
   ipcMain.handle('hermes:cancelTeamChat', async (_event, requestId: unknown) => {
@@ -233,5 +240,5 @@ export function registerHermesChatServerHandlers(): void {
     return { ok: true, cancelled }
   })
   // Why: restored chat tabs load before profile launch can start the server lazily.
-  void ensureServer()
+  void ensureServer(store)
 }

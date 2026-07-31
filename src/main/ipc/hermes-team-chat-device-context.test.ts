@@ -1,54 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import {
-  formatTeamChatDeviceContext,
-  parseTeamChatTailscaleIdentity
-} from './hermes-team-chat-device-context'
+import { formatTeamChatDeviceContext } from './hermes-team-chat-device-context'
 
 describe('team chat device context', () => {
-  it('reads the current Windows node and IPv4 from Tailscale self status', () => {
-    expect(
-      parseTeamChatTailscaleIdentity(
-        JSON.stringify({
-          Self: {
-            HostName: 'DESKTOP-NEW',
-            TailscaleIPs: ['fd7a:115c:a1e0::1', '100.91.175.83']
-          }
-        })
-      )
-    ).toEqual({
-      laptopName: 'DESKTOP-NEW',
-      tailscaleIpv4: '100.91.175.83'
-    })
-  })
-
-  it('does not invent an identity from malformed status output', () => {
-    expect(parseTeamChatTailscaleIdentity('not-json')).toEqual({
-      laptopName: '',
-      tailscaleIpv4: ''
-    })
-  })
-
-  it('binds laptop work to the current Tailscale IPv4', () => {
+  it('identifies the local project without exposing an inbound network target', () => {
     const context = formatTeamChatDeviceContext({
       laptopName: 'DESKTOP-NEW',
       laptopUser: 'employee',
-      tailscaleIpv4: '100.91.175.83',
-      cwd: 'C:\\work'
+      projectSelected: true
     })
 
-    expect(context).toContain('"tailscaleIpv4":"100.91.175.83"')
-    expect(context).toContain('이 IP에만 수행')
-    expect(context).toContain('다른 장비 IP는 사용하지 마세요')
+    expect(context).toContain('"laptopName":"DESKTOP-NEW"')
+    expect(context).toContain('"projectSelected":true')
+    expect(context).not.toContain('C:\\\\work')
+    expect(context).not.toContain('tailscaleIpv4')
   })
 
-  it('forbids laptop access when the current IP is unavailable', () => {
+  it('requires all project access to use the local file protocol', () => {
     const context = formatTeamChatDeviceContext({
-      laptopName: '',
+      laptopName: 'DESKTOP-NEW',
       laptopUser: 'employee',
-      tailscaleIpv4: '',
-      cwd: 'C:\\work'
+      projectSelected: true
     })
 
-    expect(context).toContain('어떤 노트북에도 SSH하거나 원격 파일 작업을 수행하지 마세요')
+    expect(context).toContain('노트북으로 SSH하거나 네트워크로 직접 접속하지 마세요')
+    expect(context).toContain('Orca 로컬파일도구로만 요청하세요')
   })
 })
