@@ -3,10 +3,12 @@
 )
 
 # SAMWOO-ORCA one-click setup.
-# User phase: ORCA + Python + uv. Admin phase: Tailscale + outbound SSH client.
+# User phase: ORCA + Git + Python + uv. Admin phase: Tailscale + outbound SSH client.
 
 $TS_AUTHKEY = "REPLACE_ME"
 $TS_TAILNET = "samwooax.github"
+$GIT_VERSION = "2.55.0.windows.3"
+$GIT_INSTALLER_VERSION = "2.55.0.3"
 $PYTHON_VERSION = "3.14.6"
 $UV_VERSION = "0.12.0"
 
@@ -109,6 +111,72 @@ if (-not $AdminPhase) {
   }
 
   $architecture = Get-WindowsArchitecture
+
+  Step "Git $GIT_VERSION 설치..."
+  try {
+    $gitCommand = Get-Command git.exe -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    $gitExe = if ($gitCommand) { $gitCommand.Source } else { $null }
+    $installedGit = if ($gitExe -and (Test-Path $gitExe)) {
+      (& $gitExe --version 2>&1 | Out-String).Trim()
+    } else {
+      ""
+    }
+    if ($installedGit -notmatch "^git version ") {
+      $gitInstallerName = if ($architecture -eq "arm64") {
+        "Git-$GIT_INSTALLER_VERSION-arm64.exe"
+      } else {
+        "Git-$GIT_INSTALLER_VERSION-64-bit.exe"
+      }
+      $gitInstaller = Join-Path $here $gitInstallerName
+      if (-not (Test-Path $gitInstaller)) {
+        throw "Git 설치 파일이 없습니다: $gitInstallerName"
+      }
+      $gitProcess = Start-Process -FilePath $gitInstaller -ArgumentList @(
+        "/VERYSILENT",
+        "/NORESTART",
+        "/NOCANCEL",
+        "/SP-",
+        "/SUPPRESSMSGBOXES",
+        "/CURRENTUSER"
+      ) -PassThru
+      if (-not $gitProcess.WaitForExit(300000)) {
+        try { $gitProcess.Kill() } catch {}
+        throw "Git 설치가 5분을 초과했습니다"
+      }
+      if ($gitProcess.ExitCode -ne 0) {
+        throw "Git 설치 프로그램 종료 코드: $($gitProcess.ExitCode)"
+      }
+      $gitCandidates = @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Git\cmd\git.exe"),
+        (Join-Path $env:ProgramFiles "Git\cmd\git.exe")
+      )
+      $gitExe = $gitCandidates |
+        Where-Object { Test-Path $_ } |
+        Select-Object -First 1
+    }
+    if (-not $gitExe -or -not (Test-Path $gitExe)) {
+      throw "git.exe를 찾을 수 없습니다"
+    }
+    $gitCmdDir = Split-Path -Parent $gitExe
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $pathEntries = @($userPath -split ";" | Where-Object { $_ })
+    if ($pathEntries -notcontains $gitCmdDir) {
+      [Environment]::SetEnvironmentVariable(
+        "Path",
+        (($pathEntries + $gitCmdDir) -join ";"),
+        "User"
+      )
+    }
+    $env:Path = "$gitCmdDir;$env:Path"
+    $verifiedGit = (& $gitExe --version 2>&1 | Out-String).Trim()
+    if ($verifiedGit -notmatch "^git version ") {
+      throw "Git 버전 확인 실패: $verifiedGit"
+    }
+    Ok "Git ($verifiedGit)"
+  } catch {
+    Fail "Git $GIT_VERSION" $_
+  }
 
   Step "Python $PYTHON_VERSION 설치..."
   try {
