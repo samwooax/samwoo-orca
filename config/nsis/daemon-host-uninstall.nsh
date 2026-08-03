@@ -13,6 +13,18 @@
 ; The image name and the LOCALAPPDATA folder name must stay in sync with
 ; DAEMON_HOST_EXE_NAME and LOCAL_HOST_ROOT_NAME in
 ; src/main/daemon/daemon-host-relocation.ts.
+
+; Why: exposing the Windows account name in the install-mode choice is unnecessary and confusing.
+!ifndef BUILD_UNINSTALLER
+  !define MUI_PAGE_CUSTOMFUNCTION_SHOW SamwooInstallModePageShow
+
+  !macro customHeader
+    Function SamwooInstallModePageShow
+      SendMessage $MultiUser.InstallModePage.CurrentUser ${WM_SETTEXT} 0 "STR:현재 사용자"
+    FunctionEnd
+  !macroend
+!endif
+
 !macro customUnInstall
   ${ifNot} ${isUpdated}
     nsExec::Exec 'taskkill /F /IM samwoo-orca-terminal-daemon.exe'

@@ -24,6 +24,7 @@ import type { HermesTeamChatRoute } from './hermes-team-chat-route'
 import { HermesTeamChatActivity } from './HermesTeamChatActivity'
 import { useHermesTeamChatProgress } from './use-hermes-team-chat-progress'
 import { createTeamChatOptionSnapshot } from './hermes-team-chat-session-options'
+import { hermesTeamChatStorageKey } from './hermes-team-chat-storage-key'
 
 type TeamChatAttachment = { name: string; content: string }
 type StoredTeamChat = {
@@ -32,14 +33,10 @@ type StoredTeamChat = {
   effort: TeamChatEffort
 }
 
-function storageKey(route: HermesTeamChatRoute): string {
-  return `samwoo-team-chat:${route.profile}:${route.cwd}`
-}
-
-function readStoredTeamChat(route: HermesTeamChatRoute): StoredTeamChat {
+function readStoredTeamChat(route: HermesTeamChatRoute, tabId: string): StoredTeamChat {
   try {
     const parsed = JSON.parse(
-      localStorage.getItem(storageKey(route)) ?? ''
+      localStorage.getItem(hermesTeamChatStorageKey(route, tabId)) ?? ''
     ) as Partial<StoredTeamChat>
     const model = resolveTeamChatModel(parsed.model).id
     return {
@@ -87,7 +84,7 @@ export function HermesTeamChatView({
   tabId: string
   route: HermesTeamChatRoute
 }): React.JSX.Element {
-  const stored = useMemo(() => readStoredTeamChat(route), [route])
+  const stored = useMemo(() => readStoredTeamChat(route, tabId), [route, tabId])
   const [messages, setMessages] = useState<TeamChatHistoryMessage[]>(stored.messages)
   const [model, setModel] = useState<TeamChatModelId>(stored.model)
   const [effort, setEffort] = useState<TeamChatEffort>(stored.effort)
@@ -100,8 +97,11 @@ export function HermesTeamChatView({
   const { progressEvents, resetProgress, finishProgress } = useHermesTeamChatProgress(requestIdRef)
 
   useEffect(() => {
-    localStorage.setItem(storageKey(route), JSON.stringify({ messages, model, effort }))
-  }, [effort, messages, model, route])
+    localStorage.setItem(
+      hermesTeamChatStorageKey(route, tabId),
+      JSON.stringify({ messages, model, effort })
+    )
+  }, [effort, messages, model, route, tabId])
 
   const setOption = useCallback(
     async (id: string, value: SessionOptionValue) => {
