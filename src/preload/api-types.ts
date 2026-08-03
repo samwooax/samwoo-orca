@@ -10,6 +10,7 @@ import type {
 } from '../shared/hosted-review'
 import type { NativeFileDropPayload } from '../shared/native-file-drop'
 import type { TeamChatProgressEvent } from '../shared/hermes-team-chat-progress'
+import type { TeamChatAttachment } from '../shared/hermes-team-chat-attachments'
 import type {
   TerminalTabCloseRequest,
   TerminalTabCloseResponse
@@ -685,7 +686,7 @@ export type PreflightApi = {
     effort: string
     message: string
     history: { role: 'user' | 'assistant'; content: string }[]
-    attachments: { name: string; content: string }[]
+    attachments: TeamChatAttachment[]
   }) => Promise<{ ok: boolean; reply?: string; error?: string }>
   cancelHermesTeamChat: (requestId: string) => Promise<{ ok: boolean; cancelled: boolean }>
   onHermesTeamChatProgress: (callback: (event: TeamChatProgressEvent) => void) => () => void

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MessageSquare, RotateCcw, X } from 'lucide-react'
+import { Image as ImageIcon, MessageSquare, RotateCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { translate } from '@/i18n/i18n'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -25,8 +25,8 @@ import { HermesTeamChatActivity } from './HermesTeamChatActivity'
 import { useHermesTeamChatProgress } from './use-hermes-team-chat-progress'
 import { createTeamChatOptionSnapshot } from './hermes-team-chat-session-options'
 import { hermesTeamChatStorageKey } from './hermes-team-chat-storage-key'
+import { useHermesTeamChatAttachments } from './use-hermes-team-chat-attachments'
 
-type TeamChatAttachment = { name: string; content: string }
 type StoredTeamChat = {
   messages: TeamChatHistoryMessage[]
   model: TeamChatModelId
@@ -89,12 +89,19 @@ export function HermesTeamChatView({
   const [model, setModel] = useState<TeamChatModelId>(stored.model)
   const [effort, setEffort] = useState<TeamChatEffort>(stored.effort)
   const [draft, setDraft] = useState('')
-  const [attachments, setAttachments] = useState<TeamChatAttachment[]>([])
   const [busy, setBusy] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const requestIdRef = useRef<string | null>(null)
   const { progressEvents, resetProgress, finishProgress } = useHermesTeamChatProgress(requestIdRef)
+  const {
+    attachments,
+    attachmentNotice,
+    clearAttachments,
+    pasteClipboardImage,
+    readAttachments,
+    removeAttachment
+  } = useHermesTeamChatAttachments(textareaRef, busy)
 
   useEffect(() => {
     localStorage.setItem(
@@ -162,11 +169,13 @@ export function HermesTeamChatView({
       return
     }
     const history = messages.slice()
-    const displayText = text || attachments.map((file) => file.name).join(', ')
+    const displayText =
+      text ||
+      attachments.map((file) => (file.kind === 'image' ? '붙여넣은 이미지' : file.name)).join(', ')
     setMessages([...history, { role: 'user', content: displayText }])
     setDraft('')
     const outgoingAttachments = attachments
-    setAttachments([])
+    clearAttachments()
     const requestId = crypto.randomUUID()
     requestIdRef.current = requestId
     resetProgress()
@@ -213,7 +222,18 @@ export function HermesTeamChatView({
         textareaRef.current?.focus()
       }
     }
-  }, [attachments, busy, draft, effort, finishProgress, messages, model, resetProgress, route])
+  }, [
+    attachments,
+    busy,
+    clearAttachments,
+    draft,
+    effort,
+    finishProgress,
+    messages,
+    model,
+    resetProgress,
+    route
+  ])
 
   const stop = useCallback(async () => {
     const requestId = requestIdRef.current
@@ -226,19 +246,6 @@ export function HermesTeamChatView({
       }
     }
   }, [finishProgress])
-
-  const readAttachments = useCallback(async (files: FileList | null) => {
-    const selected = Array.from(files ?? []).slice(0, 5)
-    const readable = selected.filter((file) => file.size <= 96_000)
-    setAttachments(
-      await Promise.all(
-        readable.map(async (file) => ({
-          name: file.name,
-          content: await file.text()
-        }))
-      )
-    )
-  }, [])
 
   const session = useMemo(() => createSession(messages, busy), [busy, messages])
 
@@ -303,20 +310,35 @@ export function HermesTeamChatView({
         <div className="px-3 pt-2 pb-4 sm:px-4">
           <div className="mx-auto w-full max-w-4xl">
             <div className="rounded-lg border border-border bg-muted/50 p-1.5 shadow-xs dark:bg-input/40">
+              {attachmentNotice ? (
+                <p className="mb-1.5 px-1 text-xs text-muted-foreground">{attachmentNotice}</p>
+              ) : null}
               {attachments.length ? (
                 <div className="mb-2 flex flex-wrap gap-1.5 px-1">
-                  {attachments.map((attachment) => (
+                  {attachments.map((attachment, index) => (
                     <div
-                      key={attachment.name}
+                      key={
+                        attachment.kind === 'image'
+                          ? attachment.path
+                          : `${attachment.name}-${index}`
+                      }
                       className="flex max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
                     >
-                      <span className="max-w-56 truncate">{attachment.name}</span>
+                      {attachment.kind === 'image' ? (
+                        <ImageIcon className="size-3.5 shrink-0" />
+                      ) : null}
+                      <span className="max-w-56 truncate">
+                        {attachment.kind === 'image'
+                          ? translate(
+                              'auto.components.HermesTeamChatView.pastedImage',
+                              'Pasted image'
+                            )
+                          : attachment.name}
+                      </span>
                       <button
                         type="button"
                         className="flex size-4 items-center justify-center rounded-sm hover:bg-accent"
-                        onClick={() =>
-                          setAttachments((current) => current.filter((item) => item !== attachment))
-                        }
+                        onClick={() => removeAttachment(attachment)}
                         aria-label={translate(
                           'auto.components.HermesTeamChatView.removeAttachment',
                           'Remove {{value0}}',
@@ -340,6 +362,7 @@ export function HermesTeamChatView({
                 )}
                 className="scrollbar-sleek min-h-12 max-h-28 w-full resize-none bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
                 onChange={(event) => setDraft(event.target.value)}
+                onPaste={pasteClipboardImage}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                     event.preventDefault()

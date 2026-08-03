@@ -24,7 +24,13 @@ import {
 import { runHermesAcpProcess } from './hermes-team-chat-acp-client'
 import { runClaudeStreamProcess } from './hermes-team-chat-claude-stream'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
-import type { LocalFileOperation } from './hermes-local-file-protocol'
+import type { TeamChatImageAttachment } from '../../shared/hermes-team-chat-attachments'
+import {
+  appendRemoteImageInstructions,
+  cleanupTeamChatClipboardImages,
+  uploadTeamChatClipboardImages
+} from './hermes-team-chat-image-transfer'
+import { localFileProgress } from './hermes-local-file-progress'
 
 const CANCEL_TIMEOUT_MS = 15_000
 const MAX_LOCAL_FILE_ROUNDS = 8
@@ -33,6 +39,7 @@ type TeamChatResult = { ok: boolean; reply?: string; error?: string }
 type RunningProcess = ReturnType<typeof spawn>
 type InFlightController = {
   proc: RunningProcess | null
+  stage: 'transfer' | 'agent' | null
   cancelledReason: 'cancelled' | 'timeout' | null
   stop: (reason: 'cancelled' | 'timeout') => Promise<boolean>
 }
@@ -107,6 +114,7 @@ async function runRemoteTeamChat(args: {
       stdio: ['pipe', 'pipe', 'pipe']
     })
     args.controller.proc = proc
+    args.controller.stage = 'agent'
     const result = await runHermesAcpProcess({
       proc,
       requestId: args.requestId,
@@ -117,6 +125,7 @@ async function runRemoteTeamChat(args: {
     })
     if (args.controller.proc === proc) {
       args.controller.proc = null
+      args.controller.stage = null
     }
     return result
   }
@@ -126,6 +135,7 @@ async function runRemoteTeamChat(args: {
     stdio: ['pipe', 'pipe', 'pipe']
   })
   args.controller.proc = proc
+  args.controller.stage = 'agent'
   const result = await runClaudeStreamProcess({
     proc,
     requestId: args.requestId,
@@ -134,6 +144,7 @@ async function runRemoteTeamChat(args: {
   })
   if (args.controller.proc === proc) {
     args.controller.proc = null
+    args.controller.stage = null
   }
   return result
 }
@@ -155,6 +166,7 @@ export async function runTeamChatMessage(args: {
   modelId: TeamChatModelId
   effort: TeamChatEffort
   message: string
+  imageAttachments: TeamChatImageAttachment[]
   history: TeamChatHistoryMessage[]
   cwd: string
   store: Store
@@ -163,12 +175,18 @@ export async function runTeamChatMessage(args: {
 }): Promise<TeamChatResult> {
   const controller: InFlightController = {
     proc: null,
+    stage: null,
     cancelledReason: null,
     stop: async (reason) => {
       if (controller.cancelledReason) {
         return false
       }
       const activeProcess = controller.proc
+      if (activeProcess && controller.stage === 'transfer') {
+        controller.cancelledReason = reason
+        activeProcess.kill()
+        return true
+      }
       if (activeProcess && !(await stopRemoteTeamChat(args.host, args.requestId))) {
         return false
       }
@@ -183,8 +201,17 @@ export async function runTeamChatMessage(args: {
   }, TEAM_CHAT_MESSAGE_TIMEOUT_MS)
 
   try {
+    const remoteImages = await uploadTeamChatClipboardImages({
+      requestId: args.requestId,
+      attachments: args.imageAttachments,
+      sshArgs: (remoteCommand) => sshArgs(args.host, remoteCommand),
+      onProcess: (process) => {
+        controller.proc = process
+        controller.stage = process ? 'transfer' : null
+      }
+    })
     const deviceContext = await getTeamChatDeviceContext(args.cwd)
-    let conversationMessage = args.message
+    let conversationMessage = appendRemoteImageInstructions(args.message, remoteImages)
     for (let round = 0; round <= MAX_LOCAL_FILE_ROUNDS; round += 1) {
       const cancelled = cancellationResult(controller.cancelledReason)
       if (cancelled) {
@@ -253,27 +280,16 @@ export async function runTeamChatMessage(args: {
       ].join('\n\n')
     }
     return { ok: false, error: 'local file request limit exceeded' }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
   } finally {
     clearTimeout(timer)
+    if (args.imageAttachments.length > 0) {
+      await cleanupTeamChatClipboardImages(args.requestId, (remoteCommand) =>
+        sshArgs(args.host, remoteCommand)
+      ).catch(() => {})
+    }
     inFlight.delete(args.requestId)
-  }
-}
-
-function localFileProgress(
-  requestId: string,
-  operation: LocalFileOperation,
-  status: TeamChatProgressEvent['status'],
-  error?: string
-): TeamChatProgressEvent {
-  const action =
-    operation.kind === 'list' ? '폴더 확인' : operation.kind === 'read' ? '파일 읽기' : '파일 수정'
-  return {
-    requestId,
-    id: `local-${operation.id}`,
-    kind: 'local_file',
-    title: `${action}: ${operation.path}`,
-    ...(error ? { detail: error.slice(0, 240) } : {}),
-    status
   }
 }
 

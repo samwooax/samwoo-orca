@@ -12,6 +12,7 @@ import {
 } from './hermes-team-chat-models'
 import { cancelTeamChatMessage, runTeamChatMessage } from './hermes-team-chat-runner'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
+import type { TeamChatAttachment } from '../../shared/hermes-team-chat-attachments'
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
 const HOST_RE = /^[A-Za-z0-9@.:_-]+$/
@@ -44,7 +45,6 @@ function loadOrCreateToken(): string {
 
 const token = loadOrCreateToken()
 
-type TeamChatAttachment = { name: string; content: string }
 type TeamChatResult = { ok: boolean; reply?: string; error?: string }
 
 function normalizeAttachments(value: unknown): TeamChatAttachment[] {
@@ -57,18 +57,35 @@ function normalizeAttachments(value: unknown): TeamChatAttachment[] {
     if (
       !item ||
       typeof item !== 'object' ||
-      typeof (item as TeamChatAttachment).name !== 'string' ||
-      typeof (item as TeamChatAttachment).content !== 'string' ||
+      typeof (item as TeamChatAttachment).name !== 'string'
+    ) {
+      continue
+    }
+    const attachment = item as {
+      kind?: unknown
+      name: string
+      content?: unknown
+      path?: unknown
+    }
+    const name = attachment.name.replaceAll(/[\r\n[\]]/g, '').slice(0, 160)
+    if (
+      attachment.kind === 'image' &&
+      typeof attachment.path === 'string' &&
+      attachment.path.length <= 1024
+    ) {
+      result.push({ kind: 'image', name, path: attachment.path })
+      continue
+    }
+    if (
+      (attachment.kind !== undefined && attachment.kind !== 'text') ||
+      typeof attachment.content !== 'string' ||
       remaining <= 0
     ) {
       continue
     }
-    const content = (item as TeamChatAttachment).content.slice(0, remaining)
+    const content = attachment.content.slice(0, remaining)
     remaining -= content.length
-    result.push({
-      name: (item as TeamChatAttachment).name.replaceAll(/[\r\n[\]]/g, '').slice(0, 160),
-      content
-    })
+    result.push({ kind: 'text', name, content })
   }
   return result
 }
@@ -77,9 +94,9 @@ function appendAttachments(message: string, attachments: TeamChatAttachment[]): 
   if (!attachments.length) {
     return message
   }
-  const blocks = attachments.map(
-    (attachment) => `[첨부파일: ${attachment.name}]\n${attachment.content}\n[첨부파일 끝]`
-  )
+  const blocks = attachments
+    .filter((attachment) => attachment.kind === 'text')
+    .map((attachment) => `[첨부파일: ${attachment.name}]\n${attachment.content}\n[첨부파일 끝]`)
   return `${message}${message ? '\n\n' : ''}${blocks.join('\n\n')}`
 }
 
@@ -152,6 +169,7 @@ async function handleTeamChatRequest(
     modelId: model.id,
     effort,
     message: appendAttachments(message, attachments),
+    imageAttachments: attachments.filter((attachment) => attachment.kind === 'image'),
     history: normalizeTeamChatHistory(parsed.history),
     cwd,
     store,

@@ -55,11 +55,13 @@ jobs:
           pnpm exec vitest run --config config/vitest.config.ts `
             src/main/ipc/register-core-handlers.test.ts `
             src/main/ipc/hermes-team-chat-runner.test.ts `
+            src/main/ipc/hermes-team-chat-image-transfer.test.ts `
             src/main/ipc/hermes-team-chat-acp-client.test.ts `
             src/main/ipc/hermes-team-chat-claude-stream.test.ts `
             src/main/ipc/hermes-local-project-files.test.ts `
             src/main/ipc/hermes-team-chat-device-context.test.ts `
             src/main/ipc/hermes-team-chat-models.test.ts `
+            src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-attachments.test.tsx `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
             config/scripts/windows-one-click-launch-contract.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
