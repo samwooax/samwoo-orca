@@ -76,6 +76,14 @@ describe('electron-builder config', () => {
     })
   })
 
+  it('labels per-user installation without exposing the Windows account name', async () => {
+    const include = await readFile(electronBuilderConfig.nsis.include, 'utf8')
+    expect(include).toContain('MUI_PAGE_CUSTOMFUNCTION_SHOW SamwooInstallModePageShow')
+    expect(include).toContain(
+      'SendMessage $MultiUser.InstallModePage.CurrentUser ${WM_SETTEXT} 0 "STR:현재 사용자"'
+    )
+  })
+
   it('excludes repo-only source trees from app.asar', () => {
     expect(electronBuilderConfig.files).toEqual(
       expect.arrayContaining([
