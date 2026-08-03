@@ -7,9 +7,12 @@ import {
   parseLocalFileRequest
 } from './hermes-local-file-protocol'
 import {
+  buildTeamChatAcpRemoteCommand,
   buildTeamChatCancelRemoteCommand,
   buildTeamChatRemoteCommand,
   formatTeamChatMessage,
+  resolveTeamChatModel,
+  TEAM_CHAT_MESSAGE_TIMEOUT_MS,
   type TeamChatEffort,
   type TeamChatHistoryMessage,
   type TeamChatModelId
@@ -18,8 +21,11 @@ import {
   formatTeamChatDeviceContext,
   getTeamChatDeviceContext
 } from './hermes-team-chat-device-context'
+import { runHermesAcpProcess } from './hermes-team-chat-acp-client'
+import { runClaudeStreamProcess } from './hermes-team-chat-claude-stream'
+import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
+import type { LocalFileOperation } from './hermes-local-file-protocol'
 
-const MESSAGE_TIMEOUT_MS = 180_000
 const CANCEL_TIMEOUT_MS = 15_000
 const MAX_LOCAL_FILE_ROUNDS = 8
 
@@ -84,7 +90,7 @@ function stopRemoteTeamChat(host: string, requestId: string): Promise<boolean> {
   })
 }
 
-function runRemoteTeamChat(args: {
+async function runRemoteTeamChat(args: {
   requestId: string
   host: string
   profile: string
@@ -93,48 +99,43 @@ function runRemoteTeamChat(args: {
   mailToken?: string
   message: string
   controller: InFlightController
+  onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<TeamChatResult> {
-  const remote = buildTeamChatRemoteCommand(args)
-  return new Promise((resolvePromise) => {
-    const proc = spawn('ssh', sshArgs(args.host, remote), { stdio: ['pipe', 'pipe', 'pipe'] })
+  if (resolveTeamChatModel(args.modelId).provider === 'hermes') {
+    const remote = buildTeamChatAcpRemoteCommand(args)
+    const proc = spawn('ssh', sshArgs(args.host, remote), {
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
     args.controller.proc = proc
-    let stdout = ''
-    let stderr = ''
-    let settled = false
-    const finish = (result: TeamChatResult): void => {
-      if (settled) {
-        return
-      }
-      settled = true
-      if (args.controller.proc === proc) {
-        args.controller.proc = null
-      }
-      resolvePromise(result)
+    const result = await runHermesAcpProcess({
+      proc,
+      requestId: args.requestId,
+      profile: args.profile,
+      modelId: args.modelId,
+      message: args.message,
+      onProgress: args.onProgress
+    })
+    if (args.controller.proc === proc) {
+      args.controller.proc = null
     }
-    proc.stdout.on('data', (data: Buffer) => {
-      stdout += data.toString()
-    })
-    proc.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString()
-    })
-    proc.on('error', (error) => finish({ ok: false, error: error.message }))
-    proc.on('close', (code) => {
-      const reply = stdout.trim()
-      finish(
-        code === 0 && reply
-          ? { ok: true, reply }
-          : {
-              ok: false,
-              error:
-                code === 124
-                  ? 'timeout waiting for team agent reply'
-                  : stderr.trim() || `team agent exited with code ${code}`
-            }
-      )
-    })
-    proc.stdin.write(args.message)
-    proc.stdin.end()
+    return result
+  }
+
+  const remote = buildTeamChatRemoteCommand(args)
+  const proc = spawn('ssh', sshArgs(args.host, remote), {
+    stdio: ['pipe', 'pipe', 'pipe']
   })
+  args.controller.proc = proc
+  const result = await runClaudeStreamProcess({
+    proc,
+    requestId: args.requestId,
+    message: args.message,
+    onProgress: args.onProgress
+  })
+  if (args.controller.proc === proc) {
+    args.controller.proc = null
+  }
+  return result
 }
 
 function cancellationResult(reason: InFlightController['cancelledReason']): TeamChatResult | null {
@@ -158,6 +159,7 @@ export async function runTeamChatMessage(args: {
   cwd: string
   store: Store
   mailToken?: string
+  onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<TeamChatResult> {
   const controller: InFlightController = {
     proc: null,
@@ -178,7 +180,7 @@ export async function runTeamChatMessage(args: {
   inFlight.set(args.requestId, controller)
   const timer = setTimeout(() => {
     void controller.stop('timeout')
-  }, MESSAGE_TIMEOUT_MS)
+  }, TEAM_CHAT_MESSAGE_TIMEOUT_MS)
 
   try {
     const deviceContext = await getTeamChatDeviceContext(args.cwd)
@@ -201,7 +203,8 @@ export async function runTeamChatMessage(args: {
         effort: args.effort,
         mailToken: args.mailToken,
         message: fullMessage,
-        controller
+        controller,
+        onProgress: args.onProgress
       })
       const stopped = cancellationResult(controller.cancelledReason)
       if (stopped) {
@@ -220,7 +223,20 @@ export async function runTeamChatMessage(args: {
       const localResults = await executeLocalFileRequest({
         cwd: args.cwd,
         request: localRequest,
-        store: args.store
+        store: args.store,
+        onOperationStart: (operation) => {
+          args.onProgress?.(localFileProgress(args.requestId, operation, 'in_progress'))
+        },
+        onOperationComplete: (operation, operationResult) => {
+          args.onProgress?.(
+            localFileProgress(
+              args.requestId,
+              operation,
+              operationResult.ok ? 'completed' : 'failed',
+              operationResult.error
+            )
+          )
+        }
       }).catch((error: unknown) =>
         localRequest.operations.map((operation) => ({
           id: operation.id,
@@ -240,6 +256,24 @@ export async function runTeamChatMessage(args: {
   } finally {
     clearTimeout(timer)
     inFlight.delete(args.requestId)
+  }
+}
+
+function localFileProgress(
+  requestId: string,
+  operation: LocalFileOperation,
+  status: TeamChatProgressEvent['status'],
+  error?: string
+): TeamChatProgressEvent {
+  const action =
+    operation.kind === 'list' ? '폴더 확인' : operation.kind === 'read' ? '파일 읽기' : '파일 수정'
+  return {
+    requestId,
+    id: `local-${operation.id}`,
+    kind: 'local_file',
+    title: `${action}: ${operation.path}`,
+    ...(error ? { detail: error.slice(0, 240) } : {}),
+    status
   }
 }
 

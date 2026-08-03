@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MessageSquare, RotateCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { translate } from '@/i18n/i18n'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { NativeChatMessageList } from '@/components/native-chat/NativeChatMessageList'
 import { NativeChatComposerActions } from '@/components/native-chat/NativeChatComposerActions'
@@ -8,13 +9,11 @@ import { useNativeChatFileReference } from '@/components/native-chat/use-native-
 import { buildNativeChatFileReferenceInsertion } from '@/components/native-chat/native-chat-file-reference'
 import type { NativeChatLiveSession } from '@/components/native-chat/use-native-chat-live-session'
 import type {
-  SessionOptionDescriptor,
   SessionOptionsSurface,
   SessionOptionValue
 } from '../../../../shared/native-chat-session-options'
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
 import {
-  TEAM_CHAT_MODELS,
   resolveTeamChatEffort,
   resolveTeamChatModel,
   type TeamChatEffort,
@@ -22,6 +21,9 @@ import {
   type TeamChatModelId
 } from '../../../../shared/hermes-team-chat-models'
 import type { HermesTeamChatRoute } from './hermes-team-chat-route'
+import { HermesTeamChatActivity } from './HermesTeamChatActivity'
+import { useHermesTeamChatProgress } from './use-hermes-team-chat-progress'
+import { createTeamChatOptionSnapshot } from './hermes-team-chat-session-options'
 
 type TeamChatAttachment = { name: string; content: string }
 type StoredTeamChat = {
@@ -29,8 +31,6 @@ type StoredTeamChat = {
   model: TeamChatModelId
   effort: TeamChatEffort
 }
-
-const EFFORT_CHOICES = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 
 function storageKey(route: HermesTeamChatRoute): string {
   return `samwoo-team-chat:${route.profile}:${route.cwd}`
@@ -81,45 +81,6 @@ function createSession(messages: TeamChatHistoryMessage[], busy: boolean): Nativ
   }
 }
 
-function createOptionSnapshot(
-  modelId: TeamChatModelId,
-  effort: TeamChatEffort
-): SessionOptionDescriptor[] {
-  const model = resolveTeamChatModel(modelId)
-  const descriptors: SessionOptionDescriptor[] = [
-    {
-      id: 'model',
-      label: 'Model',
-      category: 'model',
-      kind: {
-        type: 'select',
-        currentValue: modelId,
-        choices: TEAM_CHAT_MODELS.map((choice) => ({
-          value: choice.id,
-          label: choice.label
-        }))
-      },
-      valueSource: 'applied',
-      settable: true
-    }
-  ]
-  if (model.efforts.length) {
-    descriptors.unshift({
-      id: 'effort',
-      label: 'Effort',
-      category: 'thought_level',
-      kind: {
-        type: 'select',
-        currentValue: effort,
-        choices: EFFORT_CHOICES.map((value) => ({ value, label: value }))
-      },
-      valueSource: 'applied',
-      settable: true
-    })
-  }
-  return descriptors
-}
-
 export function HermesTeamChatView({
   tabId,
   route
@@ -137,6 +98,7 @@ export function HermesTeamChatView({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const requestIdRef = useRef<string | null>(null)
+  const { progressEvents, resetProgress, finishProgress } = useHermesTeamChatProgress(requestIdRef)
 
   useEffect(() => {
     localStorage.setItem(storageKey(route), JSON.stringify({ messages, model, effort }))
@@ -155,7 +117,7 @@ export function HermesTeamChatView({
     },
     [model]
   )
-  const optionSnapshot = useMemo(() => createOptionSnapshot(model, effort), [effort, model])
+  const optionSnapshot = useMemo(() => createTeamChatOptionSnapshot(model, effort), [effort, model])
   const optionSurface = useMemo<SessionOptionsSurface>(
     () => ({
       getSnapshot: () => optionSnapshot,
@@ -208,6 +170,7 @@ export function HermesTeamChatView({
     setAttachments([])
     const requestId = crypto.randomUUID()
     requestIdRef.current = requestId
+    resetProgress()
     setBusy(true)
     try {
       const result = await window.api.preflight.sendHermesTeamChat({
@@ -225,6 +188,7 @@ export function HermesTeamChatView({
       if (requestIdRef.current !== requestId) {
         return
       }
+      finishProgress(result.ok ? 'completed' : 'failed')
       setMessages((current) => [
         ...current,
         {
@@ -242,6 +206,7 @@ export function HermesTeamChatView({
         ...current,
         { role: 'assistant', content: `연결 오류: ${String(error)}` }
       ])
+      finishProgress('failed')
     } finally {
       if (requestIdRef.current === requestId) {
         requestIdRef.current = null
@@ -249,7 +214,7 @@ export function HermesTeamChatView({
         textareaRef.current?.focus()
       }
     }
-  }, [attachments, busy, draft, effort, messages, model, route])
+  }, [attachments, busy, draft, effort, finishProgress, messages, model, resetProgress, route])
 
   const stop = useCallback(async () => {
     const requestId = requestIdRef.current
@@ -258,16 +223,20 @@ export function HermesTeamChatView({
       if (result.cancelled && requestIdRef.current === requestId) {
         requestIdRef.current = null
         setBusy(false)
+        finishProgress('failed')
       }
     }
-  }, [])
+  }, [finishProgress])
 
   const readAttachments = useCallback(async (files: FileList | null) => {
     const selected = Array.from(files ?? []).slice(0, 5)
     const readable = selected.filter((file) => file.size <= 96_000)
     setAttachments(
       await Promise.all(
-        readable.map(async (file) => ({ name: file.name, content: await file.text() }))
+        readable.map(async (file) => ({
+          name: file.name,
+          content: await file.text()
+        }))
       )
     )
   }, [])
@@ -283,15 +252,21 @@ export function HermesTeamChatView({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="새 대화"
+              aria-label={translate(
+                'auto.components.HermesTeamChatView.newConversation',
+                'New conversation'
+              )}
               disabled={busy}
-              onClick={() => setMessages([])}
+              onClick={() => {
+                setMessages([])
+                resetProgress()
+              }}
             >
               <RotateCcw className="size-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left" sideOffset={4}>
-            새 대화
+            {translate('auto.components.HermesTeamChatView.newConversation', 'New conversation')}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -301,9 +276,18 @@ export function HermesTeamChatView({
             <div className="flex size-12 items-center justify-center rounded-full bg-accent text-accent-foreground">
               <MessageSquare className="size-6" />
             </div>
-            <p className="text-sm font-medium text-foreground">{route.label}와 대화 시작</p>
+            <p className="text-sm font-medium text-foreground">
+              {translate(
+                'auto.components.HermesTeamChatView.startConversation',
+                'Start a conversation with {{value0}}',
+                { value0: route.label }
+              )}
+            </p>
             <p className="max-w-sm text-balance text-xs text-muted-foreground">
-              메시지를 입력하거나 프로젝트 파일을 선택하세요.
+              {translate(
+                'auto.components.HermesTeamChatView.emptyHint',
+                'Enter a message or select a project file.'
+              )}
             </p>
           </div>
         ) : (
@@ -315,6 +299,7 @@ export function HermesTeamChatView({
           />
         )}
       </div>
+      <HermesTeamChatActivity events={progressEvents} busy={busy} />
       <div className="shrink-0 bg-background">
         <div className="px-3 pt-2 pb-4 sm:px-4">
           <div className="mx-auto w-full max-w-4xl">
@@ -333,7 +318,11 @@ export function HermesTeamChatView({
                         onClick={() =>
                           setAttachments((current) => current.filter((item) => item !== attachment))
                         }
-                        aria-label={`${attachment.name} 제거`}
+                        aria-label={translate(
+                          'auto.components.HermesTeamChatView.removeAttachment',
+                          'Remove {{value0}}',
+                          { value0: attachment.name }
+                        )}
                       >
                         <X className="size-3" />
                       </button>
@@ -346,7 +335,10 @@ export function HermesTeamChatView({
                 value={draft}
                 disabled={busy}
                 rows={2}
-                placeholder="메시지를 입력하세요…"
+                placeholder={translate(
+                  'auto.components.HermesTeamChatView.placeholder',
+                  'Enter a message…'
+                )}
                 className="scrollbar-sleek min-h-12 max-h-28 w-full resize-none bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {

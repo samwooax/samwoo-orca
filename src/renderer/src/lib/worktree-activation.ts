@@ -58,14 +58,10 @@ import { seedNativeChatAppliedSessionOptions } from '@/components/native-chat/na
 import type { SessionOptionValue } from '../../../shared/native-chat-session-options'
 import type { ExecutionHostId } from '../../../shared/execution-host'
 import { findFolderWorkspaceOwner } from './folder-workspace-runtime-owner'
-import {
-  DEFAULT_HERMES_DASHBOARD_HOST,
-  DEFAULT_HERMES_LAUNCH_COMMAND,
-  hermesProfileLabel,
-  requestStartAgentPicker
-} from '@/lib/start-agent-picker-store'
+import { requestStartAgentPicker } from '@/lib/start-agent-picker-store'
 import { launchAgentInNewTab } from './launch-agent-in-new-tab'
 import { getSamwooAuth } from '@/lib/samwoo-auth-store'
+import { launchHermesProfileChat } from '@/lib/hermes-chat-launch'
 
 /** Telemetry threaded from the launch site to `pty:spawn`; main fires `agent_started`
  *  only after the spawn succeeds. See telemetry-plan.md§Agent launch semantics. */
@@ -294,7 +290,7 @@ export type StartAgentPickerChoice =
 function offerOrAutoLaunch(workspaceKey: string): void {
   const role = getSamwooAuth()?.role
   if (role) {
-    void launchHermesProfile(workspaceKey, role)
+    void launchHermesProfileChat(workspaceKey, role)
     return
   }
   requestStartAgentPicker(workspaceKey)
@@ -323,7 +319,7 @@ function maybeAutoLaunchChat(workspaceKey: string): boolean {
     state.setActiveBrowserTab(existingChat.id)
     return true
   }
-  void launchHermesProfile(workspaceKey, role)
+  void launchHermesProfileChat(workspaceKey, role)
   return true
 }
 export function launchStartAgentPickerChoice(
@@ -331,7 +327,7 @@ export function launchStartAgentPickerChoice(
   choice: StartAgentPickerChoice
 ): void {
   if (choice.kind === 'hermes') {
-    void launchHermesProfile(workspaceKey, choice.profile)
+    void launchHermesProfileChat(workspaceKey, choice.profile)
     return
   }
   if (choice.kind === 'claude') {
@@ -348,67 +344,6 @@ export function launchStartAgentPickerChoice(
     recordInteraction: false
   })
   state.setActiveTab(tab.id)
-}
-
-function resolveWorkspaceCwd(workspaceKey: string): string {
-  const scope = parseWorkspaceKey(workspaceKey)
-  if (scope?.type === 'folder') {
-    return (
-      useAppStore
-        .getState()
-        .folderWorkspaces.find((workspace) => workspace.id === scope.folderWorkspaceId)
-        ?.folderPath ?? ''
-    )
-  }
-  const worktreeId = scope?.type === 'worktree' ? scope.worktreeId : workspaceKey
-  const idx = worktreeId.indexOf('::')
-  if (idx >= 0) {
-    return worktreeId.slice(idx + 2)
-  }
-  return ''
-}
-async function launchHermesProfile(workspaceKey: string, profile: string): Promise<void> {
-  const state = useAppStore.getState()
-  if (state.settings?.hermesUseWebChat !== false) {
-    const host = state.settings?.hermesDashboardHost?.trim() || DEFAULT_HERMES_DASHBOARD_HOST
-    try {
-      const result = await window.api.preflight.ensureHermesChatServer()
-      if (result.ok && result.port && result.token) {
-        // Why: pass the app's explicit theme so the chat page matches Orca even
-        // when it differs from the OS scheme; 'system' falls back to the
-        // page's prefers-color-scheme media query.
-        const appTheme = state.settings?.theme
-        const cwd = resolveWorkspaceCwd(workspaceKey)
-        const mailToken = getSamwooAuth()?.token
-        const params = new URLSearchParams({
-          profile,
-          label: hermesProfileLabel(profile),
-          host,
-          t: result.token,
-          ...(cwd ? { cwd } : {}),
-          ...(mailToken ? { mailtoken: mailToken } : {}),
-          ...(appTheme === 'light' || appTheme === 'dark' ? { theme: appTheme } : {})
-        })
-        useAppStore.getState().createBrowserTab(workspaceKey, `http://127.0.0.1:${result.port}/chat?${params.toString()}`, {
-          title: hermesProfileLabel(profile)
-        })
-        return
-      }
-    } catch {
-      // The terminal fallback keeps the profile reachable when loopback chat setup fails.
-    }
-  }
-  const command =
-    state.settings?.hermesLaunchCommand?.trim() || DEFAULT_HERMES_LAUNCH_COMMAND
-  const fallbackState = useAppStore.getState()
-  const tab = fallbackState.createTab(workspaceKey, undefined, undefined, {
-    pendingActivationSpawn: true,
-    recordInteraction: false
-  })
-  fallbackState.setActiveTab(tab.id)
-  fallbackState.queueTabStartupCommand(tab.id, {
-    command: command.replaceAll('{profile}', profile)
-  })
 }
 
 export function activateAndRevealWorktree(

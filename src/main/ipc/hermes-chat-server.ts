@@ -11,6 +11,7 @@ import {
   resolveTeamChatModel
 } from './hermes-team-chat-models'
 import { cancelTeamChatMessage, runTeamChatMessage } from './hermes-team-chat-runner'
+import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
 const HOST_RE = /^[A-Za-z0-9@.:_-]+$/
@@ -118,7 +119,8 @@ async function handleSend(req: IncomingMessage, res: ServerResponse, store: Stor
 
 async function handleTeamChatRequest(
   parsed: Record<string, unknown>,
-  store: Store
+  store: Store,
+  onProgress?: (event: TeamChatProgressEvent) => void
 ): Promise<TeamChatResult> {
   const profile = typeof parsed.profile === 'string' ? parsed.profile : ''
   const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : ''
@@ -153,7 +155,8 @@ async function handleTeamChatRequest(
     history: normalizeTeamChatHistory(parsed.history),
     cwd,
     store,
-    mailToken
+    mailToken,
+    onProgress
   })
 }
 
@@ -227,9 +230,13 @@ function ensureServer(
 
 export function registerHermesChatServerHandlers(store: Store): void {
   ipcMain.handle('hermes:ensureChatServer', async () => ensureServer(store))
-  ipcMain.handle('hermes:sendTeamChat', async (_event, input: unknown) =>
+  ipcMain.handle('hermes:sendTeamChat', async (event, input: unknown) =>
     input && typeof input === 'object'
-      ? handleTeamChatRequest(input as Record<string, unknown>, store)
+      ? handleTeamChatRequest(input as Record<string, unknown>, store, (progress) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send('hermes:teamChatProgress', progress)
+          }
+        })
       : { ok: false, error: 'invalid request' }
   )
   ipcMain.handle('hermes:cancelTeamChat', async (_event, requestId: unknown) => {

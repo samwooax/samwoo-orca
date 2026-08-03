@@ -809,6 +809,20 @@
       }
     },
     "components": {
+      "HermesTeamChatActivity": {
+        "running": "处理中 · {{value0}} 个步骤",
+        "failed": "处理结束 · {{value0}} 个失败",
+        "completed": "处理完成 · {{value0}} 个步骤"
+      },
+      "HermesTeamChatView": {
+        "model": "模型",
+        "effort": "推理级别",
+        "newConversation": "新对话",
+        "startConversation": "开始与 {{value0}} 对话",
+        "emptyHint": "输入消息或选择项目文件。",
+        "removeAttachment": "移除 {{value0}}",
+        "placeholder": "输入消息…"
+      },
       "CodexRestartChip": {
         "c72a5fb234": "重新启动",
         "9263e75f49": "Codex 正在使用之前的账户",
@@ -2945,6 +2959,7 @@
             "b1a132357f": "新标签页",
             "4f327c8b3d": "打开 Markdown...",
             "3d5d6c960d": "新 Markdown",
+            "f38b7d9c2a": "新建 Hermes 聊天：{{value0}}",
             "fd2b42aaa3": "新的手机模拟器",
             "aea43b5748": "打开现有的模拟器选项卡。",
             "b426bb2615": "转到手机模拟器",

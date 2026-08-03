@@ -15,6 +15,7 @@ import type {
   TerminalPreviewConnectResult,
   TerminalPreviewDataPayload
 } from '../shared/terminal-preview'
+import type { TeamChatProgressEvent } from '../shared/hermes-team-chat-progress'
 import type {
   TerminalTabCloseRequest,
   TerminalTabCloseResponse
@@ -756,6 +757,7 @@ export type PreflightApi = {
     attachments: { name: string; content: string }[]
   }) => Promise<{ ok: boolean; reply?: string; error?: string }>
   cancelHermesTeamChat: (requestId: string) => Promise<{ ok: boolean; cancelled: boolean }>
+  onHermesTeamChatProgress: (callback: (event: TeamChatProgressEvent) => void) => () => void
   /** SAMWOO-ORCA: verify a groupware login and return the mapped team-bot role. */
   samwooLogin: (args: { login: string; password: string; authUrl?: string }) => Promise<{
     ok: boolean

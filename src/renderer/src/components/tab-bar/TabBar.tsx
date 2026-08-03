@@ -50,6 +50,9 @@ import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
 import { getConnectionIdFromState } from '@/lib/connection-context'
+import { getSamwooAuth } from '@/lib/samwoo-auth-store'
+import { hermesProfileLabel } from '@/lib/start-agent-picker-store'
+import { launchHermesProfileChat } from '@/lib/hermes-chat-launch'
 import { useOptionalShortcutLabel, useShortcutLabel } from '@/hooks/useShortcutLabel'
 import {
   type BuiltInWindowsTerminalShell,
@@ -405,6 +408,7 @@ function TabBarInner({
   ])
   const projectRuntimeShellMenuMode = getProjectRuntimeShellMenuMode(localProjectRuntime)
   const resolvedGroupId = groupId ?? activeGroupIdForWorktree ?? worktreeId
+  const assignedHermesProfile = getSamwooAuth()?.role?.trim() || null
 
   const statusByRelativePath = useMemo(() => buildStatusMap(gitStatusEntries), [gitStatusEntries])
   const unifiedTabByVisibleId = useMemo(
@@ -754,11 +758,27 @@ function TabBarInner({
     onNewSimulatorTab ? (
       <MobileEmulatorTabIntroCallout />
     ) : null
+  const newHermesChatMenuItem =
+    !terminalOnly &&
+    assignedHermesProfile &&
+    !worktreeConnectionId &&
+    !activeRuntimeEnvironmentId ? (
+      <DropdownMenuItem
+        onSelect={() => void launchHermesProfileChat(worktreeId, assignedHermesProfile)}
+        className="gap-2 rounded-[7px] px-2 py-1.5 text-[12px] leading-5 font-medium"
+      >
+        <Globe className="size-4 text-muted-foreground" />
+        {translate('auto.components.tab.bar.TabBar.f38b7d9c2a', 'New Hermes Chat: {{value0}}', {
+          value0: hermesProfileLabel(assignedHermesProfile)
+        })}
+      </DropdownMenuItem>
+    ) : null
   const standardCreateMenuItems =
     newTabMenuOrder === 'markdown-first' ? (
       <>
         {newMarkdownMenuItem}
         {openMarkdownMenuItem}
+        {newHermesChatMenuItem}
         {defaultTerminalMenuItems}
         {newBrowserMenuItem}
         {newSimulatorMenuItem}
@@ -766,6 +786,7 @@ function TabBarInner({
       </>
     ) : (
       <>
+        {newHermesChatMenuItem}
         {defaultTerminalMenuItems}
         {newBrowserMenuItem}
         {newMarkdownMenuItem}

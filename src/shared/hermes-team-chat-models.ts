@@ -47,7 +47,8 @@ export type TeamChatHistoryMessage = {
 const MODEL_BY_ID = new Map(TEAM_CHAT_MODELS.map((model) => [model.id, model]))
 const MAX_HISTORY_MESSAGES = 24
 const MAX_HISTORY_CHARS = 48_000
-const REMOTE_MESSAGE_TIMEOUT_SECONDS = 180
+export const TEAM_CHAT_MESSAGE_TIMEOUT_MS = 30 * 60_000
+const REMOTE_MESSAGE_TIMEOUT_SECONDS = TEAM_CHAT_MESSAGE_TIMEOUT_MS / 1000
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\"'\"'")}'`
@@ -55,6 +56,18 @@ function shellQuote(value: string): string {
 
 function teamChatRunFile(requestId: string): string {
   return `/tmp/samwoo-team-chat-${requestId}.pid`
+}
+
+function wrapTeamChatSession(requestId: string, agentCommand: string): string {
+  const runFile = teamChatRunFile(requestId)
+  const sessionScript = [
+    `run_file=${shellQuote(runFile)}`,
+    'cleanup() { rm -f "$run_file"; }',
+    'trap cleanup EXIT',
+    'printf "%s\\n" "$$" > "$run_file"',
+    `timeout --signal=TERM --kill-after=5s ${REMOTE_MESSAGE_TIMEOUT_SECONDS}s ${agentCommand}`
+  ].join('; ')
+  return `setsid sh -c ${shellQuote(sessionScript)}`
 }
 
 export function resolveTeamChatModel(id: unknown) {
@@ -82,7 +95,10 @@ export function normalizeTeamChatHistory(value: unknown): TeamChatHistoryMessage
           (item as TeamChatHistoryMessage).role === 'assistant') &&
         typeof (item as TeamChatHistoryMessage).content === 'string'
     )
-    .map((item) => ({ role: item.role, content: item.content.slice(0, 12_000) }))
+    .map((item) => ({
+      role: item.role,
+      content: item.content.slice(0, 12_000)
+    }))
     .filter((item) => item.content.trim())
     .slice(-MAX_HISTORY_MESSAGES)
 
@@ -127,23 +143,28 @@ export function buildTeamChatRemoteCommand(args: {
     agentCommand =
       `sh -lc 'cd ${profileHome} && ${mailEnv}claude -p --model ${model.id} ` +
       `--effort ${args.effort} --permission-mode bypassPermissions ` +
-      `--dangerously-skip-permissions --append-system-prompt "${profilePrompt}" "$(cat)"'`
+      `--dangerously-skip-permissions --output-format stream-json --verbose ` +
+      `--append-system-prompt "${profilePrompt}" "$(cat)"'`
   } else {
     agentCommand =
       `sh -lc 'cd ${profileHome} && ${mailEnv}HERMES_HOME=${profileHome} hermes ` +
       `--model ${model.id} -z "$(cat)" --cli'`
   }
 
-  const runFile = teamChatRunFile(args.requestId)
   // Why: the SSH client can disappear without terminating remote descendants; a dedicated session gives cancellation a verifiable boundary.
-  const sessionScript = [
-    `run_file=${shellQuote(runFile)}`,
-    'cleanup() { rm -f "$run_file"; }',
-    'trap cleanup EXIT',
-    'printf "%s\\n" "$$" > "$run_file"',
-    `timeout --signal=TERM --kill-after=5s ${REMOTE_MESSAGE_TIMEOUT_SECONDS}s ${agentCommand}`
-  ].join('; ')
-  return `setsid sh -c ${shellQuote(sessionScript)}`
+  return wrapTeamChatSession(args.requestId, agentCommand)
+}
+
+export function buildTeamChatAcpRemoteCommand(args: {
+  requestId: string
+  profile: string
+  mailToken?: string
+}): string {
+  const profileHome = `/opt/data/profiles/${args.profile}`
+  const mailEnv = args.mailToken ? `MAILTOKEN=${args.mailToken} ` : ''
+  const command =
+    `sh -lc 'cd ${profileHome} && ${mailEnv}HERMES_HOME=${profileHome} ` + `hermes acp'`
+  return wrapTeamChatSession(args.requestId, command)
 }
 
 export function buildTeamChatCancelRemoteCommand(requestId: string): string {

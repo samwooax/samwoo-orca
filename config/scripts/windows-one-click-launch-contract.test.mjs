@@ -6,6 +6,7 @@ const installer = readFileSync(
   resolve(import.meta.dirname, '../../deploy/install.template.ps1'),
   'utf8'
 )
+const launcher = readFileSync(resolve(import.meta.dirname, '../../deploy/install.bat'), 'utf8')
 
 describe('Windows one-click launch contract', () => {
   it('blocks an elevated user phase before installing any user software', () => {
@@ -35,5 +36,12 @@ describe('Windows one-click launch contract', () => {
     expect(installer).toContain('"/CURRENTUSER"')
     expect(installer).toContain('$gitProcess.WaitForExit(300000)')
     expect(installer).toContain('if ($installedGit -notmatch "^git version ")')
+  })
+
+  it('closes the launcher on success and pauses only when installation fails', () => {
+    expect(launcher).toContain('set "install_exit=%ERRORLEVEL%"')
+    expect(launcher).toContain('if not "%install_exit%"=="0" pause')
+    expect(launcher).toContain('exit /b %install_exit%')
+    expect(launcher.trimEnd()).not.toMatch(/\npause$/)
   })
 })
