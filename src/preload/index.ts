@@ -1978,6 +1978,13 @@ const api = {
       ipcRenderer.invoke('hermes:sendTeamChat', args),
     cancelHermesTeamChat: (requestId: string): Promise<{ ok: boolean; cancelled: boolean }> =>
       ipcRenderer.invoke('hermes:cancelTeamChat', requestId),
+    onHermesTeamChatProgress: (callback): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, progress: unknown): void => {
+        callback(progress as Parameters<typeof callback>[0])
+      }
+      ipcRenderer.on('hermes:teamChatProgress', listener)
+      return () => ipcRenderer.removeListener('hermes:teamChatProgress', listener)
+    },
     samwooLogin: (args: {
       login: string
       password: string

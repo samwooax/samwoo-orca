@@ -224,13 +224,17 @@ export async function executeLocalFileRequest(args: {
   cwd: string
   request: LocalFileRequest
   store: Store
+  onOperationStart?: (operation: LocalFileOperation) => void
+  onOperationComplete?: (operation: LocalFileOperation, result: LocalFileResult) => void
 }): Promise<LocalFileResult[]> {
   const root = await resolveProjectRoot(args.cwd, args.store)
   return runQueued(root, async () => {
     const results: LocalFileResult[] = []
     let resultBytes = 0
     for (const operation of args.request.operations) {
+      args.onOperationStart?.(operation)
       const result = await executeOperation(root, operation, args.store)
+      args.onOperationComplete?.(operation, result)
       resultBytes += Buffer.byteLength(JSON.stringify(result))
       if (resultBytes > MAX_RESULT_BYTES) {
         results.push({ id: operation.id, ok: false, error: 'local file results are too large' })

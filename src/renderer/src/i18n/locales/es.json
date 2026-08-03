@@ -740,6 +740,20 @@
       }
     },
     "components": {
+      "HermesTeamChatActivity": {
+        "running": "Trabajando · {{value0}} pasos",
+        "failed": "Finalizado · {{value0}} fallidos",
+        "completed": "Completado · {{value0}} pasos"
+      },
+      "HermesTeamChatView": {
+        "model": "Modelo",
+        "effort": "Nivel de razonamiento",
+        "newConversation": "Nueva conversación",
+        "startConversation": "Iniciar una conversación con {{value0}}",
+        "emptyHint": "Escribe un mensaje o selecciona un archivo del proyecto.",
+        "removeAttachment": "Quitar {{value0}}",
+        "placeholder": "Escribe un mensaje…"
+      },
       "CodexRestartChip": {
         "c72a5fb234": "Reiniciar",
         "9263e75f49": "Codex está usando la cuenta anterior.",
@@ -2823,6 +2837,7 @@
             "b1a132357f": "Nueva pestaña",
             "4f327c8b3d": "Abrir Markdown...",
             "3d5d6c960d": "Nuevo Markdown",
+            "f38b7d9c2a": "Nuevo chat de Hermes: {{value0}}",
             "fd2b42aaa3": "Nuevo emulador móvil",
             "aea43b5748": "Abrir la pestaña del emulador existente.",
             "b426bb2615": "Ir al emulador móvil",

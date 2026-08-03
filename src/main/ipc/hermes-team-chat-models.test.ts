@@ -30,17 +30,17 @@ describe('team chat model catalog', () => {
 
 describe('team chat remote commands', () => {
   it('routes Fable through Claude with the profile persona and effort', () => {
-    expect(
-      buildTeamChatRemoteCommand({
-        requestId: 'request-1',
-        profile: 'hr',
-        modelId: 'fable',
-        effort: 'high',
-        mailToken: 'safe-token'
-      })
-    ).toContain(
+    const command = buildTeamChatRemoteCommand({
+      requestId: 'request-1',
+      profile: 'hr',
+      modelId: 'fable',
+      effort: 'high',
+      mailToken: 'safe-token'
+    })
+    expect(command).toContain(
       'MAILTOKEN=safe-token claude -p --model fable --effort high --permission-mode bypassPermissions'
     )
+    expect(command).toContain('--output-format stream-json --verbose')
     expect(
       buildTeamChatRemoteCommand({
         requestId: 'request-1',
@@ -74,7 +74,7 @@ describe('team chat remote commands', () => {
     const cancel = buildTeamChatCancelRemoteCommand('request-3')
 
     expect(run).toContain('setsid sh -c')
-    expect(run).toContain('timeout --signal=TERM --kill-after=5s 180s')
+    expect(run).toContain('timeout --signal=TERM --kill-after=5s 1800s')
     expect(run).toContain('/tmp/samwoo-team-chat-request-3.pid')
     expect(cancel).toContain('pkill -TERM -s')
     expect(cancel).toContain('pkill -KILL -s')

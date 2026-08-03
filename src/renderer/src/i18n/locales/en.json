@@ -763,6 +763,20 @@
       }
     },
     "components": {
+      "HermesTeamChatActivity": {
+        "running": "Working · {{value0}} steps",
+        "failed": "Finished · {{value0}} failed",
+        "completed": "Completed · {{value0}} steps"
+      },
+      "HermesTeamChatView": {
+        "model": "Model",
+        "effort": "Effort",
+        "newConversation": "New conversation",
+        "startConversation": "Start a conversation with {{value0}}",
+        "emptyHint": "Enter a message or select a project file.",
+        "removeAttachment": "Remove {{value0}}",
+        "placeholder": "Enter a message…"
+      },
       "CodexRestartChip": {
         "a4c8e1b2f7": "Codex is still signed in as {{value0}}",
         "c72a5fb234": "Restart",
@@ -2846,6 +2860,7 @@
             "b1a132357f": "New tab",
             "4f327c8b3d": "Open Markdown...",
             "3d5d6c960d": "New Markdown",
+            "f38b7d9c2a": "New Hermes Chat: {{value0}}",
             "fd2b42aaa3": "New Mobile Emulator",
             "aea43b5748": "Open the existing emulator tab.",
             "b426bb2615": "Go to Mobile Emulator",

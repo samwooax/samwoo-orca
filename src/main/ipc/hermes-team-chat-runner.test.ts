@@ -2,15 +2,24 @@ import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runTeamChatMessage } from './hermes-team-chat-runner'
 
-const { executeLocalFileRequestMock, getTeamChatDeviceContextMock, spawnMock } = vi.hoisted(() => ({
+const {
+  executeLocalFileRequestMock,
+  getTeamChatDeviceContextMock,
+  runHermesAcpProcessMock,
+  spawnMock
+} = vi.hoisted(() => ({
   executeLocalFileRequestMock: vi.fn(),
   getTeamChatDeviceContextMock: vi.fn(),
+  runHermesAcpProcessMock: vi.fn(),
   spawnMock: vi.fn()
 }))
 
 vi.mock('node:child_process', () => ({ spawn: spawnMock }))
 vi.mock('./hermes-local-project-files', () => ({
   executeLocalFileRequest: executeLocalFileRequestMock
+}))
+vi.mock('./hermes-team-chat-acp-client', () => ({
+  runHermesAcpProcess: runHermesAcpProcessMock
 }))
 vi.mock('./hermes-team-chat-device-context', () => ({
   getTeamChatDeviceContext: getTeamChatDeviceContextMock,
@@ -49,14 +58,18 @@ beforeEach(() => {
     laptopUser: 'employee',
     projectSelected: true
   })
+  runHermesAcpProcessMock.mockReset()
 })
 
 describe('runTeamChatMessage local file bridge', () => {
   it('executes a structured request locally and returns the follow-up answer', async () => {
     const toolRequest =
       '<orca_local_files>{"version":1,"operations":[{"id":"read-1","kind":"read","path":"src/a.ts"}]}</orca_local_files>'
-    const processes = [fakeProcess(toolRequest), fakeProcess('수정을 완료했습니다.')]
+    const processes = [fakeProcess(''), fakeProcess('')]
     spawnMock.mockImplementation(() => processes.shift())
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: toolRequest })
+      .mockResolvedValueOnce({ ok: true, reply: '수정을 완료했습니다.' })
     executeLocalFileRequestMock.mockResolvedValue([
       {
         id: 'read-1',
@@ -90,9 +103,12 @@ describe('runTeamChatMessage local file bridge', () => {
   it('sends local results through the outbound request without exposing an inbound IP', async () => {
     const toolRequest =
       '<orca_local_files>{"version":1,"operations":[{"id":"list-1","kind":"list","path":"."}]}</orca_local_files>'
-    const first = fakeProcess(toolRequest)
-    const second = fakeProcess('완료')
+    const first = fakeProcess('')
+    const second = fakeProcess('')
     spawnMock.mockImplementationOnce(() => first).mockImplementationOnce(() => second)
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: toolRequest })
+      .mockResolvedValueOnce({ ok: true, reply: '완료' })
     executeLocalFileRequestMock.mockResolvedValue([{ id: 'list-1', ok: true, entries: [] }])
 
     await runTeamChatMessage({
@@ -107,8 +123,8 @@ describe('runTeamChatMessage local file bridge', () => {
       store: {} as never
     })
 
-    const firstMessage = String(first.stdin.write.mock.calls[0]?.[0])
-    const secondMessage = String(second.stdin.write.mock.calls[0]?.[0])
+    const firstMessage = String(runHermesAcpProcessMock.mock.calls[0]?.[0].message)
+    const secondMessage = String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)
     expect(firstMessage).toContain('노트북에 SSH하지 말고')
     expect(firstMessage).not.toContain('tailscaleIpv4')
     expect(secondMessage).toContain('<orca_local_file_results>')
@@ -116,7 +132,11 @@ describe('runTeamChatMessage local file bridge', () => {
   })
 
   it('treats ordinary text as a final answer and never executes it', async () => {
-    spawnMock.mockReturnValue(fakeProcess('파일을 수정했다고 설명하는 일반 답변'))
+    spawnMock.mockReturnValue(fakeProcess(''))
+    runHermesAcpProcessMock.mockResolvedValue({
+      ok: true,
+      reply: '파일을 수정했다고 설명하는 일반 답변'
+    })
 
     const result = await runTeamChatMessage({
       requestId: 'request-3',

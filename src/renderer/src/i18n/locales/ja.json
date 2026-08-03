@@ -740,6 +740,20 @@
       }
     },
     "components": {
+      "HermesTeamChatActivity": {
+        "running": "作業中 · {{value0}}ステップ",
+        "failed": "作業終了 · {{value0}}件失敗",
+        "completed": "作業完了 · {{value0}}ステップ"
+      },
+      "HermesTeamChatView": {
+        "model": "モデル",
+        "effort": "推論レベル",
+        "newConversation": "新しい会話",
+        "startConversation": "{{value0}}との会話を開始",
+        "emptyHint": "メッセージを入力するか、プロジェクトファイルを選択してください。",
+        "removeAttachment": "{{value0}}を削除",
+        "placeholder": "メッセージを入力…"
+      },
       "CodexRestartChip": {
         "c72a5fb234": "再起動",
         "9263e75f49": "Codex は前のアカウントを使用しています",
@@ -2823,6 +2837,7 @@
             "b1a132357f": "新規タブ",
             "4f327c8b3d": "Markdown を開く...",
             "3d5d6c960d": "新規 Markdown",
+            "f38b7d9c2a": "新しい Hermes チャット: {{value0}}",
             "fd2b42aaa3": "新規モバイルエミュレータ",
             "aea43b5748": "既存のエミュレータタブを開きます。",
             "b426bb2615": "モバイルエミュレータに移動",

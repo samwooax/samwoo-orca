@@ -13,6 +13,7 @@ const appStoreSnapshot: {
 }
 const pinTabMock: (tabId: string) => void = vi.fn()
 const unpinTabMock: (tabId: string) => void = vi.fn()
+const hermesChatMocks = vi.hoisted(() => ({ launch: vi.fn() }))
 
 const useAppStoreMock = vi.fn(
   (
@@ -172,6 +173,10 @@ vi.mock('./shell-icons', () => ({
 
 vi.mock('@/lib/focus-terminal-tab-surface', () => ({
   focusTerminalTabSurface: vi.fn()
+}))
+
+vi.mock('@/lib/hermes-chat-launch', () => ({
+  launchHermesProfileChat: hermesChatMocks.launch
 }))
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
@@ -478,6 +483,30 @@ describe('TabBar context menu wiring', () => {
     expect(menuLabels[1]).toContain('Open Markdown...')
     expect(menuLabels[2]).toContain('New Terminal')
     expect(menuLabels[3]).toContain('New Browser Tab')
+  })
+
+  it('opens another Hermes chat with the signed-in employee profile', async () => {
+    const { useSamwooAuthStore } = await import('@/lib/samwoo-auth-store')
+    useSamwooAuthStore.setState({
+      auth: {
+        login: 'dhoon21',
+        name: '김동훈',
+        role: 'ai_center',
+        label: 'AI 센터'
+      }
+    })
+
+    const element = await renderTabBar({ tabs: [TERMINAL_TAB] })
+    const hermesItem = findChildrenByType(element, 'DropdownMenuItem').find((item) =>
+      extractText(item.props.children).includes('New Hermes Chat: AI 센터')
+    )
+
+    expect(hermesItem).toBeTruthy()
+    if (!hermesItem) {
+      throw new Error('Hermes chat menu item not rendered')
+    }
+    ;(hermesItem.props.onSelect as () => void)()
+    expect(hermesChatMocks.launch).toHaveBeenCalledWith('wt-1', 'ai_center')
   })
 
   it('turns New Mobile Emulator into a go-to action when the workspace already has one', async () => {

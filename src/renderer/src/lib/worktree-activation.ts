@@ -66,13 +66,9 @@ import { initialAgentTabViewModeProps } from './native-chat-initial-view-mode'
 import { getConnectionId } from '@/lib/connection-context'
 import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { seedNativeChatAppliedSessionOptions } from '@/components/native-chat/native-chat-session-option-cache'
-import {
-  DEFAULT_HERMES_DASHBOARD_HOST,
-  DEFAULT_HERMES_LAUNCH_COMMAND,
-  hermesProfileLabel,
-  requestStartAgentPicker
-} from '@/lib/start-agent-picker-store'
+import { requestStartAgentPicker } from '@/lib/start-agent-picker-store'
 import { getSamwooAuth } from '@/lib/samwoo-auth-store'
+import { launchHermesProfileChat } from '@/lib/hermes-chat-launch'
 import { resolveNativeChatSessionOptionDefaults } from '../../../shared/native-chat-session-option-defaults'
 import type { SessionOptionValue } from '../../../shared/native-chat-session-options'
 
@@ -286,7 +282,7 @@ export type StartAgentPickerChoice =
 function offerOrAutoLaunch(workspaceKey: string): void {
   const role = getSamwooAuth()?.role
   if (role) {
-    void launchHermesProfile(workspaceKey, role)
+    void launchHermesProfileChat(workspaceKey, role)
     return
   }
   requestStartAgentPicker(workspaceKey)
@@ -322,7 +318,7 @@ function maybeAutoLaunchChat(workspaceKey: string): boolean {
     state.setActiveBrowserTab(existingChat.id)
     return true
   }
-  void launchHermesProfile(workspaceKey, role)
+  void launchHermesProfileChat(workspaceKey, role)
   return true
 }
 
@@ -336,13 +332,16 @@ export function launchStartAgentPickerChoice(
   // Why: Hermes opens as a web chat (SSH-tunneled dashboard) so it looks like a
   // real chat surface, not a terminal TUI. Async, with a TUI fallback.
   if (choice.kind === 'hermes') {
-    void launchHermesProfile(workspaceKey, choice.profile)
+    void launchHermesProfileChat(workspaceKey, choice.profile)
     return
   }
   let startup: WorktreeStartupPayload | undefined
   let launchAgent: TuiAgent | undefined
   if (choice.kind === 'claude') {
-    startup = buildAgentActivationStartup(state.getKnownWorktreeById(workspaceKey) ?? null, 'claude')
+    startup = buildAgentActivationStartup(
+      state.getKnownWorktreeById(workspaceKey) ?? null,
+      'claude'
+    )
     launchAgent = 'claude'
   }
   // Why: create + deliver directly instead of ensureWorktreeHasInitialTerminal.
@@ -374,78 +373,13 @@ export function launchStartAgentPickerChoice(
   }
 }
 
-/** SAMWOO-ORCA: open a Hermes profile's web chat in a browser tab via an SSH
- *  tunnel to the remote dashboard's loopback port (auth-free on loopback). On
- *  any tunnel failure, fall back to the terminal TUI so the profile is still
- *  reachable. */
-/** SAMWOO-ORCA: the local folder path behind a workspace, so the team-bot can
- *  operate on the opened project directly (no "which laptop / which folder"
- *  round-trip). Worktree ids are `${repoId}::${path}`; folder workspaces carry
- *  `folderPath`. */
-function resolveWorkspaceCwd(workspaceKey: string): string {
-  const idx = workspaceKey.indexOf('::')
-  if (idx >= 0) {
-    return workspaceKey.slice(idx + 2)
-  }
-  const state = useAppStore.getState()
-  const fw = state.folderWorkspaces?.find((f) => f.id === workspaceKey)
-  return fw?.folderPath ?? ''
-}
-
-async function launchHermesProfile(workspaceKey: string, profile: string): Promise<void> {
-  const state = useAppStore.getState()
-  const useWeb = state.settings?.hermesUseWebChat !== false
-  if (useWeb) {
-    const host = state.settings?.hermesDashboardHost?.trim() || DEFAULT_HERMES_DASHBOARD_HOST
-    try {
-      // Why: Orca's own loopback chat page (bubbles + composer, zero terminal
-      // chrome) relays each message to the remote profile over SSH. Served at
-      // /chat so BrowserPane's toolbar-hiding rule makes it read as a chat pane.
-      const result = await window.api.preflight.ensureHermesChatServer()
-      if (result.ok && result.port && result.token) {
-        // Why: pass the app's explicit theme so the chat page matches Orca even
-        // when it differs from the OS scheme; 'system' falls back to the
-        // page's prefers-color-scheme media query.
-        const appTheme = state.settings?.theme
-        const cwd = resolveWorkspaceCwd(workspaceKey)
-        const mailToken = getSamwooAuth()?.token
-        const params = new URLSearchParams({
-          profile,
-          label: hermesProfileLabel(profile),
-          host,
-          t: result.token,
-          ...(cwd ? { cwd } : {}),
-          ...(mailToken ? { mailtoken: mailToken } : {}),
-          ...(appTheme === 'light' || appTheme === 'dark' ? { theme: appTheme } : {})
-        })
-        const url = `http://127.0.0.1:${result.port}/chat?${params.toString()}`
-        useAppStore
-          .getState()
-          .createBrowserTab(workspaceKey, url, { title: hermesProfileLabel(profile) })
-        return
-      }
-    } catch {
-      // fall through to the TUI
-    }
-  }
-  // Terminal TUI fallback (or when web chat is disabled).
-  const template = state.settings?.hermesLaunchCommand?.trim() || DEFAULT_HERMES_LAUNCH_COMMAND
-  const startupState = useAppStore.getState()
-  const tab = startupState.createTab(workspaceKey, undefined, undefined, {
-    pendingActivationSpawn: true,
-    recordInteraction: false
-  })
-  startupState.setActiveTab(tab.id)
-  startupState.queueTabStartupCommand(tab.id, {
-    command: template.replaceAll('{profile}', profile)
-  })
-}
-
 /** SAMWOO-ORCA: when Settings > Experimental enables native chat plus
  *  chat-by-default, plain project activations seed a Claude agent tab (which
  *  opens in the chat view) instead of an idle shell terminal. Pass null for
  *  folder workspaces, which have no backing repo. */
-function buildDefaultChatAgentStartup(worktree: Worktree | null): WorktreeStartupPayload | undefined {
+function buildDefaultChatAgentStartup(
+  worktree: Worktree | null
+): WorktreeStartupPayload | undefined {
   const settings = useAppStore.getState().settings
   if (
     settings?.experimentalNativeChat !== true ||

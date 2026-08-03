@@ -55,6 +55,8 @@ jobs:
           pnpm exec vitest run --config config/vitest.config.ts `
             src/main/ipc/register-core-handlers.test.ts `
             src/main/ipc/hermes-team-chat-runner.test.ts `
+            src/main/ipc/hermes-team-chat-acp-client.test.ts `
+            src/main/ipc/hermes-team-chat-claude-stream.test.ts `
             src/main/ipc/hermes-local-project-files.test.ts `
             src/main/ipc/hermes-team-chat-device-context.test.ts `
             src/main/ipc/hermes-team-chat-models.test.ts `
