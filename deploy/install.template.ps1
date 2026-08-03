@@ -64,6 +64,72 @@ function Test-IsAdministrator {
     [Security.Principal.WindowsBuiltInRole]::Administrator
   )
 }
+function Get-AdminPhaseRequirements {
+  $tailscaleExe = Join-Path $env:ProgramFiles "Tailscale\tailscale.exe"
+  if (-not (Test-Path $tailscaleExe)) {
+    Write-Output "Tailscale 설치"
+  } else {
+    try {
+      $profileText = (& $tailscaleExe switch --list 2>$null | Out-String)
+      $activeProfile = @($profileText -split "\r?\n") |
+        Where-Object { $_.TrimEnd().EndsWith("*") } |
+        Select-Object -First 1
+      if ($activeProfile -notmatch [regex]::Escape($TS_TAILNET)) {
+        Write-Output "SAMWOO 테일넷 연결"
+      }
+      $tailscaleIp = (& $tailscaleExe ip -4 2>$null | Select-Object -First 1)
+      if (-not $tailscaleIp) {
+        Write-Output "테일넷 IP 할당"
+      }
+    } catch {
+      Write-Output "Tailscale 연결 상태 확인"
+    }
+  }
+
+  $sshExe = Join-Path $env:WINDIR "System32\OpenSSH\ssh.exe"
+  if (-not (Test-Path $sshExe)) {
+    Write-Output "OpenSSH 클라이언트 설치"
+  }
+
+  $sshdService = Get-Service sshd -ErrorAction SilentlyContinue
+  if ($sshdService -and $sshdService.Status -ne "Stopped") {
+    Write-Output "OpenSSH 서버 중지"
+  }
+  if ($sshdService) {
+    try {
+      $sshdConfig = Get-CimInstance Win32_Service -Filter "Name='sshd'" -ErrorAction Stop
+      if ($sshdConfig.StartMode -ne "Disabled") {
+        Write-Output "OpenSSH 서버 자동 시작 차단"
+      }
+    } catch {
+      Write-Output "OpenSSH 서버 시작 상태 확인"
+    }
+  }
+
+  try {
+    $sshFirewallRule = Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" `
+      -ErrorAction SilentlyContinue
+    if (@($sshFirewallRule | Where-Object { $_.Enabled -eq "True" }).Count -gt 0) {
+      Write-Output "OpenSSH 인바운드 방화벽 차단"
+    }
+  } catch {
+    Write-Output "OpenSSH 방화벽 상태 확인"
+  }
+
+  $adminKeys = Join-Path $env:ProgramData "ssh\administrators_authorized_keys"
+  if (Test-Path $adminKeys) {
+    try {
+      $serverKeys = @(Get-Content $adminKeys -ErrorAction Stop | Where-Object {
+        $_ -match "hermes-agent-to-laptop|hermes-ai-center@tailnet"
+      })
+      if ($serverKeys.Count -gt 0) {
+        Write-Output "서버의 노트북 접근 키 제거"
+      }
+    } catch {
+      Write-Output "SSH 관리자 키 상태 확인"
+    }
+  }
+}
 
 if (-not $AdminPhase) {
   if (Test-IsAdministrator) {
@@ -271,26 +337,32 @@ if (-not $AdminPhase) {
 
   Show-Summary
   $userPhaseFailed = @($results.Values | Where-Object { $_ -ne "OK" }).Count -gt 0
-  Step "Tailscale와 보안 연결 구성을 위한 관리자 권한 요청..."
   $adminPhaseFailed = $false
-  try {
-    $adminProcess = Start-Process powershell -Verb RunAs -PassThru -ArgumentList @(
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      "`"$($MyInvocation.MyCommand.Path)`"",
-      "-AdminPhase"
-    )
-    $adminProcess.WaitForExit()
-    if ($adminProcess.ExitCode -ne 0) {
+  $adminRequirements = @(Get-AdminPhaseRequirements | Select-Object -Unique)
+  if ($adminRequirements.Count -eq 0) {
+    Step "기존 보안 연결 구성이 정상입니다. 관리자 권한 요청을 생략합니다."
+    Ok "보안 연결 구성"
+  } else {
+    Step "관리자 권한이 필요한 항목: $($adminRequirements -join ', ')"
+    try {
+      $adminProcess = Start-Process powershell -Verb RunAs -PassThru -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "`"$($MyInvocation.MyCommand.Path)`"",
+        "-AdminPhase"
+      )
+      $adminProcess.WaitForExit()
+      if ($adminProcess.ExitCode -ne 0) {
+        $adminPhaseFailed = $true
+        throw "관리자 설치 단계 종료 코드: $($adminProcess.ExitCode)"
+      }
+    } catch {
       $adminPhaseFailed = $true
-      throw "관리자 설치 단계 종료 코드: $($adminProcess.ExitCode)"
+      Fail "관리자 설치 단계" $_
+      Show-Summary
     }
-  } catch {
-    $adminPhaseFailed = $true
-    Fail "관리자 설치 단계" $_
-    Show-Summary
   }
   try { Stop-Transcript | Out-Null } catch {}
   if ($userPhaseFailed -or $adminPhaseFailed) {

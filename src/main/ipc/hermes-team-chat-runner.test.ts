@@ -87,6 +87,7 @@ describe('runTeamChatMessage local file bridge', () => {
       modelId: 'gpt-5.5',
       effort: 'medium',
       message: 'src/a.ts를 확인해줘',
+      imageAttachments: [],
       history: [],
       cwd: 'C:\\selected',
       store: {} as never
@@ -118,6 +119,7 @@ describe('runTeamChatMessage local file bridge', () => {
       modelId: 'gpt-5.5',
       effort: 'medium',
       message: '파일 목록',
+      imageAttachments: [],
       history: [],
       cwd: 'C:\\selected',
       store: {} as never
@@ -145,6 +147,7 @@ describe('runTeamChatMessage local file bridge', () => {
       modelId: 'gpt-5.5',
       effort: 'medium',
       message: '설명해줘',
+      imageAttachments: [],
       history: [],
       cwd: 'C:\\selected',
       store: {} as never
