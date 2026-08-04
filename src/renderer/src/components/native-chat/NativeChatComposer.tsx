@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../store'
 import { sendRuntimePtyInput } from '@/runtime/runtime-terminal-inspection'
 import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
@@ -41,7 +41,7 @@ import type {
   NativeChatComposerHandle,
   NativeChatComposerProps
 } from './native-chat-composer-types'
-import { buildNativeChatFileReferenceInsertion } from './native-chat-file-reference'
+import { useNativeChatComposerHandle } from './use-native-chat-composer-handle'
 
 export type {
   NativeChatComposerHandle,
@@ -53,6 +53,7 @@ export type {
 // inference (agent-interrupt-intent.ts) is driven by the existing PTY input
 // observers, so writing ESC through the same send path feeds that machinery.
 const ESC = '\x1b'
+const ACTIVE_DICTATION_STATES = new Set(['starting', 'listening', 'stopping'])
 
 /**
  * Rich native input for the chat view. Sends prompts into the running agent
@@ -113,11 +114,7 @@ export const NativeChatComposer = forwardRef<NativeChatComposerHandle, NativeCha
     const voiceSettings = useAppStore((store) => store.settings?.voice)
     const isDictationHoldMode = voiceSettings?.dictationMode === 'hold'
     const dictationDisabled = voiceSettings?.enabled !== true || !voiceSettings.sttModel
-    const isDictating =
-      dictationPressed ||
-      dictationState === 'starting' ||
-      dictationState === 'listening' ||
-      dictationState === 'stopping'
+    const isDictating = dictationPressed || ACTIVE_DICTATION_STATES.has(dictationState)
 
     // Place the caret at the end of the (possibly restored) draft when the
     // composer is reused for a different pane. Adjusted during render (matching
@@ -188,24 +185,6 @@ export const NativeChatComposer = forwardRef<NativeChatComposerHandle, NativeCha
       setHistory,
       setActiveSuggestion
     })
-    const insertFileReference = useCallback(
-      (relativePath: string): boolean => {
-        const textarea = textareaRef.current
-        if (!textarea || textarea.disabled) {
-          return false
-        }
-        return insertTypedText(
-          buildNativeChatFileReferenceInsertion({
-            draft,
-            selectionStart: textarea.selectionStart ?? caret,
-            selectionEnd: textarea.selectionEnd ?? textarea.selectionStart ?? caret,
-            relativePath
-          })
-        )
-      },
-      [caret, draft, insertTypedText]
-    )
-
     const { attachExternalPaths, resolveAttachmentOwner } = useNativeChatExternalAttachments({
       terminalTabId,
       disabled,
@@ -224,17 +203,16 @@ export const NativeChatComposer = forwardRef<NativeChatComposerHandle, NativeCha
       setNotice
     })
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        focus,
-        insertTypedText,
-        insertFileReference,
-        handlePasteEvent: handlePaste,
-        pasteFromClipboard
-      }),
-      [focus, insertTypedText, insertFileReference, handlePaste, pasteFromClipboard]
-    )
+    useNativeChatComposerHandle({
+      forwardedRef: ref,
+      textareaRef,
+      draft,
+      caret,
+      focus,
+      insertTypedText,
+      handlePasteEvent: handlePaste,
+      pasteFromClipboard
+    })
 
     const { pickAttachment } = useNativeChatFileAttachmentActions(attachExternalPaths)
     const { toggleDictation, startHoldDictation, stopHoldDictation } =

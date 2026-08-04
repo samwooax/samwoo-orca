@@ -32,12 +32,12 @@ describe('release channel', () => {
   // exposes only 10 entries, so 24 hourly tags a day would evict every stable/RC
   // entry and leave real users with nothing to update to.
   it('keeps dev builds out of the main release repo, and apart from each other', () => {
-    expect(getReleaseRepoForChannel('hourly')).toBe('stablyai/orca-hourly')
+    expect(getReleaseRepoForChannel('hourly')).toBe('samwooax/orca-hourly')
     // Why adhoc gets a third repo rather than sharing hourly's: an unlanded
     // branch build must never surface to someone who only meant to ride main.
-    expect(getReleaseRepoForChannel('adhoc')).toBe('stablyai/orca-adhoc')
-    expect(getReleaseRepoForChannel('stable')).toBe('stablyai/orca')
-    expect(getReleaseRepoForChannel('rc')).toBe('stablyai/orca')
+    expect(getReleaseRepoForChannel('adhoc')).toBe('samwooax/orca-adhoc')
+    expect(getReleaseRepoForChannel('stable')).toBe('samwooax/samwoo-orca')
+    expect(getReleaseRepoForChannel('rc')).toBe('samwooax/samwoo-orca')
   })
 
   it('marks exactly the dev channels as having their own repo', () => {
@@ -51,18 +51,20 @@ describe('release channel', () => {
   // in the hourly repo.
   it('builds release-notes links against the repo that published the version', () => {
     expect(getReleaseNotesUrlForVersion('1.4.160-hourly.202607281400')).toBe(
-      'https://github.com/stablyai/orca-hourly/releases/tag/v1.4.160-hourly.202607281400'
+      'https://github.com/samwooax/orca-hourly/releases/tag/v1.4.160-hourly.202607281400'
     )
     expect(getReleaseNotesUrlForVersion('1.4.160')).toBe(
-      'https://github.com/stablyai/orca/releases/tag/v1.4.160'
+      'https://github.com/samwooax/samwoo-orca/releases/tag/v1.4.160'
     )
     expect(getReleaseNotesUrlForVersion('v1.4.160-rc.3')).toBe(
-      'https://github.com/stablyai/orca/releases/tag/v1.4.160-rc.3'
+      'https://github.com/samwooax/samwoo-orca/releases/tag/v1.4.160-rc.3'
     )
     expect(getReleaseNotesUrlForVersion('1.4.160-adhoc.20260728140533')).toBe(
-      'https://github.com/stablyai/orca-adhoc/releases/tag/v1.4.160-adhoc.20260728140533'
+      'https://github.com/samwooax/orca-adhoc/releases/tag/v1.4.160-adhoc.20260728140533'
     )
-    expect(getReleaseNotesUrlForVersion(null)).toBe('https://github.com/stablyai/orca/releases')
+    expect(getReleaseNotesUrlForVersion(null)).toBe(
+      'https://github.com/samwooax/samwoo-orca/releases'
+    )
   })
 
   it('round-trips an hourly version stamp as UTC', () => {
@@ -168,7 +170,7 @@ describe('release channel', () => {
       channel: 'hourly',
       name: null,
       publishedAt: null,
-      releaseUrl: `https://github.com/stablyai/orca-hourly/releases/tag/v${version}`
+      releaseUrl: `https://github.com/samwooax/orca-hourly/releases/tag/v${version}`
     })
     const sorted = sortReleaseBuildsNewestFirst([
       build('1.4.160-hourly.202607280900'),
@@ -205,7 +207,7 @@ describe('release channel', () => {
       channel: 'adhoc',
       name: null,
       publishedAt: null,
-      releaseUrl: `https://github.com/stablyai/orca-adhoc/releases/tag/v${version}`
+      releaseUrl: `https://github.com/samwooax/orca-adhoc/releases/tag/v${version}`
     })
     const sorted = sortReleaseBuildsNewestFirst([
       build('1.4.160-adhoc.20260728140502'),

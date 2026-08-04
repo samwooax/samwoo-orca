@@ -48,12 +48,10 @@ import {
   useNativeChatContextMenu
 } from './use-native-chat-context-menu'
 import type { NativeChatContextMenuActions } from './use-native-chat-context-menu'
-import { resolveNativeChatFileLinkContext } from './native-chat-file-link'
 import { selectNativeChatRuntimeEnvironmentId } from './native-chat-runtime-owner'
 import { useNativeChatPasteBridge } from './use-native-chat-paste-bridge'
-import { useNativeChatFileLinkClick } from './use-native-chat-file-link-click'
+import { useChatFileInteractions } from './use-native-chat-file-interactions'
 import type { NativeChatViewProps } from './native-chat-view-types'
-import { useNativeChatFileReference } from './use-native-chat-file-reference'
 
 export type { NativeChatViewProps } from './native-chat-view-types'
 
@@ -172,13 +170,9 @@ function NativeChatResolvedView({
   const [questionActive, setQuestionActive] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<NativeChatComposerHandle>(null)
-  useNativeChatFileReference(terminalTabId, composerRef)
   // The question card's free-text row; keeps Paste working while the card
   // replaces the composer.
   const questionAnswerInputRef = useRef<HTMLInputElement>(null)
-  const fileLinkContext = useAppStore(
-    useShallow((s) => resolveNativeChatFileLinkContext(s, terminalTabId))
-  )
   const pasteClipboardIntoComposer = useNativeChatPasteBridge({
     rootRef,
     composerRef,
@@ -364,7 +358,7 @@ function NativeChatResolvedView({
     setPending(writePendingSendCache(pendingScope, []))
     interactiveSend.cancel()
   }, [interactiveSend, pendingScope])
-  const nativeChatFileLinkClick = useNativeChatFileLinkClick(fileLinkContext)
+  const fileInteractions = useChatFileInteractions(terminalTabId, composerRef)
 
   // Chat-only font zoom via Cmd/Ctrl +/-/0, gated to the live conversation so
   // the chord is inert on the loading/empty/error states and elsewhere.
@@ -420,8 +414,8 @@ function NativeChatResolvedView({
             isWorking={isWorking}
             expandSignal={false}
             fontScale={fontScale.scale}
-            onLinkClick={nativeChatFileLinkClick}
-            allowFileUriLinks={fileLinkContext !== null}
+            onLinkClick={fileInteractions.onLinkClick}
+            allowFileUriLinks={fileInteractions.allowFileUriLinks}
             failedDeliveryMessageIds={failedLaunchPromptMessageIds}
           />
         )}

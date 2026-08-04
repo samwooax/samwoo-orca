@@ -1,8 +1,8 @@
 {
   "name": "orca",
-  "version": "1.4.168",
+  "version": "1.4.169",
   "description": "Next-gen IDE for parallel agentic development",
-  "homepage": "https://github.com/stablyai/orca",
+  "homepage": "https://github.com/samwooax/samwoo-orca",
   "author": "stablyai",
   "bin": {
     "orca": "./out/cli/index.js",

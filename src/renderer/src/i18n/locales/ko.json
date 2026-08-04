@@ -14648,5 +14648,19 @@
         "unknown": "Restart Orca to try again."
       }
     }
+  },
+  "samwoo": {
+    "login": {
+      "invalidCredentials": "아이디 또는 비밀번호가 올바르지 않습니다.",
+      "failed": "로그인 실패: {{error}}",
+      "unknownError": "알 수 없는 오류",
+      "connectionError": "연결 오류: {{error}}",
+      "logoAlt": "삼우",
+      "description": "그룹웨어 계정으로 로그인하세요",
+      "usernamePlaceholder": "아이디 또는 이메일",
+      "passwordPlaceholder": "비밀번호",
+      "checking": "확인 중…",
+      "submit": "로그인"
+    }
   }
 }

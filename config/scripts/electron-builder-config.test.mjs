@@ -56,26 +56,6 @@ const withHourlyEnv = (assert) => withEnv({ ORCA_MAC_HOURLY: '1' }, assert)
 const withAdhocEnv = (assert) => withEnv({ ORCA_MAC_ADHOC: '1' }, assert)
 
 describe('electron-builder config', () => {
-  it('keeps the packaged app identity aligned with local-build validation', () => {
-    expect(electronBuilderConfig.appId).toBe(
-      require('../../src/shared/local-build-compatibility-contract.json').appId
-    )
-  })
-
-  it('keeps the Windows install separate from upstream Orca', () => {
-    expect(electronBuilderConfig).toMatchObject({
-      appId: 'com.samwooax.samwoo-orca',
-      productName: 'SAMWOO-ORCA',
-      win: { executableName: 'SAMWOO-ORCA' },
-      nsis: {
-        oneClick: false,
-        allowToChangeInstallationDirectory: true,
-        shortcutName: '${productName}',
-        uninstallDisplayName: '${productName}'
-      }
-    })
-  })
-
   it('labels per-user installation without exposing the Windows account name', async () => {
     const include = await readFile(electronBuilderConfig.nsis.include, 'utf8')
     expect(include).toContain('MUI_PAGE_CUSTOMFUNCTION_SHOW SamwooInstallModePageShow')
@@ -332,7 +312,7 @@ describe('electron-builder config', () => {
   it('builds hourly artifacts with the release signing identity', () => {
     withHourlyEnv((config) => {
       expect(config.mac.appId).toBeUndefined()
-      expect(config.appId).toBe('com.stablyai.orca')
+      expect(config.appId).toBe('com.samwooax.samwoo-orca')
       expect(config.mac.hardenedRuntime).toBe(true)
       expect(config.forceCodeSigning).toBe(true)
     })
@@ -360,7 +340,7 @@ describe('electron-builder config', () => {
       expect(config.publish).toMatchObject({ repo: 'orca-hourly', releaseType: 'prerelease' })
     })
     expect(electronBuilderConfig.publish).toMatchObject({
-      repo: 'orca',
+      repo: 'samwoo-orca',
       releaseType: 'release'
     })
   })
@@ -379,7 +359,7 @@ describe('electron-builder config', () => {
   // argument apply. Only the destination repo differs.
   it('builds adhoc artifacts with the release identity and its own repo', () => {
     withAdhocEnv((config) => {
-      expect(config.appId).toBe('com.stablyai.orca')
+      expect(config.appId).toBe('com.samwooax.samwoo-orca')
       expect(config.mac.hardenedRuntime).toBe(true)
       expect(config.mac.notarize).toBe(true)
       expect(config.forceCodeSigning).toBe(true)

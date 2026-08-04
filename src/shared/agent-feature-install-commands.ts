@@ -56,9 +56,7 @@ export function buildAgentFeatureSkillInstallArgs(
   ]
 }
 
-export function buildAgentFeatureSkillInstallCommand(
-  skillNames: readonly string[]
-): string {
+export function buildAgentFeatureSkillInstallCommand(skillNames: readonly string[]): string {
   if (skillNames.length === 0) {
     throw new Error('At least one skill name is required.')
   }

@@ -15,7 +15,7 @@ posted to Slack. GitHub Issues remain the durable notification and review log.
    Hermes team-chat changes.
 3. Update `.samwoo/upstream-release.json` to the integrated tag in that branch.
 4. Run the full SAMWOO validation suite and review the pull request.
-5. After merge, bump the stable package version and manually run
+5. After merge, bump the SAMWOO stable package version above the integrated upstream version and manually run
    `Prepare SAMWOO-ORCA Windows release`.
 6. Test the signed installer from the draft release. Publish the draft only
    after administrator approval.

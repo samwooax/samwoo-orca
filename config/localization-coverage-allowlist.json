@@ -68,5 +68,40 @@
     "text": "ghostty",
     "dynamic": false,
     "count": 1
+  },
+  {
+    "filePath": "src/renderer/src/web/web-preload-api.ts",
+    "kind": "object-property:error",
+    "text": "Hermes profile listing is unavailable in the web client",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "src/renderer/src/web/web-preload-api.ts",
+    "kind": "object-property:error",
+    "text": "Hermes dashboard tunnel is unavailable in the web client",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "src/renderer/src/web/web-preload-api.ts",
+    "kind": "object-property:error",
+    "text": "Hermes chat server is unavailable in the web client",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "src/renderer/src/web/web-preload-api.ts",
+    "kind": "object-property:error",
+    "text": "Hermes team chat is unavailable in the web client",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "src/renderer/src/web/web-preload-api.ts",
+    "kind": "object-property:error",
+    "text": "Login is unavailable in the web client",
+    "dynamic": false,
+    "count": 1
   }
 ]

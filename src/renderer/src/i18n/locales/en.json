@@ -5857,6 +5857,14 @@
             "modeAriaLabel": "Agent Dashboard open mode",
             "modeInWindow": "In-window",
             "modePopout": "Pop-out"
+          },
+          "startAgentPicker": {
+            "title": "Start agent picker",
+            "description": "Choose Claude, a Hermes profile, or a plain terminal whenever a project opens with no tabs.",
+            "copy": "Ask which agent to start (Claude, a Hermes profile, or a plain terminal) when opening a project that has no tabs. Overrides the automatic Claude chat launch.",
+            "toggleLabel": "Toggle start agent picker",
+            "listCommandTitle": "Hermes profile list command",
+            "launchCommandTitle": "Hermes launch command ({profile} is replaced)"
           }
         },
         "FloatingWorkspacePane": {
@@ -14514,6 +14522,15 @@
         "pendingChip": "{{value0}} pending",
         "needsActionChip": "{{value0}} action required",
         "unresolvedChip": "{{value0}} unresolved"
+      },
+      "StartAgentPickerDialog": {
+        "title": "Start with which agent?",
+        "description": "Pick the agent for this project’s first tab.",
+        "claude": "Claude Code (chat)",
+        "loading": "Loading Hermes profiles…",
+        "error": "Hermes profiles unavailable:",
+        "empty": "No Hermes profiles found.",
+        "terminal": "Plain terminal"
       }
     },
     "i18n": {
@@ -14825,6 +14842,20 @@
       "unassignedInstruction": "Assign a dictation shortcut before starting voice dictation in a focused pane.",
       "settingsInstruction": "Change the model, dictation mode, or shortcut anytime in",
       "settingsLink": "Settings → Voice"
+    }
+  },
+  "samwoo": {
+    "login": {
+      "invalidCredentials": "The username or password is incorrect.",
+      "failed": "Login failed: {{error}}",
+      "unknownError": "Unknown error",
+      "connectionError": "Connection error: {{error}}",
+      "logoAlt": "SAMWOO",
+      "description": "Sign in with your groupware account",
+      "usernamePlaceholder": "Username or email",
+      "passwordPlaceholder": "Password",
+      "checking": "Checking…",
+      "submit": "Sign in"
     }
   }
 }

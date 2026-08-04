@@ -302,7 +302,7 @@ module.exports = {
     ]
   },
   nsis: {
-    artifactName: 'orca-windows-setup.${ext}',
+    artifactName: 'samwoo-orca-windows-setup.${ext}',
     shortcutName: '${productName}',
     uninstallDisplayName: '${productName}',
     createDesktopShortcut: 'always',
@@ -490,8 +490,8 @@ module.exports = {
   publish: {
     provider: 'github',
     owner: 'samwooax',
-    repo: 'samwoo-orca',
-    releaseType: 'release'
+    repo: devChannelRepo ?? 'samwoo-orca',
+    releaseType: devChannelRepo ? 'prerelease' : 'release'
   }
 }
 

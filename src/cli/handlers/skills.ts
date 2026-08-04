@@ -21,47 +21,8 @@ import {
   buildAgentFeatureSkillUpdateArgs
 } from '../../shared/agent-feature-install-commands'
 import { installBundledSkillGuides } from '../bundled-skill-installer'
-
-type BundledSkillGuide = {
-  name: string
-  description: string
-  markdown: string
-  fullMarkdown: string
-  aliases: readonly string[]
-}
-
-function canonicalGuides(guides: readonly BundledSkillGuide[]): BundledSkillGuide[] {
-  return [...guides].sort((left, right) =>
-    left.name < right.name ? -1 : left.name > right.name ? 1 : 0
-  )
-}
-
-function requireTopic(
-  flags: Map<string, string | boolean>,
-  guides: BundledSkillGuide[]
-): BundledSkillGuide {
-  const availableTopics = guides.map((guide) => guide.name).join(', ')
-  const topic = flags.get('topic')
-  if (typeof topic !== 'string' || topic.length === 0) {
-    throw new RuntimeClientError(
-      'invalid_argument',
-      `Missing skill topic. Available topics: ${availableTopics}`
-    )
-  }
-  // Why: installed stubs may retain an old topic forever, so aliases and canonical
-  // names share one lookup table instead of being treated as transient CLI aliases.
-  const guideByTopic = new Map<string, BundledSkillGuide>(
-    guides.flatMap((guide) => [guide.name, ...guide.aliases].map((name) => [name, guide]))
-  )
-  const guide = guideByTopic.get(topic)
-  if (!guide) {
-    throw new RuntimeClientError(
-      'invalid_argument',
-      `Unknown skill topic "${topic}". Available topics: ${availableTopics}`
-    )
-  }
-  return guide
-}
+import { canonicalGuides, requireTopic, requireTopics } from '../bundled-skill-selection'
+import type { BundledSkillGuide } from '../bundled-skill-selection'
 
 function writeStdout(value: string): void {
   process.stdout.write(value.endsWith('\n') ? value : `${value}\n`)
@@ -328,38 +289,6 @@ function createSkillMutationHandler(verb: SkillMutationVerb): CommandHandler {
     process.stderr.write(`Running: ${command}\n`)
     process.exitCode = await runNpxSkills(npxArgs)
   }
-}
-
-function requireTopics(
-  flags: Map<string, string | boolean>,
-  guides: BundledSkillGuide[]
-): BundledSkillGuide[] {
-  const rawTopics = flags.get('topics')
-  if (typeof rawTopics !== 'string' || rawTopics.trim().length === 0) {
-    throw new RuntimeClientError(
-      'invalid_argument',
-      'Flag --topics requires a comma-separated value.'
-    )
-  }
-  const guideByTopic = new Map<string, BundledSkillGuide>(
-    guides.flatMap((guide) => [guide.name, ...guide.aliases].map((name) => [name, guide]))
-  )
-  const selected = rawTopics.split(',').map((topic) => topic.trim())
-  const unknown = selected.filter((topic) => !guideByTopic.has(topic))
-  if (unknown.length > 0) {
-    throw new RuntimeClientError(
-      'invalid_argument',
-      `Unknown skill topic "${unknown[0]}". Available topics: ${guides.map((guide) => guide.name).join(', ')}`
-    )
-  }
-  return [
-    ...new Map(
-      selected.map((topic) => {
-        const guide = guideByTopic.get(topic) as BundledSkillGuide
-        return [guide.name, guide]
-      })
-    ).values()
-  ]
 }
 
 export const SKILL_HANDLERS: Record<string, CommandHandler> = {

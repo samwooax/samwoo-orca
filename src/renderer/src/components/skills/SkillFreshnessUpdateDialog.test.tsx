@@ -502,9 +502,7 @@ describe('SkillFreshnessUpdateDialog', () => {
     await renderDialog()
     await openViaRequest()
 
-    expect(container?.textContent).toContain(
-      'orca skills install --topics orchestration'
-    )
+    expect(container?.textContent).toContain('orca skills install --topics orchestration')
   })
 
   it('keeps the stale-record remedy when a project copy is listed beside it', async () => {
@@ -533,9 +531,7 @@ describe('SkillFreshnessUpdateDialog', () => {
     await openViaRequest()
 
     const row = container?.querySelector('[data-skill-row="orchestration"]')
-    expect(row?.textContent).toContain(
-      'orca skills install --topics orchestration'
-    )
+    expect(row?.textContent).toContain('orca skills install --topics orchestration')
     expect(row?.textContent).not.toContain('This is a project skill, not a global one')
     // Still listed, though — ownership silences the explanation, never the location.
     expect(row?.textContent).toContain('/home/projects/work/.agents/skills/orchestration')

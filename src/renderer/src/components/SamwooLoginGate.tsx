@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { resolveSamwooLoginProfile } from '@/lib/samwoo-login-profile'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useAppStore } from '@/store'
+import { translate } from '@/i18n/i18n'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import logo from '../../../../resources/logo.svg'
 
 /** SAMWOO-ORCA: full-screen login shown at startup until the employee signs in
@@ -39,8 +42,10 @@ export default function SamwooLoginGate(): React.JSX.Element | null {
       if (!result.ok) {
         setError(
           result.error === 'invalid credentials'
-            ? '아이디 또는 비밀번호가 올바르지 않습니다.'
-            : `로그인 실패: ${result.error ?? '알 수 없는 오류'}`
+            ? translate('samwoo.login.invalidCredentials', 'The username or password is incorrect.')
+            : translate('samwoo.login.failed', 'Login failed: {{error}}', {
+                error: result.error ?? translate('samwoo.login.unknownError', 'Unknown error')
+              })
         )
         return
       }
@@ -52,7 +57,11 @@ export default function SamwooLoginGate(): React.JSX.Element | null {
         token: result.token
       })
     } catch (err) {
-      setError(`연결 오류: ${String(err)}`)
+      setError(
+        translate('samwoo.login.connectionError', 'Connection error: {{error}}', {
+          error: String(err)
+        })
+      )
     } finally {
       setBusy(false)
       setPassword('')
@@ -60,95 +69,41 @@ export default function SamwooLoginGate(): React.JSX.Element | null {
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--background, #0e0e12)',
-        color: 'var(--foreground, #ececf1)'
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background text-foreground">
       <form
         onSubmit={submit}
-        style={{
-          width: 340,
-          maxWidth: '90vw',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 14,
-          padding: 28,
-          borderRadius: 16,
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.10)'
-        }}
+        className="mx-4 flex w-full max-w-sm flex-col gap-3.5 rounded-xl border border-border bg-card p-7 shadow-xs"
       >
         <img
           src={logo}
-          alt="SAMWOO"
-          style={{
-            height: 20,
-            width: 'auto',
-            maxWidth: '70%',
-            objectFit: 'contain',
-            alignSelf: 'center',
-            display: 'block',
-            marginBottom: 2,
-            filter: isDark ? 'none' : 'invert(1)'
-          }}
+          alt={translate('samwoo.login.logoAlt', 'SAMWOO')}
+          className="mb-0.5 block h-5 w-auto max-w-64 self-center object-contain"
+          style={{ filter: isDark ? 'none' : 'invert(1)' }}
         />
-        <div style={{ textAlign: 'center', fontSize: 13, opacity: 0.7, marginBottom: 4 }}>
-          그룹웨어 계정으로 로그인하세요
+        <div className="mb-1 text-center text-sm text-muted-foreground">
+          {translate('samwoo.login.description', 'Sign in with your groupware account')}
         </div>
-        <input
+        <Input
           autoFocus
           value={login}
           onChange={(e) => setLogin(e.target.value)}
-          placeholder="아이디 또는 이메일"
+          placeholder={translate('samwoo.login.usernamePlaceholder', 'Username or email')}
           autoComplete="username"
-          style={inputStyle}
         />
-        <input
+        <Input
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="비밀번호"
+          placeholder={translate('samwoo.login.passwordPlaceholder', 'Password')}
           type="password"
           autoComplete="current-password"
-          style={inputStyle}
         />
-        {error ? <div style={{ color: '#fca5a5', fontSize: 12.5 }}>{error}</div> : null}
-        <button
-          type="submit"
-          disabled={busy || !login.trim() || !password}
-          style={{
-            marginTop: 4,
-            padding: '10px 14px',
-            borderRadius: 10,
-            border: 0,
-            background: busy ? '#3b5bbf' : '#2563eb',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: 14,
-            cursor: busy ? 'default' : 'pointer',
-            opacity: !login.trim() || !password ? 0.5 : 1
-          }}
-        >
-          {busy ? '확인 중…' : '로그인'}
-        </button>
+        {error ? <div className="text-sm text-destructive">{error}</div> : null}
+        <Button type="submit" disabled={busy || !login.trim() || !password} className="mt-1">
+          {busy
+            ? translate('samwoo.login.checking', 'Checking…')
+            : translate('samwoo.login.submit', 'Sign in')}
+        </Button>
       </form>
     </div>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid rgba(255,255,255,0.14)',
-  background: 'rgba(0,0,0,0.25)',
-  color: 'inherit',
-  fontSize: 14,
-  outline: 'none'
 }
