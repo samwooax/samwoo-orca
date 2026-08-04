@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process'
 import type { Store } from '../persistence'
 import {
   buildTeamChatAcpRemoteCommand,
-  buildTeamChatCancelRemoteCommand,
   buildTeamChatRemoteCommand,
   formatTeamChatMessage,
   resolveTeamChatModel,
@@ -15,7 +14,11 @@ import {
   formatTeamChatDeviceContext,
   getTeamChatDeviceContext
 } from './hermes-team-chat-device-context'
-import { runHermesAcpProcess } from './hermes-team-chat-acp-client'
+import { HermesAcpSession } from './hermes-team-chat-acp-client'
+import {
+  HermesTeamChatSessionRegistry,
+  type TeamChatSessionHandle
+} from './hermes-team-chat-session-registry'
 import { runClaudeStreamProcess } from './hermes-team-chat-claude-stream'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
 import type { TeamChatImageAttachment } from '../../shared/hermes-team-chat-attachments'
@@ -28,8 +31,9 @@ import {
   executeLocalProjectToolReply,
   LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT
 } from './hermes-local-project-tool-loop'
+import { stopRemoteTeamChat, teamChatSshArgs } from './hermes-team-chat-ssh-process'
 
-const CANCEL_TIMEOUT_MS = 15_000
+const ACP_CANCEL_GRACE_MS = 5_000
 const MAX_LOCAL_TOOL_ROUNDS = 8
 
 type TeamChatResult = { ok: boolean; reply?: string; error?: string }
@@ -38,63 +42,15 @@ type InFlightController = {
   proc: RunningProcess | null
   stage: 'transfer' | 'agent' | null
   cancelledReason: 'cancelled' | 'timeout' | null
+  cancelAgent: (() => Promise<boolean>) | null
+  hardStopTimer: ReturnType<typeof setTimeout> | null
   stop: (reason: 'cancelled' | 'timeout') => Promise<boolean>
 }
 
 const inFlight = new Map<string, InFlightController>()
+const hermesSessions = new HermesTeamChatSessionRegistry()
 
-const SSH_MUX_ARGS =
-  process.platform === 'win32'
-    ? []
-    : [
-        '-o',
-        'ControlMaster=auto',
-        '-o',
-        'ControlPath=/tmp/.samwoo-orca-ssh-%r@%h-%p',
-        '-o',
-        'ControlPersist=10m'
-      ]
-
-function sshArgs(host: string, remote: string): string[] {
-  return [
-    '-o',
-    'StrictHostKeyChecking=accept-new',
-    '-o',
-    'BatchMode=yes',
-    ...SSH_MUX_ARGS,
-    host,
-    remote
-  ]
-}
-
-function stopRemoteTeamChat(host: string, requestId: string): Promise<boolean> {
-  return new Promise((resolveStop) => {
-    const proc = spawn('ssh', sshArgs(host, buildTeamChatCancelRemoteCommand(requestId)), {
-      stdio: ['ignore', 'pipe', 'ignore']
-    })
-    let output = ''
-    let settled = false
-    const finish = (stopped: boolean): void => {
-      if (settled) {
-        return
-      }
-      settled = true
-      clearTimeout(timer)
-      resolveStop(stopped)
-    }
-    const timer = setTimeout(() => {
-      proc.kill()
-      finish(false)
-    }, CANCEL_TIMEOUT_MS)
-    proc.stdout.on('data', (data: Buffer) => {
-      output += data.toString()
-    })
-    proc.on('error', () => finish(false))
-    proc.on('close', (code) => finish(code === 0 && output.trim() === 'stopped'))
-  })
-}
-
-async function runRemoteTeamChat(args: {
+async function runOneShotRemoteTeamChat(args: {
   requestId: string
   host: string
   profile: string
@@ -105,30 +61,8 @@ async function runRemoteTeamChat(args: {
   controller: InFlightController
   onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<TeamChatResult> {
-  if (resolveTeamChatModel(args.modelId).provider === 'hermes') {
-    const remote = buildTeamChatAcpRemoteCommand(args)
-    const proc = spawn('ssh', sshArgs(args.host, remote), {
-      stdio: ['pipe', 'pipe', 'pipe']
-    })
-    args.controller.proc = proc
-    args.controller.stage = 'agent'
-    const result = await runHermesAcpProcess({
-      proc,
-      requestId: args.requestId,
-      profile: args.profile,
-      modelId: args.modelId,
-      message: args.message,
-      onProgress: args.onProgress
-    })
-    if (args.controller.proc === proc) {
-      args.controller.proc = null
-      args.controller.stage = null
-    }
-    return result
-  }
-
   const remote = buildTeamChatRemoteCommand(args)
-  const proc = spawn('ssh', sshArgs(args.host, remote), {
+  const proc = spawn('ssh', teamChatSshArgs(args.host, remote), {
     stdio: ['pipe', 'pipe', 'pipe']
   })
   args.controller.proc = proc
@@ -158,6 +92,7 @@ function cancellationResult(reason: InFlightController['cancelledReason']): Team
 
 export async function runTeamChatMessage(args: {
   requestId: string
+  conversationId: string
   host: string
   profile: string
   modelId: TeamChatModelId
@@ -174,6 +109,8 @@ export async function runTeamChatMessage(args: {
     proc: null,
     stage: null,
     cancelledReason: null,
+    cancelAgent: null,
+    hardStopTimer: null,
     stop: async (reason) => {
       if (controller.cancelledReason) {
         return false
@@ -183,6 +120,13 @@ export async function runTeamChatMessage(args: {
         controller.cancelledReason = reason
         activeProcess.kill()
         return true
+      }
+      if (controller.cancelAgent) {
+        const stopped = await controller.cancelAgent()
+        if (stopped) {
+          controller.cancelledReason = reason
+        }
+        return stopped
       }
       if (activeProcess && !(await stopRemoteTeamChat(args.host, args.requestId))) {
         return false
@@ -196,18 +140,58 @@ export async function runTeamChatMessage(args: {
   const timer = setTimeout(() => {
     void controller.stop('timeout')
   }, TEAM_CHAT_MESSAGE_TIMEOUT_MS)
+  let sessionHandle: TeamChatSessionHandle | null = null
 
   try {
     const remoteImages = await uploadTeamChatClipboardImages({
       requestId: args.requestId,
       attachments: args.imageAttachments,
-      sshArgs: (remoteCommand) => sshArgs(args.host, remoteCommand),
+      sshArgs: (remoteCommand) => teamChatSshArgs(args.host, remoteCommand),
       onProcess: (process) => {
         controller.proc = process
         controller.stage = process ? 'transfer' : null
       }
     })
     const deviceContext = await getTeamChatDeviceContext(args.cwd)
+    const isHermes = resolveTeamChatModel(args.modelId).provider === 'hermes'
+    if (isHermes) {
+      const configurationKey = `${args.host}\0${args.profile}\0${args.mailToken ?? ''}`
+      sessionHandle = await hermesSessions.acquire({
+        conversationId: args.conversationId,
+        configurationKey,
+        requestId: args.requestId,
+        create: () => {
+          const remote = buildTeamChatAcpRemoteCommand({
+            requestId: args.conversationId,
+            profile: args.profile,
+            mailToken: args.mailToken
+          })
+          const proc = spawn('ssh', teamChatSshArgs(args.host, remote), {
+            stdio: ['pipe', 'pipe', 'pipe']
+          })
+          return {
+            client: new HermesAcpSession(proc, args.profile),
+            dispose: async () => {
+              await stopRemoteTeamChat(args.host, args.conversationId)
+              proc.kill()
+            }
+          }
+        }
+      })
+      const activeSession = sessionHandle
+      controller.stage = 'agent'
+      controller.cancelAgent = async () => {
+        if (!activeSession.client.cancel()) {
+          await activeSession.invalidate()
+          return true
+        }
+        controller.hardStopTimer = setTimeout(() => {
+          void activeSession.invalidate()
+        }, ACP_CANCEL_GRACE_MS)
+        controller.hardStopTimer.unref?.()
+        return true
+      }
+    }
     let conversationMessage = appendRemoteImageInstructions(args.message, remoteImages)
     for (let round = 0; round < MAX_LOCAL_TOOL_ROUNDS; round += 1) {
       const cancelled = cancellationResult(controller.cancelledReason)
@@ -215,21 +199,31 @@ export async function runTeamChatMessage(args: {
         return cancelled
       }
       const fullMessage = formatTeamChatMessage({
-        contextLine: `${formatTeamChatDeviceContext(deviceContext)}${LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT}\n`,
-        history: args.history,
+        contextLine:
+          round === 0
+            ? `${formatTeamChatDeviceContext(deviceContext)}${LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT}\n`
+            : undefined,
+        history: round === 0 && (!sessionHandle || sessionHandle.created) ? args.history : [],
         message: conversationMessage
       })
-      const result = await runRemoteTeamChat({
-        requestId: args.requestId,
-        host: args.host,
-        profile: args.profile,
-        modelId: args.modelId,
-        effort: args.effort,
-        mailToken: args.mailToken,
-        message: fullMessage,
-        controller,
-        onProgress: args.onProgress
-      })
+      const result = sessionHandle
+        ? await sessionHandle.client.prompt({
+            requestId: args.requestId,
+            modelId: args.modelId,
+            message: fullMessage,
+            onProgress: args.onProgress
+          })
+        : await runOneShotRemoteTeamChat({
+            requestId: args.requestId,
+            host: args.host,
+            profile: args.profile,
+            modelId: args.modelId,
+            effort: args.effort,
+            mailToken: args.mailToken,
+            message: fullMessage,
+            controller,
+            onProgress: args.onProgress
+          })
       const stopped = cancellationResult(controller.cancelledReason)
       if (stopped) {
         return stopped
@@ -248,10 +242,8 @@ export async function runTeamChatMessage(args: {
         return result
       }
       conversationMessage = [
-        conversationMessage,
-        `에이전트 로컬 프로젝트 도구 요청:\n${result.reply}`,
         `Orca 로컬 프로젝트 도구 결과:\n${toolReply}`,
-        '위 결과를 사용해 계속 진행하세요. 추가 작업이 필요하면 해당 로컬 도구 형식만 출력하고, 완료됐으면 사용자에게 최종 답변하세요.'
+        '위 결과를 사용하세요. 추가 작업이 필요하면 해당 로컬 도구 형식만 출력하세요. 사용자 판단이 필요하면 질문한 뒤 이번 턴을 종료하고, 완료됐으면 최종 답변하세요.'
       ].join('\n\n')
     }
     return { ok: false, error: 'local project tool request limit exceeded' }
@@ -262,9 +254,19 @@ export async function runTeamChatMessage(args: {
     }
   } finally {
     clearTimeout(timer)
+    if (controller.hardStopTimer) {
+      clearTimeout(controller.hardStopTimer)
+    }
+    controller.cancelAgent = null
+    controller.stage = null
+    if (sessionHandle?.client.isClosed) {
+      await sessionHandle.invalidate()
+    } else {
+      sessionHandle?.release()
+    }
     if (args.imageAttachments.length > 0) {
       await cleanupTeamChatClipboardImages(args.requestId, (remoteCommand) =>
-        sshArgs(args.host, remoteCommand)
+        teamChatSshArgs(args.host, remoteCommand)
       ).catch(() => {})
     }
     inFlight.delete(args.requestId)
@@ -273,4 +275,12 @@ export async function runTeamChatMessage(args: {
 
 export async function cancelTeamChatMessage(requestId: string): Promise<boolean> {
   return (await inFlight.get(requestId)?.stop('cancelled')) ?? false
+}
+
+export async function closeTeamChatConversation(conversationId: string): Promise<boolean> {
+  return hermesSessions.close(conversationId)
+}
+
+export async function closeAllTeamChatConversations(): Promise<void> {
+  await hermesSessions.closeAll()
 }

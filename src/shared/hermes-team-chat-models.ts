@@ -49,6 +49,7 @@ const MAX_HISTORY_MESSAGES = 24
 const MAX_HISTORY_CHARS = 48_000
 export const TEAM_CHAT_MESSAGE_TIMEOUT_MS = 30 * 60_000
 const REMOTE_MESSAGE_TIMEOUT_SECONDS = TEAM_CHAT_MESSAGE_TIMEOUT_MS / 1000
+const REMOTE_ACP_SESSION_TIMEOUT_SECONDS = 12 * 60 * 60
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\"'\"'")}'`
@@ -58,14 +59,18 @@ function teamChatRunFile(requestId: string): string {
   return `/tmp/samwoo-team-chat-${requestId}.pid`
 }
 
-function wrapTeamChatSession(requestId: string, agentCommand: string): string {
+function wrapTeamChatSession(
+  requestId: string,
+  agentCommand: string,
+  timeoutSeconds = REMOTE_MESSAGE_TIMEOUT_SECONDS
+): string {
   const runFile = teamChatRunFile(requestId)
   const sessionScript = [
     `run_file=${shellQuote(runFile)}`,
     'cleanup() { rm -f "$run_file"; }',
     'trap cleanup EXIT',
     'printf "%s\\n" "$$" > "$run_file"',
-    `timeout --signal=TERM --kill-after=5s ${REMOTE_MESSAGE_TIMEOUT_SECONDS}s ${agentCommand}`
+    `timeout --signal=TERM --kill-after=5s ${timeoutSeconds}s ${agentCommand}`
   ].join('; ')
   return `setsid sh -c ${shellQuote(sessionScript)}`
 }
@@ -164,7 +169,8 @@ export function buildTeamChatAcpRemoteCommand(args: {
   const mailEnv = args.mailToken ? `MAILTOKEN=${args.mailToken} ` : ''
   const command =
     `sh -lc 'cd ${profileHome} && ${mailEnv}HERMES_HOME=${profileHome} ` + `hermes acp'`
-  return wrapTeamChatSession(args.requestId, command)
+  // Why: ACP survives individual prompts; the local idle timer normally closes it, while this cap cleans up orphaned remote sessions.
+  return wrapTeamChatSession(args.requestId, command, REMOTE_ACP_SESSION_TIMEOUT_SECONDS)
 }
 
 export function buildTeamChatCancelRemoteCommand(requestId: string): string {

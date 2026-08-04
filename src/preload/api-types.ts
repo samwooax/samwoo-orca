@@ -747,6 +747,7 @@ export type PreflightApi = {
   }>
   sendHermesTeamChat: (args: {
     requestId: string
+    conversationId: string
     profile: string
     host: string
     cwd?: string
@@ -758,6 +759,9 @@ export type PreflightApi = {
     attachments: TeamChatAttachment[]
   }) => Promise<{ ok: boolean; reply?: string; error?: string }>
   cancelHermesTeamChat: (requestId: string) => Promise<{ ok: boolean; cancelled: boolean }>
+  closeHermesTeamChatConversation: (
+    conversationId: string
+  ) => Promise<{ ok: boolean; closed: boolean }>
   onHermesTeamChatProgress: (callback: (event: TeamChatProgressEvent) => void) => () => void
   /** SAMWOO-ORCA: verify a groupware login and return the mapped team-bot role. */
   samwooLogin: (args: { login: string; password: string; authUrl?: string }) => Promise<{

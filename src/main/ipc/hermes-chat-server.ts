@@ -10,7 +10,12 @@ import {
   resolveTeamChatEffort,
   resolveTeamChatModel
 } from './hermes-team-chat-models'
-import { cancelTeamChatMessage, runTeamChatMessage } from './hermes-team-chat-runner'
+import {
+  cancelTeamChatMessage,
+  closeAllTeamChatConversations,
+  closeTeamChatConversation,
+  runTeamChatMessage
+} from './hermes-team-chat-runner'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
 import type { TeamChatAttachment } from '../../shared/hermes-team-chat-attachments'
 
@@ -141,6 +146,8 @@ async function handleTeamChatRequest(
 ): Promise<TeamChatResult> {
   const profile = typeof parsed.profile === 'string' ? parsed.profile : ''
   const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : ''
+  const conversationId =
+    typeof parsed.conversationId === 'string' ? parsed.conversationId : requestId
   const host =
     typeof parsed.host === 'string' && parsed.host.trim()
       ? parsed.host.trim()
@@ -151,6 +158,7 @@ async function handleTeamChatRequest(
   if (
     !NAME_RE.test(profile) ||
     !NAME_RE.test(requestId) ||
+    !NAME_RE.test(conversationId) ||
     !HOST_RE.test(host) ||
     (!message.trim() && !attachments.length)
   ) {
@@ -164,6 +172,7 @@ async function handleTeamChatRequest(
       : undefined
   return runTeamChatMessage({
     requestId,
+    conversationId,
     host,
     profile,
     modelId: model.id,
@@ -192,6 +201,22 @@ async function handleCancel(req: IncomingMessage, res: ServerResponse): Promise<
   }
 }
 
+async function handleCloseConversation(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    const parsed = JSON.parse(await readRequestBody(req)) as { conversationId?: unknown }
+    const conversationId = typeof parsed.conversationId === 'string' ? parsed.conversationId : ''
+    const closed = NAME_RE.test(conversationId)
+      ? await closeTeamChatConversation(conversationId)
+      : false
+    writeJson(res, 200, { ok: true, closed })
+  } catch (error) {
+    writeJson(res, 400, {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
+}
+
 function ensureServer(
   store: Store
 ): Promise<{ ok: boolean; port?: number; token?: string; error?: string }> {
@@ -212,12 +237,19 @@ function ensureServer(
           .end(getHermesTeamChatPage(token))
         return
       }
-      if (req.method === 'POST' && ['/api/send', '/api/cancel'].includes(url.pathname)) {
+      if (
+        req.method === 'POST' &&
+        ['/api/send', '/api/cancel', '/api/close'].includes(url.pathname)
+      ) {
         if (req.headers['x-orca-token'] !== token) {
           res.writeHead(403).end()
           return
         }
-        void (url.pathname === '/api/send' ? handleSend(req, res, store) : handleCancel(req, res))
+        void (url.pathname === '/api/send'
+          ? handleSend(req, res, store)
+          : url.pathname === '/api/cancel'
+            ? handleCancel(req, res)
+            : handleCloseConversation(req, res))
         return
       }
       res.writeHead(404).end()
@@ -263,6 +295,16 @@ export function registerHermesChatServerHandlers(store: Store): void {
         ? await cancelTeamChatMessage(requestId)
         : false
     return { ok: true, cancelled }
+  })
+  ipcMain.handle('hermes:closeTeamChatConversation', async (_event, conversationId: unknown) => {
+    const closed =
+      typeof conversationId === 'string' && NAME_RE.test(conversationId)
+        ? await closeTeamChatConversation(conversationId)
+        : false
+    return { ok: true, closed }
+  })
+  app.once('will-quit', () => {
+    void closeAllTeamChatConversations()
   })
   // Why: restored chat tabs load before profile launch can start the server lazily.
   void ensureServer(store)

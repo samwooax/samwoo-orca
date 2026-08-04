@@ -2834,6 +2834,7 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
       error: 'Hermes team chat is unavailable in the web client'
     }),
     cancelHermesTeamChat: async () => ({ ok: true, cancelled: false }),
+    closeHermesTeamChatConversation: async () => ({ ok: true, closed: false }),
     onHermesTeamChatProgress: () => () => {},
     samwooLogin: async () => ({
       ok: false,

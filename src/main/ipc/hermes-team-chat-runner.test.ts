@@ -6,12 +6,14 @@ const {
   executeLocalFileRequestMock,
   executeLocalCommandRequestMock,
   getTeamChatDeviceContextMock,
+  hermesAcpSessionMock,
   runHermesAcpProcessMock,
   spawnMock
 } = vi.hoisted(() => ({
   executeLocalFileRequestMock: vi.fn(),
   executeLocalCommandRequestMock: vi.fn(),
   getTeamChatDeviceContextMock: vi.fn(),
+  hermesAcpSessionMock: vi.fn(),
   runHermesAcpProcessMock: vi.fn(),
   spawnMock: vi.fn()
 }))
@@ -24,7 +26,7 @@ vi.mock('./hermes-local-project-commands', () => ({
   executeLocalCommandRequest: executeLocalCommandRequestMock
 }))
 vi.mock('./hermes-team-chat-acp-client', () => ({
-  runHermesAcpProcess: runHermesAcpProcessMock
+  HermesAcpSession: hermesAcpSessionMock
 }))
 vi.mock('./hermes-team-chat-device-context', () => ({
   getTeamChatDeviceContext: getTeamChatDeviceContextMock,
@@ -65,13 +67,21 @@ beforeEach(() => {
     projectSelected: true
   })
   runHermesAcpProcessMock.mockReset()
+  hermesAcpSessionMock.mockReset().mockImplementation(function () {
+    return {
+      prompt: runHermesAcpProcessMock,
+      cancel: vi.fn(() => true),
+      close: vi.fn(),
+      isClosed: false
+    }
+  })
 })
 
 describe('runTeamChatMessage local file bridge', () => {
   it('executes a structured request locally and returns the follow-up answer', async () => {
     const toolRequest =
       '<orca_local_files>{"version":1,"operations":[{"id":"read-1","kind":"read","path":"src/a.ts"}]}</orca_local_files>'
-    const processes = [fakeProcess(''), fakeProcess('')]
+    const processes = [fakeProcess('')]
     spawnMock.mockImplementation(() => processes.shift())
     runHermesAcpProcessMock
       .mockResolvedValueOnce({ ok: true, reply: toolRequest })
@@ -88,6 +98,7 @@ describe('runTeamChatMessage local file bridge', () => {
 
     const result = await runTeamChatMessage({
       requestId: 'request-1',
+      conversationId: 'conversation-1',
       host: 'hermes@100.68.242.83',
       profile: 'hr',
       modelId: 'gpt-5.5',
@@ -100,7 +111,7 @@ describe('runTeamChatMessage local file bridge', () => {
     })
 
     expect(result).toEqual({ ok: true, reply: '수정을 완료했습니다.' })
-    expect(spawnMock).toHaveBeenCalledTimes(2)
+    expect(spawnMock).toHaveBeenCalledTimes(1)
     expect(executeLocalFileRequestMock).toHaveBeenCalledWith(
       expect.objectContaining({ cwd: 'C:\\selected' })
     )
@@ -120,6 +131,7 @@ describe('runTeamChatMessage local file bridge', () => {
 
     await runTeamChatMessage({
       requestId: 'request-2',
+      conversationId: 'conversation-2',
       host: 'hermes@100.68.242.83',
       profile: 'hr',
       modelId: 'gpt-5.5',
@@ -148,6 +160,7 @@ describe('runTeamChatMessage local file bridge', () => {
 
     const result = await runTeamChatMessage({
       requestId: 'request-3',
+      conversationId: 'conversation-3',
       host: 'hermes@100.68.242.83',
       profile: 'hr',
       modelId: 'gpt-5.5',
@@ -186,6 +199,7 @@ describe('runTeamChatMessage local file bridge', () => {
 
     const result = await runTeamChatMessage({
       requestId: 'request-4',
+      conversationId: 'conversation-4',
       host: 'hermes@100.68.242.83',
       profile: 'hr',
       modelId: 'gpt-5.5',
@@ -207,6 +221,43 @@ describe('runTeamChatMessage local file bridge', () => {
     expect(String(runHermesAcpProcessMock.mock.calls[0]?.[0].message)).toContain('[로컬명령도구]')
     expect(String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)).toContain(
       '<orca_local_command_results>'
+    )
+  })
+
+  it('reuses the tab session and only rehydrates history when it is first created', async () => {
+    spawnMock.mockReturnValue(fakeProcess(''))
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: '첫 응답' })
+      .mockResolvedValueOnce({ ok: true, reply: '두 번째 응답' })
+    const base = {
+      conversationId: 'conversation-5',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5' as const,
+      effort: 'medium' as const,
+      imageAttachments: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    }
+
+    await runTeamChatMessage({
+      ...base,
+      requestId: 'request-5a',
+      message: '첫 질문',
+      history: [{ role: 'assistant', content: '복구할 과거 대화' }]
+    })
+    await runTeamChatMessage({
+      ...base,
+      requestId: 'request-5b',
+      message: '두 번째 질문',
+      history: [{ role: 'assistant', content: '이미 세션에 있는 대화' }]
+    })
+
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(hermesAcpSessionMock).toHaveBeenCalledTimes(1)
+    expect(String(runHermesAcpProcessMock.mock.calls[0]?.[0].message)).toContain('복구할 과거 대화')
+    expect(String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)).not.toContain(
+      '이미 세션에 있는 대화'
     )
   })
 })
