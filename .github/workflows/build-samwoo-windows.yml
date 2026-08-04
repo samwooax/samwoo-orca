@@ -47,6 +47,7 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             throw "Release v$version already exists. Bump package.json before rebuilding."
           }
+          exit 0
         env:
           GH_TOKEN: ${{ github.token }}
 
