@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { runTeamChatMessage } from './hermes-team-chat-runner'
+import { closeTeamChatConversation, runTeamChatMessage } from './hermes-team-chat-runner'
 
 const {
   executeLocalFileRequestMock,
@@ -8,14 +8,16 @@ const {
   getTeamChatDeviceContextMock,
   hermesAcpSessionMock,
   runHermesAcpProcessMock,
-  spawnMock
+  spawnMock,
+  stopRemoteTeamChatMock
 } = vi.hoisted(() => ({
   executeLocalFileRequestMock: vi.fn(),
   executeLocalCommandRequestMock: vi.fn(),
   getTeamChatDeviceContextMock: vi.fn(),
   hermesAcpSessionMock: vi.fn(),
   runHermesAcpProcessMock: vi.fn(),
-  spawnMock: vi.fn()
+  spawnMock: vi.fn(),
+  stopRemoteTeamChatMock: vi.fn()
 }))
 
 vi.mock('node:child_process', () => ({ spawn: spawnMock }))
@@ -27,6 +29,10 @@ vi.mock('./hermes-local-project-commands', () => ({
 }))
 vi.mock('./hermes-team-chat-acp-client', () => ({
   HermesAcpSession: hermesAcpSessionMock
+}))
+vi.mock('./hermes-team-chat-ssh-process', () => ({
+  stopRemoteTeamChat: stopRemoteTeamChatMock,
+  teamChatSshArgs: (host: string, remote: string) => [host, remote]
 }))
 vi.mock('./hermes-team-chat-device-context', () => ({
   getTeamChatDeviceContext: getTeamChatDeviceContextMock,
@@ -67,6 +73,7 @@ beforeEach(() => {
     projectSelected: true
   })
   runHermesAcpProcessMock.mockReset()
+  stopRemoteTeamChatMock.mockReset().mockResolvedValue(true)
   hermesAcpSessionMock.mockReset().mockImplementation(function () {
     return {
       prompt: runHermesAcpProcessMock,
@@ -259,5 +266,62 @@ describe('runTeamChatMessage local file bridge', () => {
     expect(String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)).not.toContain(
       '이미 세션에 있는 대화'
     )
+  })
+
+  it('rehydrates Hermes after Claude turns in the same tab', async () => {
+    const claudeReply = `${JSON.stringify({
+      type: 'result',
+      subtype: 'success',
+      is_error: false,
+      result: 'Claude 응답'
+    })}\n`
+    spawnMock
+      .mockReturnValueOnce(fakeProcess(''))
+      .mockReturnValueOnce(fakeProcess(claudeReply))
+      .mockReturnValueOnce(fakeProcess(''))
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: 'Hermes 첫 응답' })
+      .mockResolvedValueOnce({ ok: true, reply: 'Hermes 복귀 응답' })
+    const base = {
+      conversationId: 'conversation-provider-switch',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      imageAttachments: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    }
+
+    await runTeamChatMessage({
+      ...base,
+      requestId: 'request-hermes-before',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: 'Hermes 질문',
+      history: []
+    })
+    await runTeamChatMessage({
+      ...base,
+      requestId: 'request-claude',
+      modelId: 'fable',
+      effort: 'high',
+      message: 'Claude 질문',
+      history: [{ role: 'assistant', content: 'Hermes 첫 응답' }]
+    })
+    await runTeamChatMessage({
+      ...base,
+      requestId: 'request-hermes-after',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: '다시 Hermes 질문',
+      history: [
+        { role: 'assistant', content: 'Hermes 첫 응답' },
+        { role: 'assistant', content: 'Claude 응답' }
+      ]
+    })
+
+    expect(hermesAcpSessionMock).toHaveBeenCalledTimes(2)
+    expect(hermesAcpSessionMock.mock.results[0]?.value.close).toHaveBeenCalledOnce()
+    expect(String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)).toContain('Claude 응답')
+    await closeTeamChatConversation(base.conversationId)
   })
 })

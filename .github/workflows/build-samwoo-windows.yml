@@ -100,11 +100,16 @@ jobs:
             src/main/ipc/hermes-team-chat-runner.test.ts `
             src/main/ipc/hermes-team-chat-image-transfer.test.ts `
             src/main/ipc/hermes-team-chat-acp-client.test.ts `
+            src/main/ipc/hermes-team-chat-session-registry.test.ts `
+            src/main/ipc/hermes-team-chat-app-cleanup.test.ts `
+            src/main/ipc/hermes-team-chat-ssh-process.test.ts `
             src/main/ipc/hermes-team-chat-claude-stream.test.ts `
             src/main/ipc/hermes-local-project-files.test.ts `
             src/main/ipc/hermes-local-project-commands.test.ts `
             src/main/ipc/hermes-team-chat-device-context.test.ts `
             src/main/ipc/hermes-team-chat-models.test.ts `
+            src/renderer/src/components/hermes-team-chat/hermes-team-chat-session-options.test.ts `
+            src/renderer/src/components/hermes-team-chat/hermes-team-chat-stored-session.test.ts `
             src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-attachments.test.tsx `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
             config/scripts/windows-one-click-launch-contract.test.mjs

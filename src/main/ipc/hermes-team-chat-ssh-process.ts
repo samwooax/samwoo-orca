@@ -1,18 +1,40 @@
 import { spawn } from 'node:child_process'
+import { chmodSync, lstatSync, mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { buildTeamChatCancelRemoteCommand } from './hermes-team-chat-models'
 
 const CANCEL_TIMEOUT_MS = 15_000
-const SSH_MUX_ARGS =
-  process.platform === 'win32'
-    ? []
-    : [
-        '-o',
-        'ControlMaster=auto',
-        '-o',
-        'ControlPath=/tmp/.samwoo-orca-ssh-%r@%h-%p',
-        '-o',
-        'ControlPersist=10m'
-      ]
+function createSshMuxArgs(): string[] {
+  if (process.platform === 'win32') {
+    return []
+  }
+  try {
+    const owner = typeof process.getuid === 'function' ? process.getuid() : process.pid
+    const socketDirectory = join(tmpdir(), `samwoo-orca-ssh-${owner}`)
+    mkdirSync(socketDirectory, { recursive: true, mode: 0o700 })
+    if (lstatSync(socketDirectory).isSymbolicLink()) {
+      return []
+    }
+    chmodSync(socketDirectory, 0o700)
+    return [
+      '-o',
+      'ControlMaster=auto',
+      '-o',
+      `ControlPath=${join(socketDirectory, '%C')}`,
+      '-o',
+      'ControlPersist=10m'
+    ]
+  } catch {
+    return []
+  }
+}
+
+const SSH_MUX_ARGS = createSshMuxArgs()
+
+export function isValidTeamChatSshHost(host: string): boolean {
+  return /^(?!-)[A-Za-z0-9@.:_-]+$/.test(host)
+}
 
 export function teamChatSshArgs(host: string, remote: string): string[] {
   return [

@@ -50,6 +50,8 @@ const MAX_HISTORY_CHARS = 48_000
 export const TEAM_CHAT_MESSAGE_TIMEOUT_MS = 30 * 60_000
 const REMOTE_MESSAGE_TIMEOUT_SECONDS = TEAM_CHAT_MESSAGE_TIMEOUT_MS / 1000
 const REMOTE_ACP_SESSION_TIMEOUT_SECONDS = 12 * 60 * 60
+const MAIL_TOKEN_STDIN_BOOTSTRAP =
+  'IFS= read -r mail_token; if [ -n "$mail_token" ]; then export MAILTOKEN="$mail_token"; fi'
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\"'\"'")}'`
@@ -136,23 +138,21 @@ export function buildTeamChatRemoteCommand(args: {
   profile: string
   modelId: TeamChatModelId
   effort: TeamChatEffort
-  mailToken?: string
 }): string {
   const model = resolveTeamChatModel(args.modelId)
   const profileHome = `/opt/data/profiles/${args.profile}`
-  const mailEnv = args.mailToken ? `MAILTOKEN=${args.mailToken} ` : ''
   let agentCommand: string
   if (model.provider === 'claude') {
     const profilePrompt =
       '$(cat SOUL.md; printf "\\n\\n필요한 업무 도구는 이 프로필의 skills/*/SKILL.md 지침을 먼저 읽고 사용하세요.")'
     agentCommand =
-      `sh -lc 'cd ${profileHome} && ${mailEnv}claude -p --model ${model.id} ` +
+      `sh -lc '${MAIL_TOKEN_STDIN_BOOTSTRAP}; cd ${profileHome} && claude -p --model ${model.id} ` +
       `--effort ${args.effort} --permission-mode bypassPermissions ` +
       `--dangerously-skip-permissions --output-format stream-json --verbose ` +
       `--append-system-prompt "${profilePrompt}" "$(cat)"'`
   } else {
     agentCommand =
-      `sh -lc 'cd ${profileHome} && ${mailEnv}HERMES_HOME=${profileHome} hermes ` +
+      `sh -lc '${MAIL_TOKEN_STDIN_BOOTSTRAP}; cd ${profileHome} && HERMES_HOME=${profileHome} hermes ` +
       `--model ${model.id} -z "$(cat)" --cli'`
   }
 
@@ -163,12 +163,11 @@ export function buildTeamChatRemoteCommand(args: {
 export function buildTeamChatAcpRemoteCommand(args: {
   requestId: string
   profile: string
-  mailToken?: string
 }): string {
   const profileHome = `/opt/data/profiles/${args.profile}`
-  const mailEnv = args.mailToken ? `MAILTOKEN=${args.mailToken} ` : ''
   const command =
-    `sh -lc 'cd ${profileHome} && ${mailEnv}HERMES_HOME=${profileHome} ` + `hermes acp'`
+    `sh -lc '${MAIL_TOKEN_STDIN_BOOTSTRAP}; cd ${profileHome} && ` +
+    `HERMES_HOME=${profileHome} hermes acp'`
   // Why: ACP survives individual prompts; the local idle timer normally closes it, while this cap cleans up orphaned remote sessions.
   return wrapTeamChatSession(args.requestId, command, REMOTE_ACP_SESSION_TIMEOUT_SECONDS)
 }

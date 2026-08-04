@@ -18,9 +18,10 @@ import {
 } from './hermes-team-chat-runner'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
 import type { TeamChatAttachment } from '../../shared/hermes-team-chat-attachments'
+import { registerHermesTeamChatAppCleanup } from './hermes-team-chat-app-cleanup'
+import { isValidTeamChatSshHost } from './hermes-team-chat-ssh-process'
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
-const HOST_RE = /^[A-Za-z0-9@.:_-]+$/
 const MAIL_TOKEN_RE = /^[A-Za-z0-9._-]{1,256}$/
 const FIXED_PORT = 47821
 const MAX_BODY_BYTES = 768 * 1024
@@ -159,7 +160,7 @@ async function handleTeamChatRequest(
     !NAME_RE.test(profile) ||
     !NAME_RE.test(requestId) ||
     !NAME_RE.test(conversationId) ||
-    !HOST_RE.test(host) ||
+    !isValidTeamChatSshHost(host) ||
     (!message.trim() && !attachments.length)
   ) {
     return { ok: false, error: 'invalid request' }
@@ -303,9 +304,7 @@ export function registerHermesChatServerHandlers(store: Store): void {
         : false
     return { ok: true, closed }
   })
-  app.once('will-quit', () => {
-    void closeAllTeamChatConversations()
-  })
+  registerHermesTeamChatAppCleanup(app, closeAllTeamChatConversations)
   // Why: restored chat tabs load before profile launch can start the server lazily.
   void ensureServer(store)
 }
