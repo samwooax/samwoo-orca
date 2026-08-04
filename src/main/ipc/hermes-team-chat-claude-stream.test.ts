@@ -64,6 +64,7 @@ describe('runClaudeStreamProcess', () => {
       proc: proc as never,
       requestId: 'request-1',
       message: '확인해줘',
+      stdinPrefix: 'mail-secret\n',
       onProgress: (event) => progress.push(event)
     })
 
@@ -77,5 +78,6 @@ describe('runClaudeStreamProcess', () => {
     )
     expect(progress).toContainEqual(expect.objectContaining({ id: 'tool-1', status: 'completed' }))
     expect(JSON.stringify(progress)).not.toContain('secret')
+    expect(proc.stdin.write).toHaveBeenCalledWith('mail-secret\n확인해줘')
   })
 })

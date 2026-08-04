@@ -20,6 +20,9 @@ function acpProcess(): FakeProcess {
   proc.stdin = new EventEmitter() as FakeProcess['stdin']
   proc.stdin.end = vi.fn()
   proc.stdin.write = vi.fn((line: string) => {
+    if (!line.trimStart().startsWith('{')) {
+      return true
+    }
     const request = JSON.parse(line) as {
       id?: number
       method?: string
@@ -114,7 +117,7 @@ describe('runHermesAcpProcess', () => {
   it('reuses one ACP session across prompts without forcing dont_ask', async () => {
     const proc = acpProcess()
     const progress: TeamChatProgressEvent[] = []
-    const session = new HermesAcpSession(proc as never, 'ai_center')
+    const session = new HermesAcpSession(proc as never, 'ai_center', 'mail-secret')
 
     const result = await session.prompt({
       requestId: 'request-1',
@@ -139,7 +142,11 @@ describe('runHermesAcpProcess', () => {
       })
     )
     expect(JSON.stringify(progress)).not.toContain('secret')
-    const outbound = proc.stdin.write.mock.calls.map(([line]) => JSON.parse(String(line)))
+    expect(proc.stdin.write.mock.calls[0]?.[0]).toBe('mail-secret\n')
+    const outbound = proc.stdin.write.mock.calls
+      .map(([line]) => String(line))
+      .filter((line) => line.trimStart().startsWith('{'))
+      .map((line) => JSON.parse(line))
     expect(outbound.filter((request) => request.method === 'session/new')).toHaveLength(1)
     expect(outbound.filter((request) => request.method === 'session/prompt')).toHaveLength(2)
     expect(outbound.some((request) => request.method === 'session/set_mode')).toBe(false)
@@ -159,13 +166,18 @@ describe('runHermesAcpProcess', () => {
     await vi.waitFor(() => {
       expect(
         proc.stdin.write.mock.calls.some(
-          ([line]) => JSON.parse(String(line)).method === 'session/prompt'
+          ([line]) =>
+            String(line).trimStart().startsWith('{') &&
+            JSON.parse(String(line)).method === 'session/prompt'
         )
       ).toBe(true)
     })
 
     expect(session.cancel()).toBe(true)
-    const outbound = proc.stdin.write.mock.calls.map(([line]) => JSON.parse(String(line)))
+    const outbound = proc.stdin.write.mock.calls
+      .map(([line]) => String(line))
+      .filter((line) => line.trimStart().startsWith('{'))
+      .map((line) => JSON.parse(line))
     expect(outbound.at(-1)).toMatchObject({
       method: 'session/cancel',
       params: { sessionId: 'session-1' }

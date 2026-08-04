@@ -35,6 +35,7 @@ export function runClaudeStreamProcess(args: {
   proc: ChildProcessWithoutNullStreams
   requestId: string
   message: string
+  stdinPrefix?: string
   onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<TeamChatResult> {
   return new Promise((resolveResult) => {
@@ -157,7 +158,7 @@ export function runClaudeStreamProcess(args: {
         })
       }
     })
-    args.proc.stdin.write(args.message)
+    args.proc.stdin.write(`${args.stdinPrefix ?? ''}${args.message}`)
     args.proc.stdin.end()
   })
 }

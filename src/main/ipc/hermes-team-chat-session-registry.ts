@@ -20,6 +20,7 @@ type SessionRecord = {
 
 export class HermesTeamChatSessionRegistry {
   private readonly records = new Map<string, SessionRecord>()
+  private readonly conversationLocks = new Map<string, Promise<void>>()
 
   async acquire(args: {
     conversationId: string
@@ -27,53 +28,58 @@ export class HermesTeamChatSessionRegistry {
     requestId: string
     create: () => { client: HermesAcpSession; dispose: () => Promise<void> }
   }): Promise<TeamChatSessionHandle> {
-    let record = this.records.get(args.conversationId)
-    let created = false
-    if (record && (record.configurationKey !== args.configurationKey || record.client.isClosed)) {
-      await this.remove(record)
-      record = undefined
-    }
-    if (!record) {
-      const session = args.create()
-      record = {
-        conversationId: args.conversationId,
-        configurationKey: args.configurationKey,
-        client: session.client,
-        activeRequestId: null,
-        idleTimer: null,
-        dispose: session.dispose
+    return this.withConversationLock(args.conversationId, async () => {
+      let record = this.records.get(args.conversationId)
+      let created = false
+      if (record?.activeRequestId) {
+        throw new Error('Hermes conversation is already processing a request')
       }
-      this.records.set(args.conversationId, record)
-      created = true
-    }
-    if (record.activeRequestId) {
-      throw new Error('Hermes conversation is already processing a request')
-    }
-    if (record.idleTimer) {
-      clearTimeout(record.idleTimer)
-      record.idleTimer = null
-    }
-    record.activeRequestId = args.requestId
-    const selected = record
-    return {
-      client: selected.client,
-      created,
-      release: () => this.release(selected, args.requestId),
-      invalidate: () => this.remove(selected)
-    }
+      if (record && (record.configurationKey !== args.configurationKey || record.client.isClosed)) {
+        await this.remove(record)
+        record = undefined
+      }
+      if (!record) {
+        const session = args.create()
+        record = {
+          conversationId: args.conversationId,
+          configurationKey: args.configurationKey,
+          client: session.client,
+          activeRequestId: null,
+          idleTimer: null,
+          dispose: session.dispose
+        }
+        this.records.set(args.conversationId, record)
+        created = true
+      }
+      if (record.idleTimer) {
+        clearTimeout(record.idleTimer)
+        record.idleTimer = null
+      }
+      record.activeRequestId = args.requestId
+      const selected = record
+      return {
+        client: selected.client,
+        created,
+        release: () => this.release(selected, args.requestId),
+        invalidate: () =>
+          this.withConversationLock(args.conversationId, () => this.remove(selected))
+      }
+    })
   }
 
   async close(conversationId: string): Promise<boolean> {
-    const record = this.records.get(conversationId)
-    if (!record) {
-      return false
-    }
-    await this.remove(record)
-    return true
+    return this.withConversationLock(conversationId, async () => {
+      const record = this.records.get(conversationId)
+      if (!record) {
+        return false
+      }
+      await this.remove(record)
+      return true
+    })
   }
 
   async closeAll(): Promise<void> {
-    await Promise.all([...this.records.values()].map((record) => this.remove(record)))
+    await Promise.all([...this.records.keys()].map((conversationId) => this.close(conversationId)))
   }
 
   private release(record: SessionRecord, requestId: string): void {
@@ -85,7 +91,7 @@ export class HermesTeamChatSessionRegistry {
     }
     record.activeRequestId = null
     record.idleTimer = setTimeout(() => {
-      void this.remove(record)
+      void this.close(record.conversationId)
     }, SESSION_IDLE_TIMEOUT_MS)
     record.idleTimer.unref?.()
   }
@@ -100,5 +106,24 @@ export class HermesTeamChatSessionRegistry {
     }
     record.client.close()
     await record.dispose().catch(() => {})
+  }
+
+  private async withConversationLock<T>(conversationId: string, run: () => Promise<T>): Promise<T> {
+    const previous = this.conversationLocks.get(conversationId) ?? Promise.resolve()
+    let unlock = (): void => {}
+    const gate = new Promise<void>((resolve) => {
+      unlock = resolve
+    })
+    const tail = previous.catch(() => {}).then(() => gate)
+    this.conversationLocks.set(conversationId, tail)
+    await previous.catch(() => {})
+    try {
+      return await run()
+    } finally {
+      unlock()
+      if (this.conversationLocks.get(conversationId) === tail) {
+        this.conversationLocks.delete(conversationId)
+      }
+    }
   }
 }

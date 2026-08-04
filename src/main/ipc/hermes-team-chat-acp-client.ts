@@ -25,7 +25,8 @@ export class HermesAcpSession {
 
   constructor(
     private readonly proc: ChildProcessWithoutNullStreams,
-    private readonly profile: string
+    private readonly profile: string,
+    mailToken = ''
   ) {
     this.proc.stdout.on('data', (data: Buffer) => this.handleStdout(data))
     this.proc.stderr.on('data', (data: Buffer) => {
@@ -36,6 +37,8 @@ export class HermesAcpSession {
     this.proc.on('close', (code) => {
       this.handleClose(new Error(this.stderr.trim() || `Hermes ACP exited with code ${code}`))
     })
+    // Why: the remote bootstrap consumes this line before exec, keeping the token out of process arguments.
+    this.proc.stdin.write(`${mailToken}\n`)
     this.ready = this.initialize()
   }
 

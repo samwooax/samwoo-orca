@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildTeamChatCancelRemoteCommand,
+  buildTeamChatAcpRemoteCommand,
   buildTeamChatRemoteCommand,
   formatTeamChatMessage,
   normalizeTeamChatHistory,
@@ -34,12 +35,14 @@ describe('team chat remote commands', () => {
       requestId: 'request-1',
       profile: 'hr',
       modelId: 'fable',
-      effort: 'high',
-      mailToken: 'safe-token'
+      effort: 'high'
     })
+    expect(command).toContain('read -r mail_token')
+    expect(command).toContain('export MAILTOKEN="$mail_token"')
     expect(command).toContain(
-      'MAILTOKEN=safe-token claude -p --model fable --effort high --permission-mode bypassPermissions'
+      'claude -p --model fable --effort high --permission-mode bypassPermissions'
     )
+    expect(command).not.toContain('safe-token')
     expect(command).toContain('--output-format stream-json --verbose')
     expect(
       buildTeamChatRemoteCommand({
@@ -79,6 +82,17 @@ describe('team chat remote commands', () => {
     expect(cancel).toContain('pkill -TERM -s')
     expect(cancel).toContain('pkill -KILL -s')
     expect(cancel).toContain('pgrep -s')
+  })
+
+  it('bootstraps ACP credentials from stdin instead of process arguments', () => {
+    const command = buildTeamChatAcpRemoteCommand({
+      requestId: 'conversation-1',
+      profile: 'hr'
+    })
+
+    expect(command).toContain('read -r mail_token')
+    expect(command).toContain('hermes acp')
+    expect(command).not.toContain('safe-token')
   })
 })
 

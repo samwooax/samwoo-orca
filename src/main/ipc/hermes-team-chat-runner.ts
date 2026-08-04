@@ -71,6 +71,7 @@ async function runOneShotRemoteTeamChat(args: {
     proc,
     requestId: args.requestId,
     message: args.message,
+    stdinPrefix: `${args.mailToken ?? ''}\n`,
     onProgress: args.onProgress
   })
   if (args.controller.proc === proc) {
@@ -154,6 +155,10 @@ export async function runTeamChatMessage(args: {
     })
     const deviceContext = await getTeamChatDeviceContext(args.cwd)
     const isHermes = resolveTeamChatModel(args.modelId).provider === 'hermes'
+    if (!isHermes) {
+      // Why: a dormant ACP session cannot observe Claude turns; close it so returning to Hermes rehydrates complete UI history.
+      await hermesSessions.close(args.conversationId)
+    }
     if (isHermes) {
       const configurationKey = `${args.host}\0${args.profile}\0${args.mailToken ?? ''}`
       sessionHandle = await hermesSessions.acquire({
@@ -163,14 +168,13 @@ export async function runTeamChatMessage(args: {
         create: () => {
           const remote = buildTeamChatAcpRemoteCommand({
             requestId: args.conversationId,
-            profile: args.profile,
-            mailToken: args.mailToken
+            profile: args.profile
           })
           const proc = spawn('ssh', teamChatSshArgs(args.host, remote), {
             stdio: ['pipe', 'pipe', 'pipe']
           })
           return {
-            client: new HermesAcpSession(proc, args.profile),
+            client: new HermesAcpSession(proc, args.profile, args.mailToken),
             dispose: async () => {
               await stopRemoteTeamChat(args.host, args.conversationId)
               proc.kill()
