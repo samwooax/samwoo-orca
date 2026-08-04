@@ -4,11 +4,13 @@ import { runTeamChatMessage } from './hermes-team-chat-runner'
 
 const {
   executeLocalFileRequestMock,
+  executeLocalCommandRequestMock,
   getTeamChatDeviceContextMock,
   runHermesAcpProcessMock,
   spawnMock
 } = vi.hoisted(() => ({
   executeLocalFileRequestMock: vi.fn(),
+  executeLocalCommandRequestMock: vi.fn(),
   getTeamChatDeviceContextMock: vi.fn(),
   runHermesAcpProcessMock: vi.fn(),
   spawnMock: vi.fn()
@@ -17,6 +19,9 @@ const {
 vi.mock('node:child_process', () => ({ spawn: spawnMock }))
 vi.mock('./hermes-local-project-files', () => ({
   executeLocalFileRequest: executeLocalFileRequestMock
+}))
+vi.mock('./hermes-local-project-commands', () => ({
+  executeLocalCommandRequest: executeLocalCommandRequestMock
 }))
 vi.mock('./hermes-team-chat-acp-client', () => ({
   runHermesAcpProcess: runHermesAcpProcessMock
@@ -53,6 +58,7 @@ function fakeProcess(reply: string): FakeProcess {
 beforeEach(() => {
   spawnMock.mockReset()
   executeLocalFileRequestMock.mockReset()
+  executeLocalCommandRequestMock.mockReset()
   getTeamChatDeviceContextMock.mockReset().mockResolvedValue({
     laptopName: 'EMPLOYEE-PC',
     laptopUser: 'employee',
@@ -155,5 +161,52 @@ describe('runTeamChatMessage local file bridge', () => {
 
     expect(result.ok).toBe(true)
     expect(executeLocalFileRequestMock).not.toHaveBeenCalled()
+    expect(executeLocalCommandRequestMock).not.toHaveBeenCalled()
+  })
+
+  it('executes a structured local command and returns its URL to the agent', async () => {
+    const toolRequest =
+      '<orca_local_commands>{"version":1,"operations":[{"id":"serve","kind":"run","command":"streamlit","args":["run","app.py"],"mode":"background"}]}</orca_local_commands>'
+    spawnMock.mockImplementation(() => fakeProcess(''))
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: toolRequest })
+      .mockResolvedValueOnce({
+        ok: true,
+        reply: '실행했습니다: http://localhost:8501'
+      })
+    executeLocalCommandRequestMock.mockResolvedValue([
+      {
+        id: 'serve',
+        ok: true,
+        status: 'running',
+        processId: 'process-1',
+        url: 'http://localhost:8501'
+      }
+    ])
+
+    const result = await runTeamChatMessage({
+      requestId: 'request-4',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: 'Streamlit 앱을 실행해줘',
+      imageAttachments: [],
+      history: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      reply: '실행했습니다: http://localhost:8501'
+    })
+    expect(executeLocalCommandRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({ cwd: 'C:\\selected' })
+    )
+    expect(String(runHermesAcpProcessMock.mock.calls[0]?.[0].message)).toContain('[로컬명령도구]')
+    expect(String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)).toContain(
+      '<orca_local_command_results>'
+    )
   })
 })

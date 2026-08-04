@@ -1,11 +1,5 @@
 import { spawn } from 'node:child_process'
 import type { Store } from '../persistence'
-import { executeLocalFileRequest } from './hermes-local-project-files'
-import {
-  formatLocalFileResults,
-  LOCAL_PROJECT_FILE_PROTOCOL_PROMPT,
-  parseLocalFileRequest
-} from './hermes-local-file-protocol'
 import {
   buildTeamChatAcpRemoteCommand,
   buildTeamChatCancelRemoteCommand,
@@ -30,10 +24,13 @@ import {
   cleanupTeamChatClipboardImages,
   uploadTeamChatClipboardImages
 } from './hermes-team-chat-image-transfer'
-import { localFileProgress } from './hermes-local-file-progress'
+import {
+  executeLocalProjectToolReply,
+  LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT
+} from './hermes-local-project-tool-loop'
 
 const CANCEL_TIMEOUT_MS = 15_000
-const MAX_LOCAL_FILE_ROUNDS = 8
+const MAX_LOCAL_TOOL_ROUNDS = 8
 
 type TeamChatResult = { ok: boolean; reply?: string; error?: string }
 type RunningProcess = ReturnType<typeof spawn>
@@ -212,13 +209,13 @@ export async function runTeamChatMessage(args: {
     })
     const deviceContext = await getTeamChatDeviceContext(args.cwd)
     let conversationMessage = appendRemoteImageInstructions(args.message, remoteImages)
-    for (let round = 0; round <= MAX_LOCAL_FILE_ROUNDS; round += 1) {
+    for (let round = 0; round < MAX_LOCAL_TOOL_ROUNDS; round += 1) {
       const cancelled = cancellationResult(controller.cancelledReason)
       if (cancelled) {
         return cancelled
       }
       const fullMessage = formatTeamChatMessage({
-        contextLine: `${formatTeamChatDeviceContext(deviceContext)}${LOCAL_PROJECT_FILE_PROTOCOL_PROMPT}\n`,
+        contextLine: `${formatTeamChatDeviceContext(deviceContext)}${LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT}\n`,
         history: args.history,
         message: conversationMessage
       })
@@ -240,48 +237,29 @@ export async function runTeamChatMessage(args: {
       if (!result.ok || !result.reply) {
         return result
       }
-      const localRequest = parseLocalFileRequest(result.reply)
-      if (!localRequest) {
+      const toolReply = await executeLocalProjectToolReply({
+        reply: result.reply,
+        cwd: args.cwd,
+        store: args.store,
+        requestId: args.requestId,
+        onProgress: args.onProgress
+      })
+      if (toolReply === null) {
         return result
       }
-      if (round === MAX_LOCAL_FILE_ROUNDS) {
-        return { ok: false, error: 'local file request limit exceeded' }
-      }
-      const localResults = await executeLocalFileRequest({
-        cwd: args.cwd,
-        request: localRequest,
-        store: args.store,
-        onOperationStart: (operation) => {
-          args.onProgress?.(localFileProgress(args.requestId, operation, 'in_progress'))
-        },
-        onOperationComplete: (operation, operationResult) => {
-          args.onProgress?.(
-            localFileProgress(
-              args.requestId,
-              operation,
-              operationResult.ok ? 'completed' : 'failed',
-              operationResult.error
-            )
-          )
-        }
-      }).catch((error: unknown) =>
-        localRequest.operations.map((operation) => ({
-          id: operation.id,
-          ok: false,
-          path: operation.path,
-          error: error instanceof Error ? error.message : String(error)
-        }))
-      )
       conversationMessage = [
         conversationMessage,
-        `에이전트 로컬파일 요청:\n${result.reply}`,
-        `Orca 로컬파일 결과:\n${formatLocalFileResults(localResults)}`,
-        '위 결과를 사용해 계속 진행하세요. 추가 파일 작업이 필요하면 로컬파일도구 형식만 출력하고, 완료됐으면 사용자에게 최종 답변하세요.'
+        `에이전트 로컬 프로젝트 도구 요청:\n${result.reply}`,
+        `Orca 로컬 프로젝트 도구 결과:\n${toolReply}`,
+        '위 결과를 사용해 계속 진행하세요. 추가 작업이 필요하면 해당 로컬 도구 형식만 출력하고, 완료됐으면 사용자에게 최종 답변하세요.'
       ].join('\n\n')
     }
-    return { ok: false, error: 'local file request limit exceeded' }
+    return { ok: false, error: 'local project tool request limit exceeded' }
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    }
   } finally {
     clearTimeout(timer)
     if (args.imageAttachments.length > 0) {
