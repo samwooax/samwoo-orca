@@ -25,35 +25,8 @@ import { HermesTeamChatActivity } from './HermesTeamChatActivity'
 import { useHermesTeamChatProgress } from './use-hermes-team-chat-progress'
 import { createTeamChatOptionSnapshot } from './hermes-team-chat-session-options'
 import { hermesTeamChatStorageKey } from './hermes-team-chat-storage-key'
+import { readStoredTeamChat } from './hermes-team-chat-stored-session'
 import { useHermesTeamChatAttachments } from './use-hermes-team-chat-attachments'
-
-type StoredTeamChat = {
-  messages: TeamChatHistoryMessage[]
-  model: TeamChatModelId
-  effort: TeamChatEffort
-}
-
-function readStoredTeamChat(route: HermesTeamChatRoute, tabId: string): StoredTeamChat {
-  try {
-    const parsed = JSON.parse(
-      localStorage.getItem(hermesTeamChatStorageKey(route, tabId)) ?? ''
-    ) as Partial<StoredTeamChat>
-    const model = resolveTeamChatModel(parsed.model).id
-    return {
-      messages: Array.isArray(parsed.messages)
-        ? parsed.messages.filter(
-            (message): message is TeamChatHistoryMessage =>
-              (message?.role === 'user' || message?.role === 'assistant') &&
-              typeof message.content === 'string'
-          )
-        : [],
-      model,
-      effort: resolveTeamChatEffort(model, parsed.effort)
-    }
-  } catch {
-    return { messages: [], model: 'gpt-5.5', effort: 'medium' }
-  }
-}
 
 function nativeMessages(messages: TeamChatHistoryMessage[]): NativeChatMessage[] {
   return messages.map((message, index) => ({
@@ -88,6 +61,7 @@ export function HermesTeamChatView({
   const [messages, setMessages] = useState<TeamChatHistoryMessage[]>(stored.messages)
   const [model, setModel] = useState<TeamChatModelId>(stored.model)
   const [effort, setEffort] = useState<TeamChatEffort>(stored.effort)
+  const [conversationId, setConversationId] = useState(stored.conversationId)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -106,9 +80,16 @@ export function HermesTeamChatView({
   useEffect(() => {
     localStorage.setItem(
       hermesTeamChatStorageKey(route, tabId),
-      JSON.stringify({ messages, model, effort })
+      JSON.stringify({ messages, model, effort, conversationId })
     )
-  }, [effort, messages, model, route, tabId])
+  }, [conversationId, effort, messages, model, route, tabId])
+
+  useEffect(
+    () => () => {
+      void window.api.preflight.closeHermesTeamChatConversation(conversationId)
+    },
+    [conversationId]
+  )
 
   const setOption = useCallback(
     async (id: string, value: SessionOptionValue) => {
@@ -183,6 +164,7 @@ export function HermesTeamChatView({
     try {
       const result = await window.api.preflight.sendHermesTeamChat({
         requestId,
+        conversationId,
         profile: route.profile,
         host: route.host,
         cwd: route.cwd,
@@ -226,6 +208,7 @@ export function HermesTeamChatView({
     attachments,
     busy,
     clearAttachments,
+    conversationId,
     draft,
     effort,
     finishProgress,
@@ -265,6 +248,7 @@ export function HermesTeamChatView({
               disabled={busy}
               onClick={() => {
                 setMessages([])
+                setConversationId(crypto.randomUUID())
                 resetProgress()
               }}
             >

@@ -38,6 +38,8 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
   let busy = false
   let controller = null
   let requestId = ""
+  let conversationId = sessionStorage.getItem(storageKey + ":conversation") || crypto.randomUUID()
+  sessionStorage.setItem(storageKey + ":conversation", conversationId)
 
   function readJson(key, fallback) {
     try {
@@ -204,7 +206,8 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
         headers: { "Content-Type": "application/json", "X-Orca-Token": token },
         signal: controller.signal,
         body: JSON.stringify({
-          requestId: requestId, profile: profile, host: host, cwd: cwd, mailtoken: mailtoken,
+          requestId: requestId, conversationId: conversationId,
+          profile: profile, host: host, cwd: cwd, mailtoken: mailtoken,
           model: settings.model, effort: settings.effort, message: text,
           history: history, attachments: outgoingAttachments
         })
@@ -257,6 +260,13 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
     renderAttachments()
   })
   elements.newChat.addEventListener("click", function () {
+    void fetch("/api/close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Orca-Token": token },
+      body: JSON.stringify({ conversationId: conversationId })
+    })
+    conversationId = crypto.randomUUID()
+    sessionStorage.setItem(storageKey + ":conversation", conversationId)
     messages = []
     localStorage.removeItem(storageKey)
     render()

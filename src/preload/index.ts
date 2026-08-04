@@ -1978,6 +1978,10 @@ const api = {
       ipcRenderer.invoke('hermes:sendTeamChat', args),
     cancelHermesTeamChat: (requestId: string): Promise<{ ok: boolean; cancelled: boolean }> =>
       ipcRenderer.invoke('hermes:cancelTeamChat', requestId),
+    closeHermesTeamChatConversation: (
+      conversationId: string
+    ): Promise<{ ok: boolean; closed: boolean }> =>
+      ipcRenderer.invoke('hermes:closeTeamChatConversation', conversationId),
     onHermesTeamChatProgress: (callback): (() => void) => {
       const listener = (_event: Electron.IpcRendererEvent, progress: unknown): void => {
         callback(progress as Parameters<typeof callback>[0])

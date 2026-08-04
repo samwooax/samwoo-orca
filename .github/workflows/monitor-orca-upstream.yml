@@ -1,0 +1,110 @@
+name: Monitor upstream Orca releases
+
+on:
+  schedule:
+    # 09:00 Asia/Seoul. GitHub schedules use UTC.
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: monitor-orca-upstream
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout SAMWOO-ORCA release marker
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Open an update issue for a new stable release
+        id: monitor
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SAMWOO_REPOSITORY: ${{ github.repository }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+
+          upstream_repository="$(jq -r '.repository' .samwoo/upstream-release.json)"
+          integrated_tag="$(jq -r '.integratedTag' .samwoo/upstream-release.json)"
+          release="$(gh api "repos/${upstream_repository}/releases/latest")"
+          latest_tag="$(jq -r '.tag_name' <<<"${release}")"
+
+          if [[ "${latest_tag}" == "${integrated_tag}" ]]; then
+            echo "SAMWOO-ORCA already tracks ${latest_tag}."
+            exit 0
+          fi
+
+          gh label create upstream-update \
+            --repo "${SAMWOO_REPOSITORY}" \
+            --color BFDADC \
+            --description "A stable release from stablyai/orca needs review" \
+            --force
+
+          title="Upstream Orca update: ${latest_tag}"
+          existing_url="$(gh issue list \
+            --repo "${SAMWOO_REPOSITORY}" \
+            --state all \
+            --search "${title} in:title" \
+            --json title,url \
+            --jq ".[] | select(.title == \"${title}\") | .url" \
+            | head -n 1)"
+          if [[ -n "${existing_url}" ]]; then
+            echo "Notification already exists: ${existing_url}"
+            exit 0
+          fi
+
+          release_url="$(jq -r '.html_url' <<<"${release}")"
+          published_at="$(jq -r '.published_at' <<<"${release}")"
+          compare_url="https://github.com/${upstream_repository}/compare/${integrated_tag}...${latest_tag}"
+          notes="$(jq -r '.body // "(No release notes provided.)"' <<<"${release}")"
+          body_file="$(mktemp)"
+          {
+            echo "A new stable Orca release is ready for SAMWOO review."
+            echo
+            echo "- Integrated upstream: \`${integrated_tag}\`"
+            echo "- New upstream: \`${latest_tag}\`"
+            echo "- Published: ${published_at}"
+            echo "- [Release notes](${release_url})"
+            echo "- [Compare changes](${compare_url})"
+            echo
+            echo "## Review gate"
+            echo
+            echo "Do not publish a SAMWOO release from this notification alone. Review and merge the upstream changes, run the SAMWOO validation suite, then start the manual Windows release workflow."
+            echo
+            echo "<details><summary>Upstream release notes</summary>"
+            echo
+            printf '%s\n' "${notes}"
+            echo
+            echo "</details>"
+          } >"${body_file}"
+
+          issue_url="$(gh issue create \
+            --repo "${SAMWOO_REPOSITORY}" \
+            --title "${title}" \
+            --label upstream-update \
+            --body-file "${body_file}")"
+          echo "issue_url=${issue_url}" >>"${GITHUB_OUTPUT}"
+
+          if [[ -n "${SLACK_WEBHOOK_URL}" ]]; then
+            jq -n \
+              --arg text "Orca ${latest_tag} 업데이트 확인 필요: ${issue_url}" \
+              '{text: $text}' \
+              | curl --fail --silent --show-error \
+                  --header 'Content-Type: application/json' \
+                  --data @- \
+                  "${SLACK_WEBHOOK_URL}"
+          fi
+
+      - name: Summarize result
+        if: steps.monitor.outputs.issue_url != ''
+        shell: bash
+        run: echo "Created ${{ steps.monitor.outputs.issue_url }}" >>"${GITHUB_STEP_SUMMARY}"

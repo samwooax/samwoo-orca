@@ -7,7 +7,13 @@ import {
   type TeamChatModelId
 } from '../../../../shared/hermes-team-chat-models'
 
-const EFFORT_CHOICES = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+const EFFORT_LABELS: Record<TeamChatEffort, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra high',
+  max: 'Max'
+}
 
 export function createTeamChatOptionSnapshot(
   modelId: TeamChatModelId,
@@ -39,7 +45,7 @@ export function createTeamChatOptionSnapshot(
       kind: {
         type: 'select',
         currentValue: effort,
-        choices: EFFORT_CHOICES.map((value) => ({ value, label: value }))
+        choices: model.efforts.map((value) => ({ value, label: EFFORT_LABELS[value] }))
       },
       valueSource: 'applied',
       settable: true
