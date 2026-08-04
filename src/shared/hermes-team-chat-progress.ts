@@ -6,7 +6,13 @@ export const TEAM_CHAT_PROGRESS_STATUSES = [
 ] as const
 
 export type TeamChatProgressStatus = (typeof TEAM_CHAT_PROGRESS_STATUSES)[number]
-export type TeamChatProgressKind = 'phase' | 'thought' | 'plan' | 'tool' | 'local_file'
+export type TeamChatProgressKind =
+  | 'phase'
+  | 'thought'
+  | 'plan'
+  | 'tool'
+  | 'local_file'
+  | 'local_command'
 
 export type TeamChatProgressEvent = {
   requestId: string
