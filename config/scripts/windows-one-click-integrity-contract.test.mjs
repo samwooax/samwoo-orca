@@ -29,4 +29,11 @@ describe('Windows one-click package integrity', () => {
     expect(installer).toContain('CN=SignPath Foundation')
     expect(installer).toContain('Assert-SamwooInstallerSignature $setup')
   })
+
+  it('requires the Tailscale installer to carry its expected publisher signature', async () => {
+    const installer = await readFile(installerPath, 'utf8')
+    expect(installer).toContain(
+      'Assert-TrustedPublisherSignature $tailscaleMsi "CN=Tailscale Inc."'
+    )
+  })
 })

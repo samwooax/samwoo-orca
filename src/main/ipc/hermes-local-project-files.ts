@@ -36,7 +36,10 @@ function isInsideRoot(root: string, target: string): boolean {
 }
 
 function isGitMetadataPath(relativePath: string): boolean {
-  return relativePath.split('/').some((segment) => segment.toLowerCase() === '.git')
+  return relativePath
+    .replaceAll('\\', '/')
+    .split('/')
+    .some((segment) => segment.toLowerCase() === '.git')
 }
 
 async function resolveProjectRoot(cwd: string, store: Store): Promise<string> {
@@ -138,7 +141,8 @@ async function writeProjectPath(
   store: Store
 ): Promise<LocalFileResult> {
   const target = await resolveProjectPath(root, operation.path, store)
-  if (isGitMetadataPath(target.relativePath)) {
+  // Why: canonical-path checking also blocks an innocent-looking symlink into .git.
+  if (isGitMetadataPath(target.relativePath) || isGitMetadataPath(relative(root, target.path))) {
     throw new Error('writing Git metadata is not allowed')
   }
   const content = decodeContent(operation.contentBase64)

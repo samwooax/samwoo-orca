@@ -85,6 +85,15 @@ function Assert-SamwooInstallerSignature($path) {
     throw "SAMWOO-ORCA 설치 파일 서명자가 올바르지 않습니다: $($signature.SignerCertificate.Subject)"
   }
 }
+function Assert-TrustedPublisherSignature($path, $publisherName) {
+  $signature = Get-AuthenticodeSignature -LiteralPath $path
+  if ($signature.Status -ne "Valid") {
+    throw "설치 파일의 코드 서명이 유효하지 않습니다: $($signature.Status)"
+  }
+  if ($signature.SignerCertificate.Subject -notlike "*$publisherName*") {
+    throw "설치 파일 서명자가 올바르지 않습니다: $($signature.SignerCertificate.Subject)"
+  }
+}
 function Test-IsAdministrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -444,6 +453,7 @@ try {
         -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-$architecture.msi" `
         -OutFile $tailscaleMsi
     }
+    Assert-TrustedPublisherSignature $tailscaleMsi "CN=Tailscale Inc."
     $tailscaleProcess = Start-Process msiexec.exe `
       -ArgumentList "/i", "`"$tailscaleMsi`"", "/qn" -PassThru
     if (-not $tailscaleProcess.WaitForExit(300000)) {

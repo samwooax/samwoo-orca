@@ -161,6 +161,32 @@ describe('executeLocalFileRequest', () => {
     }
   })
 
+  it('rejects writes whose canonical path resolves inside Git metadata', async () => {
+    resolveAuthorizedPathMock.mockImplementation(async (path: string) =>
+      path.endsWith(join('gitdir', 'hooks', 'pre-commit'))
+        ? join(root, '.git', 'hooks', 'pre-commit')
+        : path
+    )
+    const [result] = await executeLocalFileRequest({
+      cwd: root,
+      store,
+      request: request([
+        {
+          id: 'symlinked-git',
+          kind: 'write',
+          path: 'gitdir/hooks/pre-commit',
+          contentBase64: Buffer.from('malicious').toString('base64'),
+          expectedSha256: null
+        }
+      ])
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: 'writing Git metadata is not allowed'
+    })
+  })
+
   it('serializes writes so two requests cannot both replace the same version', async () => {
     const path = join(root, 'report.txt')
     await writeFile(path, 'current')
