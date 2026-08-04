@@ -11,6 +11,14 @@ $GIT_VERSION = "2.55.0.windows.3"
 $GIT_INSTALLER_VERSION = "2.55.0.3"
 $PYTHON_VERSION = "3.14.6"
 $UV_VERSION = "0.12.0"
+$PACKAGE_SHA256 = @{
+  "Git-2.55.0.3-64-bit.exe" = "af12577d0fdff74243a5988197aa49b957d5044edc17004f6ddf0768996f1dca"
+  "Git-2.55.0.3-arm64.exe" = "e3d7f5a2214f214f0a93cf0d8915dab236a0e91c7de6de70a7dbde9a61c794db"
+  "python-3.14.6-amd64.exe" = "14b3e9a710a3fcf0bd9b55ab6b60412bd91227563f813fc49040cabc0209e0bd"
+  "python-3.14.6-arm64.exe" = "517412448c44f0583c994723640e208ca82723e340b0cb6a667696ba2eea63fc"
+  "uv-x86_64-pc-windows-msvc.zip" = "68200e25de594df92387186bbfb9d9df606ec1d87efaa0ae0c7f690970e53db6"
+  "uv-aarch64-pc-windows-msvc.zip" = "60c12dc34a8ff0269d7744a3a94506fa8f140618a82194b7bf7834fa789a765b"
+}
 
 $ErrorActionPreference = "Continue"
 $ProgressPreference = "SilentlyContinue"
@@ -56,6 +64,26 @@ function Get-WindowsArchitecture {
     return "arm64"
   }
   return "amd64"
+}
+function Assert-FileSha256($path) {
+  $name = Split-Path $path -Leaf
+  $expected = $PACKAGE_SHA256[$name]
+  if (-not $expected) {
+    throw "SHA256 기준값이 없습니다: $name"
+  }
+  $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $expected) {
+    throw "파일 SHA256 불일치: $name"
+  }
+}
+function Assert-SamwooInstallerSignature($path) {
+  $signature = Get-AuthenticodeSignature -LiteralPath $path
+  if ($signature.Status -ne "Valid") {
+    throw "SAMWOO-ORCA 설치 파일의 코드 서명이 유효하지 않습니다: $($signature.Status)"
+  }
+  if ($signature.SignerCertificate.Subject -notlike "*CN=SignPath Foundation*") {
+    throw "SAMWOO-ORCA 설치 파일 서명자가 올바르지 않습니다: $($signature.SignerCertificate.Subject)"
+  }
 }
 function Test-IsAdministrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -156,6 +184,7 @@ if (-not $AdminPhase) {
     if (-not (Test-Path $setup)) {
       throw "설치 파일이 옆에 없습니다: samwoo-orca-windows-setup.exe"
     }
+    Assert-SamwooInstallerSignature $setup
     Get-Process "SAMWOO-ORCA", "samwoo-orca-terminal-daemon" `
       -ErrorAction SilentlyContinue | Stop-Process -Force
     Start-Sleep -Seconds 2
@@ -198,6 +227,7 @@ if (-not $AdminPhase) {
       if (-not (Test-Path $gitInstaller)) {
         throw "Git 설치 파일이 없습니다: $gitInstallerName"
       }
+      Assert-FileSha256 $gitInstaller
       $gitProcess = Start-Process -FilePath $gitInstaller -ArgumentList @(
         "/VERYSILENT",
         "/NORESTART",
@@ -250,6 +280,7 @@ if (-not $AdminPhase) {
     if (-not (Test-Path $pythonInstaller)) {
       throw "Python 설치 파일이 없습니다: $(Split-Path $pythonInstaller -Leaf)"
     }
+    Assert-FileSha256 $pythonInstaller
     $pythonInstallDir = if ($architecture -eq "arm64") {
       Join-Path $env:LOCALAPPDATA "Programs\Python\Python314-arm64"
     } else {
@@ -299,6 +330,7 @@ if (-not $AdminPhase) {
     if (-not (Test-Path $uvArchive)) {
       throw "uv 설치 파일이 없습니다: $uvArchiveName"
     }
+    Assert-FileSha256 $uvArchive
     $uvDir = Join-Path $env:LOCALAPPDATA "Programs\uv"
     $uvTemp = Join-Path $env:TEMP "samwoo-uv-$UV_VERSION-$architecture"
     if (Test-Path $uvTemp) {

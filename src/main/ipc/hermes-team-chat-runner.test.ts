@@ -5,6 +5,7 @@ import { closeTeamChatConversation, runTeamChatMessage } from './hermes-team-cha
 const {
   executeLocalFileRequestMock,
   executeLocalCommandRequestMock,
+  approveLocalCommandRequestMock,
   getTeamChatDeviceContextMock,
   hermesAcpSessionMock,
   runHermesAcpProcessMock,
@@ -13,6 +14,7 @@ const {
 } = vi.hoisted(() => ({
   executeLocalFileRequestMock: vi.fn(),
   executeLocalCommandRequestMock: vi.fn(),
+  approveLocalCommandRequestMock: vi.fn(),
   getTeamChatDeviceContextMock: vi.fn(),
   hermesAcpSessionMock: vi.fn(),
   runHermesAcpProcessMock: vi.fn(),
@@ -26,6 +28,9 @@ vi.mock('./hermes-local-project-files', () => ({
 }))
 vi.mock('./hermes-local-project-commands', () => ({
   executeLocalCommandRequest: executeLocalCommandRequestMock
+}))
+vi.mock('./hermes-local-command-approval', () => ({
+  approveLocalCommandRequest: approveLocalCommandRequestMock
 }))
 vi.mock('./hermes-team-chat-acp-client', () => ({
   HermesAcpSession: hermesAcpSessionMock
@@ -67,6 +72,7 @@ beforeEach(() => {
   spawnMock.mockReset()
   executeLocalFileRequestMock.mockReset()
   executeLocalCommandRequestMock.mockReset()
+  approveLocalCommandRequestMock.mockReset().mockResolvedValue(true)
   getTeamChatDeviceContextMock.mockReset().mockResolvedValue({
     laptopName: 'EMPLOYEE-PC',
     laptopUser: 'employee',
@@ -225,9 +231,39 @@ describe('runTeamChatMessage local file bridge', () => {
     expect(executeLocalCommandRequestMock).toHaveBeenCalledWith(
       expect.objectContaining({ cwd: 'C:\\selected' })
     )
+    expect(approveLocalCommandRequestMock).toHaveBeenCalledOnce()
     expect(String(runHermesAcpProcessMock.mock.calls[0]?.[0].message)).toContain('[로컬명령도구]')
     expect(String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)).toContain(
       '<orca_local_command_results>'
+    )
+  })
+
+  it('returns a denial to Hermes without executing the local command', async () => {
+    const toolRequest =
+      '<orca_local_commands>{"version":1,"operations":[{"id":"run","kind":"run","command":"python3","args":["app.py"],"mode":"foreground"}]}</orca_local_commands>'
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: toolRequest })
+      .mockResolvedValueOnce({ ok: true, reply: '실행하지 않았습니다.' })
+    approveLocalCommandRequestMock.mockResolvedValue(false)
+
+    const result = await runTeamChatMessage({
+      requestId: 'request-denied',
+      conversationId: 'conversation-denied',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: '실행해줘',
+      imageAttachments: [],
+      history: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    })
+
+    expect(result).toEqual({ ok: true, reply: '실행하지 않았습니다.' })
+    expect(executeLocalCommandRequestMock).not.toHaveBeenCalled()
+    expect(String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)).toContain(
+      'user denied local command execution'
     )
   })
 

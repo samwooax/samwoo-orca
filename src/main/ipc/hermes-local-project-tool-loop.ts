@@ -14,6 +14,7 @@ import {
 } from './hermes-local-file-protocol'
 import { executeLocalCommandRequest } from './hermes-local-project-commands'
 import { executeLocalFileRequest } from './hermes-local-project-files'
+import { approveLocalCommandRequest } from './hermes-local-command-approval'
 
 export const LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT = `${LOCAL_PROJECT_FILE_PROTOCOL_PROMPT}\n${LOCAL_PROJECT_COMMAND_PROTOCOL_PROMPT}`
 
@@ -59,6 +60,15 @@ export async function executeLocalProjectToolReply(args: {
           }))
         )
       )
+  }
+  if (!(await approveLocalCommandRequest(commandRequest!))) {
+    return formatLocalCommandResults(
+      commandRequest!.operations.map((operation) => ({
+        id: operation.id,
+        ok: false,
+        error: 'user denied local command execution'
+      }))
+    )
   }
   return executeLocalCommandRequest({
     cwd: args.cwd,

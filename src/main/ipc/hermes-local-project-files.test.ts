@@ -139,6 +139,28 @@ describe('executeLocalFileRequest', () => {
     await expect(readFile(path, 'utf8')).resolves.toBe('current')
   })
 
+  it('rejects writes anywhere inside Git metadata', async () => {
+    for (const path of ['.git/hooks/pre-commit', 'nested/.GIT/config']) {
+      const [result] = await executeLocalFileRequest({
+        cwd: root,
+        store,
+        request: request([
+          {
+            id: path,
+            kind: 'write',
+            path,
+            contentBase64: Buffer.from('malicious').toString('base64'),
+            expectedSha256: null
+          }
+        ])
+      })
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'writing Git metadata is not allowed'
+      })
+    }
+  })
+
   it('serializes writes so two requests cannot both replace the same version', async () => {
     const path = join(root, 'report.txt')
     await writeFile(path, 'current')

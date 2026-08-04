@@ -35,6 +35,10 @@ function isInsideRoot(root: string, target: string): boolean {
   return offset === '' || (!offset.startsWith('..') && !isAbsolute(offset))
 }
 
+function isGitMetadataPath(relativePath: string): boolean {
+  return relativePath.split('/').some((segment) => segment.toLowerCase() === '.git')
+}
+
 async function resolveProjectRoot(cwd: string, store: Store): Promise<string> {
   if (!cwd.trim()) {
     throw new Error('no local project is selected')
@@ -134,6 +138,9 @@ async function writeProjectPath(
   store: Store
 ): Promise<LocalFileResult> {
   const target = await resolveProjectPath(root, operation.path, store)
+  if (isGitMetadataPath(target.relativePath)) {
+    throw new Error('writing Git metadata is not allowed')
+  }
   const content = decodeContent(operation.contentBase64)
   let current: Buffer | null = null
   try {
