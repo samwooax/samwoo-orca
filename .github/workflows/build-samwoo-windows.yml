@@ -72,11 +72,24 @@ jobs:
           if ($publisherHash -ne 'f5a6c3ec726645403edbb7b81cff1e32df817e40936a49ee14aa30c39cfe09ae') {
             throw 'Internal publisher certificate hash does not match the release policy.'
           }
-          & certutil.exe -user -addstore -f Root 'deploy/samwoo-internal-root-ca.cer' | Out-Null
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to trust the internal root certificate.' }
-          & certutil.exe -user -addstore -f TrustedPublisher `
-            'deploy/samwoo-internal-code-signing.cer' | Out-Null
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to trust the internal publisher certificate.' }
+          function Add-CurrentUserCertificate($path, $storeName) {
+            $certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new($path)
+            $store = [Security.Cryptography.X509Certificates.X509Store]::new(
+              $storeName,
+              [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+            )
+            try {
+              $store.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+              $store.Add($certificate)
+            } finally {
+              $store.Close()
+              $certificate.Dispose()
+            }
+          }
+          Add-CurrentUserCertificate 'deploy/samwoo-internal-root-ca.cer' `
+            ([Security.Cryptography.X509Certificates.StoreName]::Root)
+          Add-CurrentUserCertificate 'deploy/samwoo-internal-code-signing.cer' `
+            ([Security.Cryptography.X509Certificates.StoreName]::TrustedPublisher)
 
       - name: Cache electron-builder downloads
         uses: actions/cache@v5

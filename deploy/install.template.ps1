@@ -88,6 +88,20 @@ function Assert-SamwooInstallerSignature($path) {
     throw "SAMWOO-ORCA 설치 파일 서명자가 올바르지 않습니다: $($signature.SignerCertificate.Subject)"
   }
 }
+function Add-SamwooCertificateToCurrentUserStore($path, $storeName) {
+  $certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new($path)
+  $store = [Security.Cryptography.X509Certificates.X509Store]::new(
+    $storeName,
+    [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+  )
+  try {
+    $store.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+    $store.Add($certificate)
+  } finally {
+    $store.Close()
+    $certificate.Dispose()
+  }
+}
 function Install-SamwooPublisherTrust {
   $rootCertificate = Join-Path $here "samwoo-internal-root-ca.cer"
   $publisherCertificate = Join-Path $here "samwoo-internal-code-signing.cer"
@@ -99,18 +113,14 @@ function Install-SamwooPublisherTrust {
   if ($rootHash -ne $SAMWOO_ROOT_CERT_SHA256 -or $publisherHash -ne $SAMWOO_PUBLISHER_CERT_SHA256) {
     throw "SAMWOO 코드서명 공개 인증서의 무결성 검증에 실패했습니다"
   }
-  $publisher = New-Object Security.Cryptography.X509Certificates.X509Certificate2($publisherCertificate)
+  $publisher = [Security.Cryptography.X509Certificates.X509Certificate2]::new($publisherCertificate)
   if ($publisher.Thumbprint -ne $SAMWOO_SIGNER_THUMBPRINT) {
     throw "SAMWOO 코드서명 인증서 지문이 올바르지 않습니다"
   }
-  & certutil.exe -user -addstore -f Root $rootCertificate | Out-Null
-  if ($LASTEXITCODE -ne 0) {
-    throw "SAMWOO 루트 인증서를 신뢰 저장소에 등록하지 못했습니다"
-  }
-  & certutil.exe -user -addstore -f TrustedPublisher $publisherCertificate | Out-Null
-  if ($LASTEXITCODE -ne 0) {
-    throw "SAMWOO 게시자 인증서를 신뢰 저장소에 등록하지 못했습니다"
-  }
+  Add-SamwooCertificateToCurrentUserStore $rootCertificate `
+    ([Security.Cryptography.X509Certificates.StoreName]::Root)
+  Add-SamwooCertificateToCurrentUserStore $publisherCertificate `
+    ([Security.Cryptography.X509Certificates.StoreName]::TrustedPublisher)
 }
 function Assert-TrustedPublisherSignature($path, $publisherName) {
   $signature = Get-AuthenticodeSignature -LiteralPath $path
