@@ -103,9 +103,14 @@ function Install-SamwooPublisherTrust {
   if ($publisher.Thumbprint -ne $SAMWOO_SIGNER_THUMBPRINT) {
     throw "SAMWOO 코드서명 인증서 지문이 올바르지 않습니다"
   }
-  Import-Certificate -FilePath $rootCertificate -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
-  Import-Certificate -FilePath $publisherCertificate `
-    -CertStoreLocation "Cert:\CurrentUser\TrustedPublisher" | Out-Null
+  & certutil.exe -user -addstore -f Root $rootCertificate | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "SAMWOO 루트 인증서를 신뢰 저장소에 등록하지 못했습니다"
+  }
+  & certutil.exe -user -addstore -f TrustedPublisher $publisherCertificate | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "SAMWOO 게시자 인증서를 신뢰 저장소에 등록하지 못했습니다"
+  }
 }
 function Assert-TrustedPublisherSignature($path, $publisherName) {
   $signature = Get-AuthenticodeSignature -LiteralPath $path

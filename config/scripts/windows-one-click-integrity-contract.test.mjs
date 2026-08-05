@@ -28,8 +28,8 @@ describe('Windows one-click package integrity', () => {
     expect(installer).toContain('Get-AuthenticodeSignature -LiteralPath $path')
     expect(installer).toContain('81316CB47930717E9EB6949430BD80C2F4E6166D')
     expect(installer).toContain('Install-SamwooPublisherTrust')
-    expect(installer).toContain('Cert:\\CurrentUser\\Root')
-    expect(installer).toContain('Cert:\\CurrentUser\\TrustedPublisher')
+    expect(installer).toContain('certutil.exe -user -addstore -f Root')
+    expect(installer).toContain('certutil.exe -user -addstore -f TrustedPublisher')
     expect(installer).toContain('Assert-SamwooInstallerSignature $setup')
   })
 

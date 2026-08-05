@@ -72,10 +72,11 @@ jobs:
           if ($publisherHash -ne 'f5a6c3ec726645403edbb7b81cff1e32df817e40936a49ee14aa30c39cfe09ae') {
             throw 'Internal publisher certificate hash does not match the release policy.'
           }
-          Import-Certificate -FilePath 'deploy/samwoo-internal-root-ca.cer' `
-            -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
-          Import-Certificate -FilePath 'deploy/samwoo-internal-code-signing.cer' `
-            -CertStoreLocation 'Cert:\CurrentUser\TrustedPublisher' | Out-Null
+          & certutil.exe -user -addstore -f Root 'deploy/samwoo-internal-root-ca.cer' | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to trust the internal root certificate.' }
+          & certutil.exe -user -addstore -f TrustedPublisher `
+            'deploy/samwoo-internal-code-signing.cer' | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to trust the internal publisher certificate.' }
 
       - name: Cache electron-builder downloads
         uses: actions/cache@v5
