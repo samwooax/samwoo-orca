@@ -15,6 +15,10 @@ const EFFORT_LABELS: Record<TeamChatEffort, string> = {
   max: 'Max'
 }
 
+export function teamChatEffortLabel(effort: TeamChatEffort): string {
+  return EFFORT_LABELS[effort]
+}
+
 export function createTeamChatOptionSnapshot(
   modelId: TeamChatModelId,
   effort: TeamChatEffort
@@ -45,7 +49,7 @@ export function createTeamChatOptionSnapshot(
       kind: {
         type: 'select',
         currentValue: effort,
-        choices: model.efforts.map((value) => ({ value, label: EFFORT_LABELS[value] }))
+        choices: model.efforts.map((value) => ({ value, label: teamChatEffortLabel(value) }))
       },
       valueSource: 'applied',
       settable: true

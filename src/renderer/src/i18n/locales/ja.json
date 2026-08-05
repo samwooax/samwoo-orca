@@ -817,6 +817,7 @@
       "HermesTeamChatView": {
         "model": "モデル",
         "effort": "推論レベル",
+        "automaticEffort": "自動",
         "newConversation": "新しい会話",
         "startConversation": "{{value0}}との会話を開始",
         "emptyHint": "メッセージを入力するか、プロジェクトファイルを選択してください。",

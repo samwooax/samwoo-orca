@@ -10,6 +10,9 @@ describe('Hermes team chat page', () => {
     expect(html).toContain('GPT-5.5')
     expect(html).toContain('aria-label="텍스트 파일 첨부"')
     expect(html).toContain('aria-label="모델"')
+    expect(html).toContain('<span class="picker-label">추론 수준</span>')
+    expect(html).toContain('option.textContent = "자동"')
+    expect(html).not.toContain('parentElement.hidden')
     expect(html).toContain('aria-label="보내기"')
   })
 

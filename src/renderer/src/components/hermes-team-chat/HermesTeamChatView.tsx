@@ -8,10 +8,6 @@ import { NativeChatComposerActions } from '@/components/native-chat/NativeChatCo
 import { useNativeChatFileReference } from '@/components/native-chat/use-native-chat-file-reference'
 import { buildNativeChatFileReferenceInsertion } from '@/components/native-chat/native-chat-file-reference'
 import type { NativeChatLiveSession } from '@/components/native-chat/use-native-chat-live-session'
-import type {
-  SessionOptionsSurface,
-  SessionOptionValue
-} from '../../../../shared/native-chat-session-options'
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
 import {
   resolveTeamChatEffort,
@@ -22,8 +18,8 @@ import {
 } from '../../../../shared/hermes-team-chat-models'
 import type { HermesTeamChatRoute } from './hermes-team-chat-route'
 import { HermesTeamChatActivity } from './HermesTeamChatActivity'
+import { HermesTeamChatModelControls } from './HermesTeamChatModelControls'
 import { useHermesTeamChatProgress } from './use-hermes-team-chat-progress'
-import { createTeamChatOptionSnapshot } from './hermes-team-chat-session-options'
 import { hermesTeamChatStorageKey } from './hermes-team-chat-storage-key'
 import { readStoredTeamChat } from './hermes-team-chat-stored-session'
 import { useHermesTeamChatAttachments } from './use-hermes-team-chat-attachments'
@@ -92,29 +88,11 @@ export function HermesTeamChatView({
     [conversationId]
   )
 
-  const setOption = useCallback(
-    async (id: string, value: SessionOptionValue) => {
-      if (id === 'model') {
-        const nextModel = resolveTeamChatModel(value).id
-        setModel(nextModel)
-        setEffort((current) => resolveTeamChatEffort(nextModel, current))
-      } else if (id === 'effort') {
-        setEffort(resolveTeamChatEffort(model, value))
-      }
-      return { snapshot: [] }
-    },
-    [model]
-  )
-  const optionSnapshot = useMemo(() => createTeamChatOptionSnapshot(model, effort), [effort, model])
-  const optionSurface = useMemo<SessionOptionsSurface>(
-    () => ({
-      getSnapshot: () => optionSnapshot,
-      setOption,
-      invokeAction: async () => ({ snapshot: optionSnapshot }),
-      subscribe: () => () => {}
-    }),
-    [optionSnapshot, setOption]
-  )
+  const changeModel = useCallback((value: TeamChatModelId) => {
+    const nextModel = resolveTeamChatModel(value).id
+    setModel(nextModel)
+    setEffort((current) => resolveTeamChatEffort(nextModel, current))
+  }, [])
 
   const insertFileReference = useCallback(
     (relativePath: string): boolean => {
@@ -295,6 +273,13 @@ export function HermesTeamChatView({
         <div className="px-3 pt-2 pb-4 sm:px-4">
           <div className="mx-auto w-full max-w-4xl">
             <div className="rounded-lg border border-border bg-muted/50 p-1.5 shadow-xs dark:bg-input/40">
+              <HermesTeamChatModelControls
+                model={model}
+                effort={effort}
+                disabled={busy}
+                onModelChange={changeModel}
+                onEffortChange={(value) => setEffort(resolveTeamChatEffort(model, value))}
+              />
               {attachmentNotice ? (
                 <p className="mb-1.5 px-1 text-xs text-muted-foreground">{attachmentNotice}</p>
               ) : null}
@@ -380,8 +365,8 @@ export function HermesTeamChatView({
                   onDictationHoldEnd={() => {}}
                   onSend={() => void send()}
                   onStop={stop}
-                  sessionOptionsSurface={optionSurface}
-                  sessionOptionsSnapshot={optionSnapshot}
+                  sessionOptionsSurface={null}
+                  sessionOptionsSnapshot={[]}
                 />
               </div>
             </div>

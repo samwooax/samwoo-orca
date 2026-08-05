@@ -209,7 +209,14 @@ export const HERMES_TEAM_CHAT_STYLE = String.raw`
   .attachment span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .attachment button { background: transparent; cursor: pointer; padding: 0; }
   .composer-actions { align-items: center; display: flex; gap: 4px; }
-  .composer-actions-right { align-items: center; display: flex; gap: 6px; margin-left: auto; }
+  .composer-actions-right {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
   .picker {
     appearance: none;
     background: transparent;
@@ -221,7 +228,8 @@ export const HERMES_TEAM_CHAT_STYLE = String.raw`
     max-width: 160px;
     padding: 0 22px 0 7px;
   }
-  .picker-wrap { position: relative; }
+  .picker-wrap { align-items: center; display: flex; gap: 5px; position: relative; }
+  .picker-label { color: var(--foreground); font-size: 12px; font-weight: 500; }
   .picker-wrap::after {
     color: var(--muted-foreground);
     content: "⌄";

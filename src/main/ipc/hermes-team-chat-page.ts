@@ -39,9 +39,11 @@ const TEAM_CHAT_PAGE = String.raw`<!doctype html>
           </button>
           <div class="composer-actions-right">
             <label class="picker-wrap">
+              <span class="picker-label">추론 수준</span>
               <select class="picker" id="effort" aria-label="추론 수준"></select>
             </label>
             <label class="picker-wrap">
+              <span class="picker-label">모델</span>
               <select class="picker" id="model" aria-label="모델"></select>
             </label>
             <button class="icon-button send" id="send" type="submit" aria-label="보내기">
@@ -57,13 +59,15 @@ const TEAM_CHAT_PAGE = String.raw`<!doctype html>
       </form>
     </div>
   </main>
-  <script>__ORCA_CHAT_CLIENT_SCRIPT__</script>
+  <script>__ORCA_CHAT_CLIENT_SCRIPT____ORCA_CHAT_SCRIPT_CLOSE__
 </body>
 </html>`
 
 export function getHermesTeamChatPage(token: string): string {
-  return TEAM_CHAT_PAGE.replace('__ORCA_CHAT_STYLE__', HERMES_TEAM_CHAT_STYLE)
-    .replace('__ORCA_CHAT_CLIENT_SCRIPT__', HERMES_TEAM_CHAT_CLIENT_SCRIPT)
+  // Why: replacement callbacks keep JavaScript `$` sequences from being interpreted as replace patterns.
+  return TEAM_CHAT_PAGE.replace('__ORCA_CHAT_STYLE__', () => HERMES_TEAM_CHAT_STYLE)
+    .replace('__ORCA_CHAT_CLIENT_SCRIPT__', () => HERMES_TEAM_CHAT_CLIENT_SCRIPT)
+    .replace('__ORCA_CHAT_SCRIPT_CLOSE__', () => ['<', '/script>'].join(''))
     .replace('__ORCA_CHAT_MODELS__', JSON.stringify(TEAM_CHAT_MODELS))
     .replace('__ORCA_CHAT_TOKEN__', token)
 }

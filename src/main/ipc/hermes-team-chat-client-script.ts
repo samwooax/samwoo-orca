@@ -142,15 +142,23 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
     elements.model.value = settings.model
     const model = selectedModel()
     elements.effort.replaceChildren()
-    model.efforts.forEach(function (effort) {
+    if (model.efforts.length) {
+      model.efforts.forEach(function (effort) {
+        const option = document.createElement("option")
+        option.value = effort
+        option.textContent = { low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max" }[effort]
+        elements.effort.appendChild(option)
+      })
+      if (!model.efforts.includes(settings.effort)) settings.effort = "medium"
+    } else {
       const option = document.createElement("option")
-      option.value = effort
-      option.textContent = { low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max" }[effort]
+      option.value = "medium"
+      option.textContent = "자동"
       elements.effort.appendChild(option)
-    })
-    elements.effort.parentElement.hidden = !model.efforts.length
-    if (model.efforts.length && !model.efforts.includes(settings.effort)) settings.effort = "medium"
+      settings.effort = "medium"
+    }
     elements.effort.value = settings.effort
+    elements.effort.disabled = busy || !model.efforts.length
   }
   function renderAttachments() {
     elements.attachments.replaceChildren()
@@ -168,7 +176,7 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
   function setBusy(value) {
     busy = value
     elements.model.disabled = value
-    elements.effort.disabled = value
+    elements.effort.disabled = value || !selectedModel().efforts.length
     elements.attach.disabled = value
     elements.newChat.disabled = value
     elements.send.classList.toggle("stop", value)

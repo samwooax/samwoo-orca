@@ -858,6 +858,7 @@
       "HermesTeamChatView": {
         "model": "Model",
         "effort": "Effort",
+        "automaticEffort": "Automatic",
         "newConversation": "New conversation",
         "startConversation": "Start a conversation with {{value0}}",
         "emptyHint": "Enter a message or select a project file.",
