@@ -10,9 +10,6 @@ on:
       - 'src/shared/skill-freshness.ts'
       - '.github/workflows/skill-update-roundtrip.yml'
   merge_group:
-  push:
-    branches:
-      - main
 
 jobs:
   roundtrip:
