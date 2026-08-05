@@ -273,10 +273,8 @@ module.exports = {
   },
   win: {
     executableName: 'SAMWOO-ORCA',
-    // Why: Windows installers are signed after electron-builder packaging by
-    // SignPath, so the packager cannot infer the updater publisherName.
     signtoolOptions: {
-      publisherName: 'SignPath Foundation'
+      publisherName: 'SAMWOO ELECO Internal Code Signing'
     },
     extraResources: [
       ...commonExtraResources,
@@ -397,7 +395,7 @@ module.exports = {
   },
   // Why: release builds should fail if signing is unavailable instead of
   // silently downgrading to ad-hoc artifacts that look shippable in CI logs.
-  forceCodeSigning: isMacRelease,
+  forceCodeSigning: isMacRelease || process.env.SAMWOO_WINDOWS_RELEASE === '1',
   dmg: {
     artifactName: 'orca-macos-${arch}.${ext}'
   },

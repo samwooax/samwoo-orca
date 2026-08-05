@@ -7,6 +7,8 @@ SAMWOO-ORCA 설치 안내
    - 만료 후 재발급: https://login.tailscale.com/admin/settings/keys (samwooax 계정)
      "Generate auth key" → Reusable 체크 → 발급 키를 install.ps1 의 TS_AUTHKEY 에 교체
 2. 최신 samwoo-orca-windows-setup.exe 를 이 폴더에 같이 넣으세요.
+   - samwoo-internal-root-ca.cer 와 samwoo-internal-code-signing.cer 도
+     반드시 같은 폴더에 유지하세요. 공개 인증서이며 개인키는 포함되지 않습니다.
    (tailscale-setup-amd64.msi / tailscale-setup-arm64.msi 는 없으면
     Windows 아키텍처에 맞게 자동 다운로드되므로 선택사항)
 3. Git, Python 및 uv 오프라인 설치파일을 같은 폴더에 유지하세요.

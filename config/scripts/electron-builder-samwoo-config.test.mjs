@@ -15,7 +15,10 @@ describe('SAMWOO electron-builder identity', () => {
     expect(electronBuilderConfig).toMatchObject({
       appId: 'com.samwooax.samwoo-orca',
       productName: 'SAMWOO-ORCA',
-      win: { executableName: 'SAMWOO-ORCA' },
+      win: {
+        executableName: 'SAMWOO-ORCA',
+        signtoolOptions: { publisherName: 'SAMWOO ELECO Internal Code Signing' }
+      },
       nsis: {
         artifactName: 'samwoo-orca-windows-setup.${ext}',
         oneClick: false,

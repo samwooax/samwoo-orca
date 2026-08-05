@@ -1,6 +1,12 @@
 SAMWOO-ORCA one-click package versions
 ========================================
 
+SAMWOO internal code signing:
+- Root certificate SHA256: 1dff110f0759f0c43b630f11ed7ca0430e1683fc7848af1e4b9581ea7b869c0f
+- Publisher certificate SHA256: f5a6c3ec726645403edbb7b81cff1e32df817e40936a49ee14aa30c39cfe09ae
+- Publisher certificate SHA1 thumbprint: 81316CB47930717E9EB6949430BD80C2F4E6166D
+- Publisher certificate expires: 2036-08-02
+
 Git for Windows: 2.55.0.windows.3
 - https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.3/Git-2.55.0.3-64-bit.exe
   SHA256: af12577d0fdff74243a5988197aa49b957d5044edc17004f6ddf0768996f1dca

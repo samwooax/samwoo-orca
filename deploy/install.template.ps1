@@ -11,6 +11,9 @@ $GIT_VERSION = "2.55.0.windows.3"
 $GIT_INSTALLER_VERSION = "2.55.0.3"
 $PYTHON_VERSION = "3.14.6"
 $UV_VERSION = "0.12.0"
+$SAMWOO_SIGNER_THUMBPRINT = "81316CB47930717E9EB6949430BD80C2F4E6166D"
+$SAMWOO_ROOT_CERT_SHA256 = "1dff110f0759f0c43b630f11ed7ca0430e1683fc7848af1e4b9581ea7b869c0f"
+$SAMWOO_PUBLISHER_CERT_SHA256 = "f5a6c3ec726645403edbb7b81cff1e32df817e40936a49ee14aa30c39cfe09ae"
 $PACKAGE_SHA256 = @{
   "Git-2.55.0.3-64-bit.exe" = "af12577d0fdff74243a5988197aa49b957d5044edc17004f6ddf0768996f1dca"
   "Git-2.55.0.3-arm64.exe" = "e3d7f5a2214f214f0a93cf0d8915dab236a0e91c7de6de70a7dbde9a61c794db"
@@ -81,9 +84,28 @@ function Assert-SamwooInstallerSignature($path) {
   if ($signature.Status -ne "Valid") {
     throw "SAMWOO-ORCA 설치 파일의 코드 서명이 유효하지 않습니다: $($signature.Status)"
   }
-  if ($signature.SignerCertificate.Subject -notlike "*CN=SignPath Foundation*") {
+  if ($signature.SignerCertificate.Thumbprint -ne $SAMWOO_SIGNER_THUMBPRINT) {
     throw "SAMWOO-ORCA 설치 파일 서명자가 올바르지 않습니다: $($signature.SignerCertificate.Subject)"
   }
+}
+function Install-SamwooPublisherTrust {
+  $rootCertificate = Join-Path $here "samwoo-internal-root-ca.cer"
+  $publisherCertificate = Join-Path $here "samwoo-internal-code-signing.cer"
+  if (-not (Test-Path $rootCertificate) -or -not (Test-Path $publisherCertificate)) {
+    throw "SAMWOO 코드서명 공개 인증서가 설치 키트에 없습니다"
+  }
+  $rootHash = (Get-FileHash -LiteralPath $rootCertificate -Algorithm SHA256).Hash.ToLowerInvariant()
+  $publisherHash = (Get-FileHash -LiteralPath $publisherCertificate -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($rootHash -ne $SAMWOO_ROOT_CERT_SHA256 -or $publisherHash -ne $SAMWOO_PUBLISHER_CERT_SHA256) {
+    throw "SAMWOO 코드서명 공개 인증서의 무결성 검증에 실패했습니다"
+  }
+  $publisher = New-Object Security.Cryptography.X509Certificates.X509Certificate2($publisherCertificate)
+  if ($publisher.Thumbprint -ne $SAMWOO_SIGNER_THUMBPRINT) {
+    throw "SAMWOO 코드서명 인증서 지문이 올바르지 않습니다"
+  }
+  Import-Certificate -FilePath $rootCertificate -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
+  Import-Certificate -FilePath $publisherCertificate `
+    -CertStoreLocation "Cert:\CurrentUser\TrustedPublisher" | Out-Null
 }
 function Assert-TrustedPublisherSignature($path, $publisherName) {
   $signature = Get-AuthenticodeSignature -LiteralPath $path
@@ -193,6 +215,7 @@ if (-not $AdminPhase) {
     if (-not (Test-Path $setup)) {
       throw "설치 파일이 옆에 없습니다: samwoo-orca-windows-setup.exe"
     }
+    Install-SamwooPublisherTrust
     Assert-SamwooInstallerSignature $setup
     Get-Process "SAMWOO-ORCA", "samwoo-orca-terminal-daemon" `
       -ErrorAction SilentlyContinue | Stop-Process -Force

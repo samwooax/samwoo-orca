@@ -51,28 +51,31 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Verify SignPath configuration
+      - name: Verify internal code-signing configuration
         shell: pwsh
         env:
-          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
-          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
-          SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
-          $missing = @(
-            'SIGNPATH_API_TOKEN',
-            'SIGNPATH_ORGANIZATION_ID',
-            'SIGNPATH_PROJECT_SLUG',
-            'SIGNPATH_SIGNING_POLICY_SLUG',
-            'SIGNPATH_ARTIFACT_CONFIGURATION_SLUG'
-          ) | Where-Object {
+          $missing = @('WIN_CSC_LINK', 'WIN_CSC_KEY_PASSWORD') | Where-Object {
             [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_))
           }
-
           if ($missing.Count -gt 0) {
-            throw "Configure these repository secrets/variables before building: $($missing -join ', ')"
+            throw "Configure these repository secrets before building: $($missing -join ', ')"
           }
+
+          $rootHash = (Get-FileHash 'deploy/samwoo-internal-root-ca.cer' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($rootHash -ne '1dff110f0759f0c43b630f11ed7ca0430e1683fc7848af1e4b9581ea7b869c0f') {
+            throw 'Internal root certificate hash does not match the release policy.'
+          }
+          $publisherHash = (Get-FileHash 'deploy/samwoo-internal-code-signing.cer' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($publisherHash -ne 'f5a6c3ec726645403edbb7b81cff1e32df817e40936a49ee14aa30c39cfe09ae') {
+            throw 'Internal publisher certificate hash does not match the release policy.'
+          }
+          Import-Certificate -FilePath 'deploy/samwoo-internal-root-ca.cer' `
+            -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
+          Import-Certificate -FilePath 'deploy/samwoo-internal-code-signing.cer' `
+            -CertStoreLocation 'Cert:\CurrentUser\TrustedPublisher' | Out-Null
 
       - name: Cache electron-builder downloads
         uses: actions/cache@v5
@@ -113,6 +116,7 @@ jobs:
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-stored-session.test.ts `
             src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-attachments.test.tsx `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
+            config/scripts/samwoo-windows-internal-signing-workflow.test.mjs `
             config/scripts/windows-one-click-integrity-contract.test.mjs `
             config/scripts/windows-one-click-launch-contract.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -134,8 +138,12 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Package unsigned Windows NSIS installer
+      - name: Package signed Windows NSIS installer
         shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          SAMWOO_WINDOWS_RELEASE: '1'
         run: |
           node config/scripts/ensure-native-runtime.mjs --runtime=electron
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -145,45 +153,18 @@ jobs:
             throw 'electron-builder did not produce dist/samwoo-orca-windows-setup.exe'
           }
 
-      - name: Upload unsigned installer for SignPath
-        id: unsigned-installer
-        uses: actions/upload-artifact@v7
-        with:
-          name: samwoo-orca-windows-unsigned-${{ steps.release.outputs.tag }}
-          path: dist/samwoo-orca-windows-setup.exe
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Submit installer to SignPath
-        uses: signpath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
-          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
-          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
-          wait-for-completion: true
-          wait-for-completion-timeout-in-seconds: 14400
-          output-artifact-directory: signed-windows
-
       - name: Stage and verify signed release assets
         shell: pwsh
         run: |
-          $signedInstaller = Get-ChildItem -Path signed-windows -Recurse -File -Filter 'samwoo-orca-windows-setup.exe' | Select-Object -First 1
-          if ($null -eq $signedInstaller) {
-            throw 'Signed Windows installer was not returned by SignPath.'
-          }
-
-          $signature = Get-AuthenticodeSignature -FilePath $signedInstaller.FullName
+          $installerPath = 'dist/samwoo-orca-windows-setup.exe'
+          $signature = Get-AuthenticodeSignature -FilePath $installerPath
           if ($signature.Status -ne 'Valid') {
             throw ($signature | Format-List * | Out-String)
           }
-          if ($signature.SignerCertificate.Subject -notlike '*CN=SignPath Foundation*') {
+          if ($signature.SignerCertificate.Thumbprint -ne '81316CB47930717E9EB6949430BD80C2F4E6166D') {
             throw "Unexpected Windows signer: $($signature.SignerCertificate.Subject)"
           }
 
-          Copy-Item -Path $signedInstaller.FullName -Destination 'dist/samwoo-orca-windows-setup.exe' -Force
           node config/scripts/generate-windows-blockmap.mjs `
             'dist/samwoo-orca-windows-setup.exe' `
             'dist/samwoo-orca-windows-setup.exe.blockmap'
