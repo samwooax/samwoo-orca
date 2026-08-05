@@ -21,6 +21,9 @@ describe('SAMWOO Windows internal signing workflow', () => {
     expect(workflow).toContain('deploy/samwoo-internal-root-ca.cer')
     expect(workflow).toContain('deploy/samwoo-internal-code-signing.cer')
     expect(workflow).toContain('81316CB47930717E9EB6949430BD80C2F4E6166D')
-    expect(workflow).toContain("if ($signature.Status -ne 'Valid')")
+    expect(workflow).toContain(
+      "if ($signature.Status -notin @('Valid', 'UnknownError', 'NotTrusted'))"
+    )
+    expect(workflow).not.toContain('Add-CurrentUserCertificate')
   })
 })
