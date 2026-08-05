@@ -8,6 +8,7 @@ import {
 } from '../../../../shared/hermes-team-chat-models'
 
 const EFFORT_LABELS: Record<TeamChatEffort, string> = {
+  minimal: 'Minimal',
   low: 'Low',
   medium: 'Medium',
   high: 'High',

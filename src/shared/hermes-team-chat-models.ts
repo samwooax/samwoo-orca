@@ -1,3 +1,5 @@
+import { HERMES_ACP_REASONING_BRIDGE } from './hermes-team-chat-acp-reasoning-bridge'
+
 export const TEAM_CHAT_MODELS = [
   {
     id: 'fable',
@@ -15,30 +17,30 @@ export const TEAM_CHAT_MODELS = [
     id: 'gpt-5.6-sol',
     label: 'GPT-5.6 Sol',
     provider: 'hermes',
-    efforts: []
+    efforts: ['minimal', 'low', 'medium', 'high', 'xhigh']
   },
   {
     id: 'gpt-5.6-terra',
     label: 'GPT-5.6 Terra',
     provider: 'hermes',
-    efforts: []
+    efforts: ['minimal', 'low', 'medium', 'high', 'xhigh']
   },
   {
     id: 'gpt-5.6-luna',
     label: 'GPT-5.6 Luna',
     provider: 'hermes',
-    efforts: []
+    efforts: ['minimal', 'low', 'medium', 'high']
   },
   {
     id: 'gpt-5.5',
     label: 'GPT-5.5',
     provider: 'hermes',
-    efforts: []
+    efforts: ['minimal', 'low', 'medium', 'high', 'xhigh']
   }
 ] as const
 
 export type TeamChatModelId = (typeof TEAM_CHAT_MODELS)[number]['id']
-export type TeamChatEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+export type TeamChatEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 export type TeamChatHistoryMessage = {
   role: 'user' | 'assistant'
   content: string
@@ -153,7 +155,7 @@ export function buildTeamChatRemoteCommand(args: {
   } else {
     agentCommand =
       `sh -lc '${MAIL_TOKEN_STDIN_BOOTSTRAP}; cd ${profileHome} && HERMES_HOME=${profileHome} hermes ` +
-      `--model ${model.id} -z "$(cat)" --cli'`
+      `--model ${model.id} --reasoning ${args.effort} -z "$(cat)" --cli'`
   }
 
   // Why: the SSH client can disappear without terminating remote descendants; a dedicated session gives cancellation a verifiable boundary.
@@ -165,9 +167,10 @@ export function buildTeamChatAcpRemoteCommand(args: {
   profile: string
 }): string {
   const profileHome = `/opt/data/profiles/${args.profile}`
-  const command =
-    `sh -lc '${MAIL_TOKEN_STDIN_BOOTSTRAP}; cd ${profileHome} && ` +
-    `HERMES_HOME=${profileHome} hermes acp'`
+  const sessionScript =
+    `${MAIL_TOKEN_STDIN_BOOTSTRAP}; cd ${profileHome} && HERMES_HOME=${profileHome} ` +
+    `/opt/hermes/.venv/bin/python3 -c ${shellQuote(HERMES_ACP_REASONING_BRIDGE)}`
+  const command = `sh -lc ${shellQuote(sessionScript)}`
   // Why: ACP survives individual prompts; the local idle timer normally closes it, while this cap cleans up orphaned remote sessions.
   return wrapTeamChatSession(args.requestId, command, REMOTE_ACP_SESSION_TIMEOUT_SECONDS)
 }

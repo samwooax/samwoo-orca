@@ -26,6 +26,8 @@ describe('team chat model catalog', () => {
     expect(resolveTeamChatModel('unknown').id).toBe('gpt-5.5')
     expect(resolveTeamChatEffort('fable', 'high')).toBe('high')
     expect(resolveTeamChatEffort('opus', 'invalid')).toBe('medium')
+    expect(resolveTeamChatEffort('gpt-5.6-sol', 'xhigh')).toBe('xhigh')
+    expect(resolveTeamChatEffort('gpt-5.6-luna', 'xhigh')).toBe('medium')
   })
 })
 
@@ -63,6 +65,7 @@ describe('team chat remote commands', () => {
     })
 
     expect(command).toContain('HERMES_HOME=/opt/data/profiles/hr hermes --model gpt-5.6-sol')
+    expect(command).toContain('--reasoning medium')
     expect(command).not.toContain('hermes --profile')
     expect(command).not.toContain('2>/dev/null')
   })
@@ -91,7 +94,8 @@ describe('team chat remote commands', () => {
     })
 
     expect(command).toContain('read -r mail_token')
-    expect(command).toContain('hermes acp')
+    expect(command).toContain('/opt/hermes/.venv/bin/python3 -c')
+    expect(command).toContain('reasoning_effort')
     expect(command).not.toContain('safe-token')
   })
 })

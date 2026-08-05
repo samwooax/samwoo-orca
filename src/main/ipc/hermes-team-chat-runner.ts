@@ -214,6 +214,7 @@ export async function runTeamChatMessage(args: {
         ? await sessionHandle.client.prompt({
             requestId: args.requestId,
             modelId: args.modelId,
+            effort: args.effort,
             message: fullMessage,
             onProgress: args.onProgress
           })

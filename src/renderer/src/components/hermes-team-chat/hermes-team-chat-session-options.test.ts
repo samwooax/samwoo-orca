@@ -37,9 +37,19 @@ describe('createTeamChatOptionSnapshot', () => {
     })
   })
 
-  it('does not claim an effort control for Hermes ACP models', () => {
-    const snapshot = createTeamChatOptionSnapshot('gpt-5.5', 'medium')
+  it('offers only the GPT effort values supported by the selected model', () => {
+    const snapshot = createTeamChatOptionSnapshot('gpt-5.6-luna', 'medium')
+    const effort = snapshot.find((option) => option.id === 'effort')
 
-    expect(snapshot.find((option) => option.id === 'effort')).toBeUndefined()
+    expect(effort?.kind).toEqual({
+      type: 'select',
+      currentValue: 'medium',
+      choices: [
+        { value: 'minimal', label: 'Minimal' },
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' }
+      ]
+    })
   })
 })

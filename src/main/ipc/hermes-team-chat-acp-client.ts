@@ -1,6 +1,6 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
-import type { TeamChatModelId } from './hermes-team-chat-models'
+import type { TeamChatEffort, TeamChatModelId } from './hermes-team-chat-models'
 import { acpErrorMessage, isAcpRecord, type AcpJsonRecord } from './hermes-team-chat-acp-values'
 import { HermesAcpTurnProgress } from './hermes-team-chat-acp-turn-progress'
 
@@ -17,6 +17,7 @@ export class HermesAcpSession {
   private sessionId = ''
   private requestSequence = 0
   private currentModel: TeamChatModelId | null = null
+  private currentEffort: TeamChatEffort | null = null
   private activeTurn: HermesAcpTurnProgress | null = null
   private cancelRequested = false
   private closedError: Error | null = null
@@ -49,6 +50,7 @@ export class HermesAcpSession {
   async prompt(args: {
     requestId: string
     modelId: TeamChatModelId
+    effort: TeamChatEffort
     message: string
     onProgress?: (event: TeamChatProgressEvent) => void
   }): Promise<TeamChatResult> {
@@ -73,6 +75,15 @@ export class HermesAcpSession {
           modelId: `openai-codex:${args.modelId}`
         })
         this.currentModel = args.modelId
+        this.currentEffort = null
+      }
+      if (this.currentEffort !== args.effort) {
+        await this.request('session/set_config_option', {
+          sessionId: this.sessionId,
+          configId: 'reasoning_effort',
+          value: args.effort
+        })
+        this.currentEffort = args.effort
       }
       turn.emit({ id: 'agent', kind: 'phase', title: '에이전트 작업', status: 'in_progress' })
       const response = await this.request('session/prompt', {

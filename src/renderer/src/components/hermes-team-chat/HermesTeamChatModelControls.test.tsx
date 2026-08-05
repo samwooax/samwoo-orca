@@ -9,7 +9,7 @@ import { HermesTeamChatModelControls } from './HermesTeamChatModelControls'
 afterEach(cleanup)
 
 describe('HermesTeamChatModelControls', () => {
-  it('keeps model and effort controls visible when effort is automatic', () => {
+  it('enables the GPT effort control', () => {
     render(
       <HermesTeamChatModelControls
         model="gpt-5.6-sol"
@@ -21,8 +21,8 @@ describe('HermesTeamChatModelControls', () => {
     )
 
     expect(screen.getByRole('combobox', { name: 'Model' })).toBeEnabled()
-    expect(screen.getByRole('combobox', { name: 'Effort' })).toBeDisabled()
-    expect(screen.getByText('Automatic')).toBeVisible()
+    expect(screen.getByRole('combobox', { name: 'Effort' })).toBeEnabled()
+    expect(screen.getByText('Medium')).toBeVisible()
   })
 
   it('enables effort selection for models that support it', () => {

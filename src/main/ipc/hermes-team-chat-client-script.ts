@@ -146,7 +146,7 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
       model.efforts.forEach(function (effort) {
         const option = document.createElement("option")
         option.value = effort
-        option.textContent = { low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max" }[effort]
+        option.textContent = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max" }[effort]
         elements.effort.appendChild(option)
       })
       if (!model.efforts.includes(settings.effort)) settings.effort = "medium"

@@ -14,6 +14,7 @@ function emitJson(proc: FakeProcess, value: unknown): void {
 }
 
 function acpProcess(): FakeProcess {
+  let promptCount = 0
   const proc = new EventEmitter() as FakeProcess
   proc.stdout = new EventEmitter()
   proc.stderr = new EventEmitter()
@@ -43,7 +44,10 @@ function acpProcess(): FakeProcess {
         })
       } else if (request.method === 'session/set_model') {
         emitJson(proc, { jsonrpc: '2.0', id: request.id, result: {} })
+      } else if (request.method === 'session/set_config_option') {
+        emitJson(proc, { jsonrpc: '2.0', id: request.id, result: { configOptions: [] } })
       } else if (request.method === 'session/prompt') {
+        promptCount += 1
         const prompt = Array.isArray(request.params.prompt) ? request.params.prompt : []
         if ((prompt[0] as { text?: unknown } | undefined)?.text === '대기') {
           return
@@ -96,7 +100,7 @@ function acpProcess(): FakeProcess {
               sessionUpdate: 'agent_message_chunk',
               content: {
                 type: 'text',
-                text: request.id === 4 ? '완료했습니다.' : '계속 기억합니다.'
+                text: promptCount === 1 ? '완료했습니다.' : '계속 기억합니다.'
               }
             }
           }
@@ -122,12 +126,14 @@ describe('runHermesAcpProcess', () => {
     const result = await session.prompt({
       requestId: 'request-1',
       modelId: 'gpt-5.6-sol',
+      effort: 'xhigh',
       message: 'src/a.ts 확인',
       onProgress: (event) => progress.push(event)
     })
     const continued = await session.prompt({
       requestId: 'request-2',
       modelId: 'gpt-5.6-sol',
+      effort: 'xhigh',
       message: '앞 내용을 기억해?',
       onProgress: (event) => progress.push(event)
     })
@@ -149,6 +155,11 @@ describe('runHermesAcpProcess', () => {
       .map((line) => JSON.parse(line))
     expect(outbound.filter((request) => request.method === 'session/new')).toHaveLength(1)
     expect(outbound.filter((request) => request.method === 'session/prompt')).toHaveLength(2)
+    expect(outbound.filter((request) => request.method === 'session/set_config_option')).toEqual([
+      expect.objectContaining({
+        params: { sessionId: 'session-1', configId: 'reasoning_effort', value: 'xhigh' }
+      })
+    ])
     expect(outbound.some((request) => request.method === 'session/set_mode')).toBe(false)
     expect(proc.stdin.end).not.toHaveBeenCalled()
     session.close()
@@ -161,6 +172,7 @@ describe('runHermesAcpProcess', () => {
     const pending = session.prompt({
       requestId: 'request-cancel',
       modelId: 'gpt-5.6-sol',
+      effort: 'medium',
       message: '대기'
     })
     await vi.waitFor(() => {
