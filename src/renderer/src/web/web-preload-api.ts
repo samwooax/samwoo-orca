@@ -2890,6 +2890,13 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
           'Workspace sharing is unavailable in the web client.'
         )
       }),
+      previewFiles: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.workspaceSharing.webUnavailable',
+          'Workspace sharing is unavailable in the web client.'
+        )
+      }),
       pullFiles: async () => ({
         ok: false,
         error: translate(
@@ -2898,6 +2905,13 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
         )
       }),
       pushFiles: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.workspaceSharing.webUnavailable',
+          'Workspace sharing is unavailable in the web client.'
+        )
+      }),
+      resolveConflicts: async () => ({
         ok: false,
         error: translate(
           'samwoo.workspaceSharing.webUnavailable',

@@ -41,6 +41,24 @@ export type SamwooWorkspaceSyncResult = {
   error?: string
 }
 
+export type SamwooWorkspaceSyncDirection = 'pull' | 'push'
+export type SamwooWorkspaceChangeKind = 'add' | 'modify' | 'delete' | 'conflict'
+export type SamwooWorkspaceChangeOrigin = 'local' | 'remote' | 'both'
+export type SamwooWorkspaceConflictChoice = 'keep_local' | 'use_remote' | 'keep_both'
+
+export type SamwooWorkspaceChange = {
+  path: string
+  kind: SamwooWorkspaceChangeKind
+  origin: SamwooWorkspaceChangeOrigin
+}
+
+export type SamwooWorkspaceSyncPreview = {
+  ok: boolean
+  destinationPath?: string
+  changes?: SamwooWorkspaceChange[]
+  error?: string
+}
+
 export type SamwooWorkspaceComment = {
   id: string
   shareId: string
@@ -87,12 +105,31 @@ export type PullSamwooWorkspaceFilesArgs = {
   destinationParent?: string
   folderName?: string
   destinationPath?: string
+  deletePaths?: string[]
 }
 
 export type PushSamwooWorkspaceFilesArgs = {
   token: string
   shareId: string
   sourcePath: string
+  deletePaths?: string[]
+}
+
+export type PreviewSamwooWorkspaceFilesArgs = {
+  token: string
+  shareId: string
+  direction: SamwooWorkspaceSyncDirection
+  localPath?: string
+  destinationParent?: string
+  folderName?: string
+}
+
+export type ResolveSamwooWorkspaceConflictsArgs = {
+  token: string
+  shareId: string
+  localPath: string
+  direction: SamwooWorkspaceSyncDirection
+  resolutions: { path: string; choice: SamwooWorkspaceConflictChoice }[]
 }
 
 export type UpdateSamwooWorkspaceShareArgs = {

@@ -234,3 +234,18 @@ def write_file(
         "etag": response_headers.get("etag", "").strip('"'),
         "size": len(payload),
     }
+
+
+def delete_file(
+    profile: str,
+    share_id: str,
+    relative_path: object,
+    expected_etag: object,
+) -> dict:
+    relative = normalize_relative_path(relative_path, allow_empty=False)
+    headers = {}
+    if expected_etag:
+        headers["If-Match"] = f'"{str(expected_etag).strip(chr(34))}"'
+    segments = [*_workspace_segments(profile, share_id), *relative.split("/")]
+    _request("DELETE", segments, headers=headers, expected=(204, 404))
+    return {"path": relative}

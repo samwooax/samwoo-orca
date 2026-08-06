@@ -232,6 +232,28 @@ class WorkspaceSharingTest(unittest.TestCase):
         self.assertEqual(409, status)
         self.assertEqual("file_conflict", result["errorCode"])
 
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.delete_file")
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.ensure_workspace")
+    def test_nextcloud_delete_requires_owner_or_contribute(self, ensure_workspace, delete_file):
+        ensure_workspace.return_value = "SAMWOO-Workspaces/ai_center/share-id"
+        delete_file.return_value = {"path": "old.txt"}
+        share = workspace_sharing.create_share(
+            "token-owner-0123456789",
+            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "clone"},
+        )
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.delete_workspace_file(
+                "token-peer-01234567890",
+                {"shareId": share["id"], "path": "old.txt", "expectedEtag": "old"},
+            )
+
+        workspace_sharing.delete_workspace_file(
+            "token-owner-0123456789",
+            {"shareId": share["id"], "path": "old.txt", "expectedEtag": "old"},
+        )
+
+        delete_file.assert_called_once_with("ai_center", share["id"], "old.txt", "old")
+
 
 if __name__ == "__main__":
     unittest.main()

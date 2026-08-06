@@ -85,6 +85,18 @@ class NextcloudWorkspaceStorageTest(unittest.TestCase):
         self.assertEqual('"old"', headers["If-Match"])
         self.assertNotIn("If-None-Match", headers)
 
+    @mock.patch("nextcloud_workspace_storage._request")
+    def test_delete_sends_the_tracked_etag(self, request):
+        request.return_value = (204, b"", {})
+
+        result = nextcloud_workspace_storage.delete_file(
+            "ai_center", self.SHARE_ID, "old.txt", '"etag-old"'
+        )
+
+        self.assertEqual("old.txt", result["path"])
+        self.assertEqual("DELETE", request.call_args.args[0])
+        self.assertEqual('"etag-old"', request.call_args.kwargs["headers"]["If-Match"])
+
 
 if __name__ == "__main__":
     unittest.main()

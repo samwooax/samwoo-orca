@@ -313,7 +313,7 @@ def write_workspace_file(token: str, body: dict) -> dict:
     if not isinstance(create_only, bool):
         raise WorkspaceShareError("invalid create-only condition")
     try:
-        return nextcloud_workspace_storage.write_file(
+        result = nextcloud_workspace_storage.write_file(
             profile,
             share_id,
             body.get("path"),
@@ -325,6 +325,36 @@ def write_workspace_file(token: str, body: dict) -> dict:
         raise WorkspaceShareConflictError(str(error)) from error
     except nextcloud_workspace_storage.NextcloudStorageError as error:
         raise WorkspaceShareError(str(error)) from error
+    with _lock, _connect() as conn:
+        conn.execute(
+            "UPDATE workspace_shares SET updated_at=? WHERE id=? AND owner_profile=?",
+            (int(time.time() * 1000), share_id, profile),
+        )
+    return result
+
+
+def delete_workspace_file(token: str, body: dict) -> dict:
+    login, profile = _identity(token)
+    share_id = _share_id(body.get("shareId"))
+    with _lock, _connect() as conn:
+        row = _nextcloud_share(conn, share_id, profile)
+        if row["owner_login"] != login and row["permission"] != "contribute":
+            raise WorkspaceShareError("workspace contribution is not allowed")
+    expected_etag = _text(body.get("expectedEtag"), "expected etag", 512, True)
+    try:
+        result = nextcloud_workspace_storage.delete_file(
+            profile, share_id, body.get("path"), expected_etag
+        )
+    except nextcloud_workspace_storage.NextcloudStorageConflictError as error:
+        raise WorkspaceShareConflictError(str(error)) from error
+    except nextcloud_workspace_storage.NextcloudStorageError as error:
+        raise WorkspaceShareError(str(error)) from error
+    with _lock, _connect() as conn:
+        conn.execute(
+            "UPDATE workspace_shares SET updated_at=? WHERE id=? AND owner_profile=?",
+            (int(time.time() * 1000), share_id, profile),
+        )
+    return result
 
 
 def list_comments(token: str, body: dict) -> dict:

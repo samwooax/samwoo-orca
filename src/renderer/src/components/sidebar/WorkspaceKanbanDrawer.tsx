@@ -174,6 +174,7 @@ export default function WorkspaceKanbanDrawer({
   const [pinDragOver, setPinDragOver] = useState(false)
   const [renderCards, setRenderCards] = useState(false)
   const [sharedWorkspacesOpen, setSharedWorkspacesOpen] = useState(false)
+  const [sharedWorkspaceChangeCount, setSharedWorkspaceChangeCount] = useState(0)
   const { canCreateWorktree, createWorktreeForStatus } = useWorkspaceKanbanCreateWorktree()
   const visibleWorktreeIdSet = useVisibleWorkspaceKanbanWorktreeIds({
     allWorktrees,
@@ -878,11 +879,13 @@ export default function WorkspaceKanbanDrawer({
           onAddStatus={handleAddStatus}
           onFilterMenuOpenChange={onMenuOpenChange}
           onOpenSharedWorkspaces={() => setSharedWorkspacesOpen(true)}
+          sharedWorkspaceChangeCount={sharedWorkspaceChangeCount}
           onClose={handleHeaderClose}
         />
         <SharedWorkspaceBoardDialog
           open={sharedWorkspacesOpen}
           onOpenChange={setSharedWorkspacesOpen}
+          onNewChangesCountChange={setSharedWorkspaceChangeCount}
         />
         <div
           ref={boardRef}

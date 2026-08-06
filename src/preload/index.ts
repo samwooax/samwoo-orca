@@ -2205,8 +2205,10 @@ const api = {
       createComment: (args) => ipcRenderer.invoke('samwooWorkspaceShares:createComment', args),
       setCommentCompleted: (args) =>
         ipcRenderer.invoke('samwooWorkspaceShares:setCommentCompleted', args),
+      previewFiles: (args) => ipcRenderer.invoke('samwooWorkspaceShares:previewFiles', args),
       pullFiles: (args) => ipcRenderer.invoke('samwooWorkspaceShares:pullFiles', args),
-      pushFiles: (args) => ipcRenderer.invoke('samwooWorkspaceShares:pushFiles', args)
+      pushFiles: (args) => ipcRenderer.invoke('samwooWorkspaceShares:pushFiles', args),
+      resolveConflicts: (args) => ipcRenderer.invoke('samwooWorkspaceShares:resolveConflicts', args)
     },
     refreshAgents: (args?: PreflightRuntimeContext): Promise<RefreshAgentsResult> =>
       ipcRenderer.invoke('preflight:refreshAgents', args),

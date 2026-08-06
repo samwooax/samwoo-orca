@@ -106,6 +106,15 @@ describe('WorkspaceKanbanDrawerHeader', () => {
     expect(onOpenSharedWorkspaces).toHaveBeenCalledOnce()
   })
 
+  it('announces newly changed shared workspaces', () => {
+    const button = findElement(
+      renderHeader(vi.fn(), { sharedWorkspaceChangeCount: 1 }),
+      (props) => props['aria-label'] === 'Team shared workspaces, new changes'
+    )
+
+    expect(button).not.toBeNull()
+  })
+
   it('renders the search field as a sibling of the sheet title, not inside it', () => {
     const header = renderHeader(vi.fn(), {
       query: 'orca',

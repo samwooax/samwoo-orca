@@ -21,6 +21,11 @@ import {
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { writeSharedWorkspaceLocalPath } from '@/lib/shared-workspace-local-path-store'
+import { readSharedWorkspaceLocalPath } from '@/lib/shared-workspace-local-path-store'
+import {
+  readSharedWorkspaceSeenRevision,
+  writeSharedWorkspaceSeenRevision
+} from '@/lib/shared-workspace-revision-store'
 import { useAppStore } from '@/store'
 import type { Repo } from '../../../../shared/types'
 import type {
@@ -32,11 +37,16 @@ import SharedWorkspaceShareCard, {
   getSamwooWorkspacePermissionLabel
 } from './SharedWorkspaceShareCard'
 
-type Props = { open: boolean; onOpenChange: (open: boolean) => void }
+type Props = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onNewChangesCountChange?: (count: number) => void
+}
 
 export default function SharedWorkspaceBoardDialog({
   open,
-  onOpenChange
+  onOpenChange,
+  onNewChangesCountChange
 }: Props): React.JSX.Element {
   const auth = useSamwooAuthStore((state) => state.auth)
   const repos = useAppStore((state) => state.repos)
@@ -66,6 +76,32 @@ export default function SharedWorkspaceBoardDialog({
   const [permission, setPermission] = useState<SamwooWorkspacePermission>('clone')
   const [busy, setBusy] = useState(false)
 
+  const applyShares = useCallback(
+    (nextShares: SamwooWorkspaceShare[]): void => {
+      setShares(nextShares)
+      if (!auth?.login) {
+        return
+      }
+      let newChangesCount = 0
+      for (const share of nextShares) {
+        if (
+          share.sourceKind !== 'nextcloud' ||
+          !readSharedWorkspaceLocalPath(auth.login, share.id)
+        ) {
+          continue
+        }
+        const seen = readSharedWorkspaceSeenRevision(auth.login, share.id)
+        if (seen === null) {
+          writeSharedWorkspaceSeenRevision(auth.login, share.id, share.updatedAt)
+        } else if (share.updatedAt > seen) {
+          newChangesCount += 1
+        }
+      }
+      onNewChangesCountChange?.(newChangesCount)
+    },
+    [auth?.login, onNewChangesCountChange]
+  )
+
   const refresh = useCallback(async (): Promise<void> => {
     if (!auth?.token) {
       return
@@ -74,14 +110,29 @@ export default function SharedWorkspaceBoardDialog({
     const result = await window.api.preflight.samwooWorkspaceShares.list(auth.token)
     setBusy(false)
     if (result.ok) {
-      setShares(result.shares ?? [])
+      applyShares(result.shares ?? [])
     } else {
       toast.error(
         result.error ??
           translate('samwoo.workspaceSharing.loadFailed', 'Could not load shared workspaces.')
       )
     }
-  }, [auth?.token])
+  }, [applyShares, auth?.token])
+
+  useEffect(() => {
+    if (!auth?.token) {
+      return
+    }
+    const token = auth.token
+    const poll = async (): Promise<void> => {
+      const result = await window.api.preflight.samwooWorkspaceShares.list(token)
+      if (result.ok) {
+        applyShares(result.shares ?? [])
+      }
+    }
+    const timer = window.setInterval(() => void poll(), 60_000)
+    return () => window.clearInterval(timer)
+  }, [applyShares, auth?.token])
 
   useEffect(() => {
     if (open) {
@@ -135,30 +186,18 @@ export default function SharedWorkspaceBoardDialog({
       return
     }
     if (sourceKind === 'nextcloud' && result.share) {
-      // Why: preserve the retry source even when the initial multi-file upload stops partway.
+      // Why: creation and upload are separate so users can review the initial file list first.
       writeSharedWorkspaceLocalPath(auth.login, result.share.id, selectedRepo.path)
-      const upload = await window.api.preflight.samwooWorkspaceShares.pushFiles({
-        token: auth.token,
-        shareId: result.share.id,
-        sourcePath: selectedRepo.path
-      })
-      if (!upload.ok) {
-        setBusy(false)
-        toast.error(
-          translate(
-            'samwoo.workspaceSharing.initialUploadFailed',
-            'The share was created, but its files could not be uploaded.'
-          ),
-          { description: upload.error }
-        )
-        await refresh()
-        return
-      }
     }
     setBusy(false)
     setDisplayName('')
     toast.success(
-      translate('samwoo.workspaceSharing.created', 'Shared with the current Hermes profile.')
+      sourceKind === 'nextcloud'
+        ? translate(
+            'samwoo.workspaceSharing.createdAwaitingUpload',
+            'Share created. Review and upload its files from the shared list.'
+          )
+        : translate('samwoo.workspaceSharing.created', 'Shared with the current Hermes profile.')
     )
     await refresh()
   }

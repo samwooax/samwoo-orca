@@ -11,6 +11,7 @@ _ROUTES = {
     "/workspace-shares/comments/complete",
     "/workspace-shares/files/list", "/workspace-shares/files/read",
     "/workspace-shares/files/write",
+    "/workspace-shares/files/delete",
 }
 
 
@@ -42,6 +43,8 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
             return 200, {"ok": True, "file": workspace_sharing.read_workspace_file(token, body)}
         if path == "/workspace-shares/files/write":
             return 200, {"ok": True, "file": workspace_sharing.write_workspace_file(token, body)}
+        if path == "/workspace-shares/files/delete":
+            return 200, {"ok": True, **workspace_sharing.delete_workspace_file(token, body)}
         if path == "/workspace-shares/comments/list":
             return 200, {"ok": True, **workspace_sharing.list_comments(token, body)}
         if path == "/workspace-shares/comments/create":

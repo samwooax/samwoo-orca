@@ -28,6 +28,7 @@ type WorkspaceKanbanDrawerHeaderProps = {
   onAddStatus: () => void
   onFilterMenuOpenChange: (open: boolean) => void
   onOpenSharedWorkspaces: () => void
+  sharedWorkspaceChangeCount?: number
   onClose: () => void
 }
 
@@ -51,6 +52,7 @@ export default function WorkspaceKanbanDrawerHeader({
   onAddStatus,
   onFilterMenuOpenChange,
   onOpenSharedWorkspaces,
+  sharedWorkspaceChangeCount = 0,
   onClose
 }: WorkspaceKanbanDrawerHeaderProps): React.JSX.Element {
   return (
@@ -99,10 +101,21 @@ export default function WorkspaceKanbanDrawerHeader({
         <Button
           variant="ghost"
           size="icon-xs"
-          aria-label={translate('samwoo.workspaceSharing.title', 'Team shared workspaces')}
+          className="relative"
+          aria-label={
+            sharedWorkspaceChangeCount
+              ? translate(
+                  'samwoo.workspaceSharing.newChangesButton',
+                  'Team shared workspaces, new changes'
+                )
+              : translate('samwoo.workspaceSharing.title', 'Team shared workspaces')
+          }
           onClick={onOpenSharedWorkspaces}
         >
           <Users className="size-3.5" />
+          {sharedWorkspaceChangeCount ? (
+            <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-primary" />
+          ) : null}
         </Button>
         <SidebarFilter
           preserveWorkspaceBoardOpen
