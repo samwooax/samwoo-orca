@@ -85,11 +85,11 @@ export async function pullSamwooWorkspaceFiles(
   const remoteFiles = await listSamwooWorkspaceRemoteFiles(args.token, args.shareId)
   const remotePaths = new Set(remoteFiles.map((remote) => remote.path))
   for (const remote of remoteFiles) {
+    const targetPath = workspaceTargetPath(rootPath, remote.path)
     if (!isSamwooWorkspacePathSupported(remote.path)) {
       conflicts.push(remote.path)
       continue
     }
-    const targetPath = workspaceTargetPath(rootPath, remote.path)
     const previous = manifest.files[remote.path]
     let existing: Buffer | null = null
     try {

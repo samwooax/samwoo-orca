@@ -6,6 +6,20 @@ const MAX_REMOTE_ENTRIES = 10_000
 const MAX_DIRECTORY_DEPTH = 64
 const LARGE_RESPONSE_BYTES = 24 * 1024 * 1024
 
+function assertRemoteEntryName(value: unknown): asserts value is string {
+  if (
+    typeof value !== 'string' ||
+    !value ||
+    value === '.' ||
+    value === '..' ||
+    value.includes('/') ||
+    value.includes('\\') ||
+    value.includes('\0')
+  ) {
+    throw new Error('Shared workspace returned an invalid file path')
+  }
+}
+
 async function remoteEntries(
   token: string,
   shareId: string,
@@ -33,6 +47,7 @@ export async function listSamwooWorkspaceRemoteFiles(
     throw new Error('Shared workspace directory nesting is too deep')
   }
   for (const entry of await remoteEntries(token, shareId, relativePath)) {
+    assertRemoteEntryName(entry.name)
     state.entries += 1
     if (state.entries > MAX_REMOTE_ENTRIES) {
       throw new Error('Shared workspace contains too many entries')
