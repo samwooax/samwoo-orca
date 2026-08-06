@@ -14651,6 +14651,10 @@
     }
   },
   "samwoo": {
+    "auth": {
+      "logout": "로그아웃",
+      "logoutAriaLabel": "{{name}}님의 그룹웨어 계정에서 로그아웃"
+    },
     "login": {
       "invalidCredentials": "아이디 또는 비밀번호가 올바르지 않습니다.",
       "failed": "로그인 실패: {{error}}",

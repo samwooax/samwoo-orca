@@ -116,6 +116,7 @@ jobs:
             src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-attachments.test.tsx `
             src/renderer/src/components/native-chat/NativeChatComposerActions.test.tsx `
             src/renderer/src/components/native-chat/NativeChatSessionOptionPickers.test.tsx `
+            src/renderer/src/components/status-bar/SamwooAuthStatusSegment.test.tsx `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
             config/scripts/samwoo-windows-internal-signing-workflow.test.mjs `
             config/scripts/windows-one-click-integrity-contract.test.mjs `

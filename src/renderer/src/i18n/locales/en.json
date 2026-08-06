@@ -14846,6 +14846,10 @@
     }
   },
   "samwoo": {
+    "auth": {
+      "logout": "Sign out",
+      "logoutAriaLabel": "Sign out of the groupware account for {{name}}"
+    },
     "login": {
       "invalidCredentials": "The username or password is incorrect.",
       "failed": "Login failed: {{error}}",

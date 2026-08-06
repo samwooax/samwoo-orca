@@ -72,6 +72,7 @@ import {
 import { UpdateStatusSegment } from './UpdateStatusSegment'
 import { SkillUpdateStatusSegment } from './SkillUpdateStatusSegment'
 import { RemoteServerUpdateStatusSegment } from './RemoteServerUpdateStatusSegment'
+import { SamwooAuthStatusSegment } from './SamwooAuthStatusSegment'
 import { isStatusBarItemAvailable } from './status-bar-agent-gating'
 import { getVisibleUsageProvider, isUsageEmptyState } from './status-bar-provider-visibility'
 import { StatusBarUsageEmptyCta } from './StatusBarUsageEmptyCta'
@@ -2393,6 +2394,7 @@ function StatusBarInner({ floatingTerminalOpen }: StatusBarProps): React.JSX.Ele
             </Tooltip>
           </FloatingTerminalIconContextMenu>
         )}
+        <SamwooAuthStatusSegment />
       </div>
 
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
