@@ -50,7 +50,7 @@ class WorkspaceSharingTest(unittest.TestCase):
                 for item in workspace_sharing.list_shares("token-peer-01234567890")
             ],
         )
-        with workspace_sharing._connect() as conn:
+        with workspace_sharing._database() as conn:
             stored = conn.execute(
                 "SELECT token_hash FROM workspace_sessions WHERE login='peer'"
             ).fetchone()["token_hash"]
@@ -114,7 +114,7 @@ class WorkspaceSharingTest(unittest.TestCase):
 
     def test_legacy_git_rows_are_not_exposed(self):
         share = self.create()
-        with workspace_sharing._connect() as conn:
+        with workspace_sharing._database() as conn:
             conn.execute(
                 "UPDATE workspace_shares SET source_kind='git' WHERE id=?",
                 (share["id"],),

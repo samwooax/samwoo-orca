@@ -47,7 +47,7 @@ class WorkspaceCommentTest(unittest.TestCase):
 
     def test_comment_pages_are_bounded_and_stable(self):
         share = self.create_share()
-        with workspace_sharing._connect() as conn:
+        with workspace_sharing._database() as conn:
             conn.executemany(
                 """INSERT INTO workspace_share_comments
                 (id,share_id,author_login,body,created_at,updated_at)
