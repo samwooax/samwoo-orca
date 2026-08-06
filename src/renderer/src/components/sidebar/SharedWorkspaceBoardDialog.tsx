@@ -20,11 +20,13 @@ import {
 } from '@/components/ui/select'
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
+import { writeSharedWorkspaceLocalPath } from '@/lib/shared-workspace-local-path-store'
 import { useAppStore } from '@/store'
 import type { Repo } from '../../../../shared/types'
 import type {
   SamwooWorkspacePermission,
-  SamwooWorkspaceShare
+  SamwooWorkspaceShare,
+  SamwooWorkspaceSourceKind
 } from '../../../../shared/samwoo-workspace-sharing'
 import SharedWorkspaceShareCard, {
   getSamwooWorkspacePermissionLabel
@@ -38,15 +40,25 @@ export default function SharedWorkspaceBoardDialog({
 }: Props): React.JSX.Element {
   const auth = useSamwooAuthStore((state) => state.auth)
   const repos = useAppStore((state) => state.repos)
+  const fetchReposForAllHosts = useAppStore((state) => state.fetchReposForAllHosts)
+  const localRepos = useMemo(
+    () =>
+      repos.filter(
+        (repo): repo is Repo =>
+          !repo.connectionId && (!repo.executionHostId || repo.executionHostId === 'local')
+      ),
+    [repos]
+  )
+  const [sourceKind, setSourceKind] = useState<SamwooWorkspaceSourceKind>('nextcloud')
   const shareableRepos = useMemo(
     () =>
-      repos
-        .filter((repo): repo is Repo => Boolean(repo.gitRemoteIdentity?.remoteUrl))
+      localRepos
+        .filter((repo) => sourceKind === 'nextcloud' || Boolean(repo.gitRemoteIdentity?.remoteUrl))
         .map((repo) => ({
           repo,
           selectionKey: `${repo.id}::${repo.executionHostId ?? repo.connectionId ?? 'local'}::${repo.path}`
         })),
-    [repos]
+    [localRepos, sourceKind]
   )
   const [shares, setShares] = useState<SamwooWorkspaceShare[]>([])
   const [repoId, setRepoId] = useState('')
@@ -73,31 +85,77 @@ export default function SharedWorkspaceBoardDialog({
 
   useEffect(() => {
     if (open) {
+      // Why: a project can gain a Git remote after Orca first catalogs it.
+      void fetchReposForAllHosts()
       void refresh()
     }
-  }, [open, refresh])
+  }, [fetchReposForAllHosts, open, refresh])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    const selectedOption = shareableRepos.find((item) => item.selectionKey === repoId)
+    if (selectedOption) {
+      return
+    }
+    const onlyOption = shareableRepos.length === 1 ? shareableRepos[0] : null
+    setRepoId(onlyOption?.selectionKey ?? '')
+    if (onlyOption && !displayName.trim()) {
+      setDisplayName(onlyOption.repo.displayName)
+    }
+  }, [displayName, open, repoId, shareableRepos])
 
   const selectedRepo = shareableRepos.find((item) => item.selectionKey === repoId)?.repo
   const create = async (): Promise<void> => {
-    if (!auth?.token || !selectedRepo?.gitRemoteIdentity?.remoteUrl || !displayName.trim()) {
+    const repositoryUrl = selectedRepo?.gitRemoteIdentity?.remoteUrl
+    if (
+      !auth?.token ||
+      !selectedRepo ||
+      !displayName.trim() ||
+      (sourceKind === 'git' && !repositoryUrl)
+    ) {
       return
     }
     setBusy(true)
     const result = await window.api.preflight.samwooWorkspaceShares.create({
       token: auth.token,
       displayName: displayName.trim(),
-      repositoryUrl: selectedRepo.gitRemoteIdentity.remoteUrl,
+      sourceKind,
+      repositoryUrl,
       defaultBranch: selectedRepo.worktreeBaseRef,
       permission
     })
-    setBusy(false)
     if (!result.ok) {
+      setBusy(false)
       toast.error(
         result.error ??
           translate('samwoo.workspaceSharing.createFailed', 'Could not create the share.')
       )
       return
     }
+    if (sourceKind === 'nextcloud' && result.share) {
+      // Why: preserve the retry source even when the initial multi-file upload stops partway.
+      writeSharedWorkspaceLocalPath(auth.login, result.share.id, selectedRepo.path)
+      const upload = await window.api.preflight.samwooWorkspaceShares.pushFiles({
+        token: auth.token,
+        shareId: result.share.id,
+        sourcePath: selectedRepo.path
+      })
+      if (!upload.ok) {
+        setBusy(false)
+        toast.error(
+          translate(
+            'samwoo.workspaceSharing.initialUploadFailed',
+            'The share was created, but its files could not be uploaded.'
+          ),
+          { description: upload.error }
+        )
+        await refresh()
+        return
+      }
+    }
+    setBusy(false)
     setDisplayName('')
     toast.success(
       translate('samwoo.workspaceSharing.created', 'Shared with the current Hermes profile.')
@@ -115,11 +173,36 @@ export default function SharedWorkspaceBoardDialog({
           <DialogDescription>
             {translate(
               'samwoo.workspaceSharing.description',
-              'Only the Git remote is shared with the same Hermes profile. Each user clones it to their own laptop. Git access is still controlled by the repository provider.'
+              'Projects are stored in the current Hermes profile workspace. Other profiles cannot list or download them, and each user works from a local copy.'
             )}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 rounded-lg border border-border p-3">
+          <div className="space-y-2">
+            <Label>{translate('samwoo.workspaceSharing.storage', 'Sharing method')}</Label>
+            <Select
+              value={sourceKind}
+              onValueChange={(value) => {
+                setSourceKind(value as SamwooWorkspaceSourceKind)
+                setRepoId('')
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nextcloud">
+                  {translate(
+                    'samwoo.workspaceSharing.nextcloud',
+                    'Company cloud (no GitHub account)'
+                  )}
+                </SelectItem>
+                <SelectItem value="git">
+                  {translate('samwoo.workspaceSharing.gitRemote', 'Git remote')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label>{translate('samwoo.workspaceSharing.project', 'Project to share')}</Label>
             <Select
@@ -133,10 +216,17 @@ export default function SharedWorkspaceBoardDialog({
             >
               <SelectTrigger className="w-full">
                 <SelectValue
-                  placeholder={translate(
-                    'samwoo.workspaceSharing.projectPlaceholder',
-                    'Select a project with a Git remote'
-                  )}
+                  placeholder={
+                    sourceKind === 'nextcloud'
+                      ? translate(
+                          'samwoo.workspaceSharing.localProjectPlaceholder',
+                          'Select a local project'
+                        )
+                      : translate(
+                          'samwoo.workspaceSharing.projectPlaceholder',
+                          'Select a project with a Git remote'
+                        )
+                  }
                 />
               </SelectTrigger>
               <SelectContent>

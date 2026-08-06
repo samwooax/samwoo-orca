@@ -2,10 +2,12 @@
 
 This directory also contains profile-scoped workspace sharing:
 
-- `workspace_sharing.py` — SQLite catalog, profile sessions, and shared progress comments.
+- `nextcloud_workspace_storage.py` — profile-path-safe WebDAV file storage.
+- `workspace_sharing.py` — SQLite catalog, profile sessions, file permissions, and comments.
 - `workspace_share_endpoints.py` — `/workspace-shares/*` HTTP routing adapter.
 - `test_workspace_sharing.py` — isolation, ownership, revocation and URL safety tests.
 - `test_workspace_comments.py` — pagination, concurrency and comment authorization tests.
+- `test_nextcloud_workspace_storage.py` — WebDAV path and identity boundary tests.
 
 Deployment integration is documented in `docs/SAMWOO_WORKSPACE_SHARING.md`.
 

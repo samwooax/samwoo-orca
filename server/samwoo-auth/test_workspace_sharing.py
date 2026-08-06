@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 import workspace_sharing
 import workspace_share_endpoints
@@ -109,6 +110,93 @@ class WorkspaceSharingTest(unittest.TestCase):
         self.assertEqual(1, len(listed["comments"]))
         self.assertEqual(1, listed["commentCount"])
         self.assertEqual(200, status)
+
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.ensure_workspace")
+    def test_nextcloud_share_is_profile_scoped(self, ensure_workspace):
+        ensure_workspace.return_value = "SAMWOO-Workspaces/ai_center/share-id"
+        share = workspace_sharing.create_share(
+            "token-owner-0123456789",
+            {
+                "displayName": "팀 자료",
+                "sourceKind": "nextcloud",
+                "permission": "clone",
+            },
+        )
+        self.assertEqual("nextcloud", share["sourceKind"])
+        self.assertEqual("", share["repositoryUrl"])
+        self.assertNotIn("storagePath", share)
+        self.assertEqual([], workspace_sharing.list_shares("token-other-0123456789"))
+        ensure_workspace.assert_called_once_with("ai_center", share["id"])
+
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.list_directory")
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.read_file")
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.ensure_workspace")
+    def test_nextcloud_download_respects_profile_and_view_permission(
+        self, ensure_workspace, read_file, list_directory
+    ):
+        ensure_workspace.return_value = "SAMWOO-Workspaces/ai_center/share-id"
+        read_file.return_value = {"path": "note.txt", "contentBase64": "b2s=", "etag": "1", "size": 2}
+        list_directory.return_value = [{"name": "note.txt", "kind": "file", "size": 2}]
+        share = workspace_sharing.create_share(
+            "token-owner-0123456789",
+            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "clone"},
+        )
+        workspace_sharing.list_workspace_files(
+            "token-peer-01234567890", {"shareId": share["id"]}
+        )
+        workspace_sharing.read_workspace_file(
+            "token-peer-01234567890", {"shareId": share["id"], "path": "note.txt"}
+        )
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.read_workspace_file(
+                "token-other-0123456789", {"shareId": share["id"], "path": "note.txt"}
+            )
+        workspace_sharing.update_share(
+            "token-owner-0123456789",
+            {"id": share["id"], "displayName": "팀 자료", "permission": "view"},
+        )
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.list_workspace_files(
+                "token-peer-01234567890", {"shareId": share["id"]}
+            )
+
+    def test_rejects_invalid_share_identity_before_storage_access(self):
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.list_workspace_files(
+                "token-peer-01234567890", {"shareId": "../../auth-server.py"}
+            )
+
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.write_file")
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.ensure_workspace")
+    def test_nextcloud_write_requires_owner_or_contribute(self, ensure_workspace, write_file):
+        ensure_workspace.return_value = "SAMWOO-Workspaces/ai_center/share-id"
+        write_file.return_value = {"path": "note.txt", "etag": "new", "size": 2}
+        share = workspace_sharing.create_share(
+            "token-owner-0123456789",
+            {
+                "displayName": "팀 자료",
+                "sourceKind": "nextcloud",
+                "permission": "clone",
+            },
+        )
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.write_workspace_file(
+                "token-peer-01234567890",
+                {"shareId": share["id"], "path": "note.txt", "contentBase64": "b2s="},
+            )
+        workspace_sharing.write_workspace_file(
+            "token-owner-0123456789",
+            {"shareId": share["id"], "path": "note.txt", "contentBase64": "b2s="},
+        )
+        workspace_sharing.update_share(
+            "token-owner-0123456789",
+            {"id": share["id"], "displayName": "팀 자료", "permission": "contribute"},
+        )
+        workspace_sharing.write_workspace_file(
+            "token-peer-01234567890",
+            {"shareId": share["id"], "path": "note.txt", "contentBase64": "b2s="},
+        )
+        self.assertEqual(2, write_file.call_count)
 
 
 if __name__ == "__main__":

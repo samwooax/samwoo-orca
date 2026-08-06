@@ -34,7 +34,10 @@ import type {
   CreateSamwooWorkspaceCommentArgs,
   CreateSamwooWorkspaceShareArgs,
   ListSamwooWorkspaceCommentsArgs,
+  PullSamwooWorkspaceFilesArgs,
+  PushSamwooWorkspaceFilesArgs,
   SamwooWorkspaceShareResult,
+  SamwooWorkspaceSyncResult,
   SetSamwooWorkspaceCommentCompletedArgs,
   UpdateSamwooWorkspaceShareArgs
 } from '../shared/samwoo-workspace-sharing'
@@ -792,6 +795,8 @@ export type PreflightApi = {
     setCommentCompleted: (
       args: SetSamwooWorkspaceCommentCompletedArgs
     ) => Promise<SamwooWorkspaceShareResult>
+    pullFiles: (args: PullSamwooWorkspaceFilesArgs) => Promise<SamwooWorkspaceSyncResult>
+    pushFiles: (args: PushSamwooWorkspaceFilesArgs) => Promise<SamwooWorkspaceSyncResult>
   }
   refreshAgents: (args?: PreflightRuntimeContext) => Promise<RefreshAgentsResult>
   detectRemoteAgents: (args: { connectionId: string }) => Promise<string[]>

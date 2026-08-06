@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Download, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { Download, Loader2, Pencil, RefreshCw, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,10 @@ import {
   readSharedWorkspaceAlias,
   writeSharedWorkspaceAlias
 } from '@/lib/shared-workspace-alias-store'
+import {
+  readSharedWorkspaceLocalPath,
+  writeSharedWorkspaceLocalPath
+} from '@/lib/shared-workspace-local-path-store'
 import { useAppStore } from '@/store'
 import type {
   SamwooWorkspacePermission,
@@ -30,7 +34,7 @@ export function getSamwooWorkspacePermissionLabel(permission: SamwooWorkspacePer
     case 'clone':
       return translate('samwoo.workspaceSharing.permissionClone', 'Local clone')
     case 'contribute':
-      return translate('samwoo.workspaceSharing.permissionContribute', 'Contribute with Git access')
+      return translate('samwoo.workspaceSharing.permissionContribute', 'Can contribute')
   }
 }
 
@@ -43,8 +47,11 @@ export default function SharedWorkspaceShareCard({
   const [name, setName] = useState(share.displayName)
   const [alias, setAlias] = useState(() => readSharedWorkspaceAlias(login, share.id))
   const [cloneProgress, setCloneProgress] = useState<number | null>(null)
+  const [syncing, setSyncing] = useState<'pull' | 'push' | null>(null)
+  const [localPath, setLocalPath] = useState(() => readSharedWorkspaceLocalPath(login, share.id))
   const token = useSamwooAuthStore((state) => state.auth?.token)
   const fetchRepos = useAppStore((state) => state.fetchRepos)
+  const addNonGitFolder = useAppStore((state) => state.addNonGitFolder)
 
   const saveName = async (): Promise<void> => {
     if (!token || !name.trim()) {
@@ -97,6 +104,90 @@ export default function SharedWorkspaceShareCard({
       unsubscribe()
       setCloneProgress(null)
     }
+  }
+
+  const pullNextcloud = async (): Promise<void> => {
+    if (!token || share.permission === 'view') {
+      return
+    }
+    let pullArgs: { destinationPath: string } | { destinationParent: string; folderName: string }
+    if (localPath) {
+      pullArgs = { destinationPath: localPath }
+    } else {
+      const destinationParent = await window.api.repos.pickDirectory()
+      if (!destinationParent) {
+        return
+      }
+      pullArgs = { destinationParent, folderName: alias.trim() || share.displayName }
+    }
+    setSyncing('pull')
+    const result = await window.api.preflight.samwooWorkspaceShares.pullFiles({
+      token,
+      shareId: share.id,
+      ...pullArgs
+    })
+    setSyncing(null)
+    if (!result.ok || !result.destinationPath) {
+      toast.error(
+        result.error ??
+          translate('samwoo.workspaceSharing.downloadFailed', 'Could not download the workspace.')
+      )
+      return
+    }
+    setLocalPath(result.destinationPath)
+    writeSharedWorkspaceLocalPath(login, share.id, result.destinationPath)
+    if (!localPath) {
+      const repo = await addNonGitFolder(result.destinationPath)
+      const localName = alias.trim() || share.displayName
+      if (repo && repo.displayName !== localName) {
+        await window.api.repos.update({ repoId: repo.id, updates: { displayName: localName } })
+      }
+      await fetchRepos()
+    }
+    if (result.conflicts?.length) {
+      toast.warning(
+        translate(
+          'samwoo.workspaceSharing.downloadConflicts',
+          '{{count}} locally changed files were not overwritten.',
+          { count: result.conflicts.length }
+        )
+      )
+      return
+    }
+    toast.success(
+      translate('samwoo.workspaceSharing.downloadComplete', 'Shared workspace is up to date.'),
+      { description: result.destinationPath }
+    )
+  }
+
+  const pushNextcloud = async (): Promise<void> => {
+    if (!token || !localPath || (!share.isOwner && share.permission !== 'contribute')) {
+      return
+    }
+    setSyncing('push')
+    const result = await window.api.preflight.samwooWorkspaceShares.pushFiles({
+      token,
+      shareId: share.id,
+      sourcePath: localPath
+    })
+    setSyncing(null)
+    if (!result.ok) {
+      toast.error(
+        result.error ??
+          translate('samwoo.workspaceSharing.uploadFailed', 'Could not upload workspace changes.')
+      )
+      return
+    }
+    toast.success(
+      translate('samwoo.workspaceSharing.uploadComplete', 'Workspace changes uploaded.'),
+      {
+        description: translate(
+          'samwoo.workspaceSharing.uploadedFileCount',
+          '{{count}} files uploaded.',
+          { count: result.transferredFiles ?? 0 }
+        )
+      }
+    )
   }
 
   const revoke = async (): Promise<void> => {
@@ -158,7 +249,11 @@ export default function SharedWorkspaceShareCard({
         </p>
       ) : null}
       <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span className="truncate">{share.repositoryUrl}</span>
+        <span className="truncate">
+          {share.sourceKind === 'nextcloud'
+            ? translate('samwoo.workspaceSharing.profileCloud', 'Hermes profile cloud')
+            : share.repositoryUrl}
+        </span>
         <span className="shrink-0">{getSamwooWorkspacePermissionLabel(share.permission)}</span>
       </div>
       {token ? (
@@ -169,7 +264,37 @@ export default function SharedWorkspaceShareCard({
         />
       ) : null}
       <div className="flex justify-end gap-2">
-        {share.permission !== 'view' ? (
+        {share.sourceKind === 'nextcloud' && share.permission !== 'view' ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || syncing !== null}
+            onClick={pullNextcloud}
+          >
+            {syncing === 'pull' ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+            {syncing === 'pull'
+              ? translate('samwoo.workspaceSharing.downloading', 'Getting changes…')
+              : localPath
+                ? translate('samwoo.workspaceSharing.pullChanges', 'Get changes')
+                : translate('samwoo.workspaceSharing.downloadLocal', 'Download locally')}
+          </Button>
+        ) : null}
+        {share.sourceKind === 'nextcloud' &&
+        localPath &&
+        (share.isOwner || share.permission === 'contribute') ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || syncing !== null}
+            onClick={pushNextcloud}
+          >
+            {syncing === 'push' ? <Loader2 className="animate-spin" /> : <Upload />}
+            {syncing === 'push'
+              ? translate('samwoo.workspaceSharing.uploading', 'Uploading…')
+              : translate('samwoo.workspaceSharing.pushChanges', 'Upload changes')}
+          </Button>
+        ) : null}
+        {share.sourceKind === 'git' && share.permission !== 'view' ? (
           <Button
             size="sm"
             variant="outline"

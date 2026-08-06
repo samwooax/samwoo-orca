@@ -1,4 +1,5 @@
 export type SamwooWorkspacePermission = 'view' | 'clone' | 'contribute'
+export type SamwooWorkspaceSourceKind = 'git' | 'nextcloud'
 
 export type SamwooWorkspaceShare = {
   id: string
@@ -6,6 +7,7 @@ export type SamwooWorkspaceShare = {
   ownerProfile: string
   displayName: string
   repositoryUrl: string
+  sourceKind: SamwooWorkspaceSourceKind
   defaultBranch?: string | null
   description?: string | null
   permission: SamwooWorkspacePermission
@@ -13,6 +15,30 @@ export type SamwooWorkspaceShare = {
   updatedAt: number
   isOwner: boolean
   commentCount: number
+}
+
+export type SamwooWorkspaceFileEntry = {
+  name: string
+  kind: 'file' | 'directory'
+  size: number
+  etag: string
+  modifiedAt?: string | null
+}
+
+export type SamwooWorkspaceFile = {
+  path: string
+  contentBase64: string
+  etag: string
+  size: number
+}
+
+export type SamwooWorkspaceSyncResult = {
+  ok: boolean
+  destinationPath?: string
+  transferredFiles?: number
+  skippedFiles?: number
+  conflicts?: string[]
+  error?: string
 }
 
 export type SamwooWorkspaceComment = {
@@ -34,6 +60,8 @@ export type SamwooWorkspaceShareResult = {
   shares?: SamwooWorkspaceShare[]
   comment?: SamwooWorkspaceComment
   comments?: SamwooWorkspaceComment[]
+  entries?: SamwooWorkspaceFileEntry[]
+  file?: SamwooWorkspaceFile
   commentCount?: number
   completedCommentCount?: number
   hasMoreComments?: boolean
@@ -45,10 +73,25 @@ export type SamwooWorkspaceShareResult = {
 export type CreateSamwooWorkspaceShareArgs = {
   token: string
   displayName: string
-  repositoryUrl: string
+  sourceKind?: SamwooWorkspaceSourceKind
+  repositoryUrl?: string
   defaultBranch?: string
   description?: string
   permission: SamwooWorkspacePermission
+}
+
+export type PullSamwooWorkspaceFilesArgs = {
+  token: string
+  shareId: string
+  destinationParent?: string
+  folderName?: string
+  destinationPath?: string
+}
+
+export type PushSamwooWorkspaceFilesArgs = {
+  token: string
+  shareId: string
+  sourcePath: string
 }
 
 export type UpdateSamwooWorkspaceShareArgs = {

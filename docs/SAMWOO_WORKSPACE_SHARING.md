@@ -1,63 +1,84 @@
 # SAMWOO workspace sharing
 
-SAMWOO-ORCA shares a **Git workspace definition**, not a laptop folder. The auth
-service exposes active definitions only to users whose server-resolved Hermes
-profile matches the owner's profile. Each recipient clones the repository into
-their own local folder, so no inbound connection to another employee laptop is
-created.
+SAMWOO-ORCA supports two profile-scoped sharing methods:
+
+- **Company cloud (default):** uploads project files to a profile-isolated
+  Nextcloud WebDAV workspace. Recipients do not need GitHub accounts.
+- **Git remote (legacy/advanced):** shares a Git URL while the repository
+  provider remains responsible for clone and write access.
+
+The auth service derives the profile from the logged-in session. A client cannot
+select another profile, and users outside the profile cannot list, download, or
+change its workspace entries. Every recipient works in a local folder; sharing
+does not open an inbound connection to another employee laptop.
 
 ## User behavior
 
 - Open **Workspace board → Team shared workspaces**.
-- Owners select a Git-backed project, set a separately editable shared name and
-  choose catalog-only, local-clone, or contribute-with-Git-access behavior.
-- Recipients may set a local alias. It is stored only on that laptop and does not
-  rename the central entry.
-- Profile members can add comments to a shared workspace and mark each comment
-  complete. The comment records who created it and who established its current
-  completed state; repeated stale completion requests do not overwrite that user.
-- An expanded comment thread refreshes every 15 seconds and also provides a
-  manual refresh action. The latest 50 comments load first, with earlier comments
-  available in bounded pages so a long-running thread cannot exceed IPC limits.
-- Existing workspace cards retain Orca's normal rename behavior (double-click or
-  the metadata action), independent of the Git repository name.
-- Revocation immediately removes the definition from the central list. It cannot
-  delete an already cloned folder or replace repository-provider access control.
+- Select a local project, an editable shared name, and a permission.
+- **List only** exposes metadata and comments but not files.
+- **Local copy** permits file download. **Can contribute** also permits upload.
+  The owner can always upload while the share remains active.
+- **Get changes** preserves locally modified files when the corresponding cloud
+  file has also changed and reports them as conflicts instead of overwriting.
+- File removal is intentionally not synchronized. Revoking a share hides its
+  catalog entry but does not delete any employee's local copy.
+- `.git`, `node_modules`, credential directories (`.ssh`, `.aws`, `.gnupg`),
+  common secret files (`.env`, private-key formats, package credential files),
+  and symbolic links are excluded from company-cloud uploads. Example/template
+  `.env` files remain shareable. Individual files are limited to 16 MiB and a
+  workspace to 5,000 files. SSH/runtime-host projects are not offered for
+  company-cloud upload; they must first be copied locally.
+- Profile members can comment and mark comments complete. The latest 50 comments
+  load first, with bounded pagination for older comments.
 
-The contribution label does not grant Git write access. GitHub, GitLab, or the
-configured Git provider remains authoritative for clone and push permissions.
+Local aliases, local folder paths, passwords, tokens, and SSH keys are never
+stored in the central workspace catalog. Sync manifests containing only file
+hashes and ETags live under Orca's local application-data directory.
 
-Comments and their completion status are stored in the workspace catalog. No
-local path, password, access token, or SSH private key is stored centrally.
-GitHub, GitLab and other Git remotes are accepted through generic HTTPS, SSH URL,
-or SCP-style Git addresses.
+## Nextcloud storage model
+
+The auth service uses one restricted Nextcloud service account and stores files
+under:
+
+```text
+SAMWOO-Workspaces/<server-resolved-profile>/<share-id>/
+```
+
+The service credential stays on the auth server and is never returned to Orca.
+Configure these environment variables on `samwoo-auth`:
+
+```text
+SAMWOO_NEXTCLOUD_URL=https://cloud.example.com
+SAMWOO_NEXTCLOUD_USERNAME=orca-workspaces
+SAMWOO_NEXTCLOUD_APP_PASSWORD=<app-password>
+SAMWOO_NEXTCLOUD_WORKSPACE_ROOT=SAMWOO-Workspaces   # optional
+SAMWOO_NEXTCLOUD_MAX_FILE_BYTES=16777216            # optional
+```
+
+Give the service account access only to its workspace root. Do not use a
+Nextcloud administrator account.
 
 ## Auth-service deployment
 
-Copy `workspace_sharing.py` and `workspace_share_endpoints.py` from
-`server/samwoo-auth/` beside `auth-server.py`. Then make these integrations:
+`install_workspace_sharing.py` installs or upgrades these modules beside
+`/opt/samwoo-auth/auth-server.py`:
 
-```python
-import workspace_sharing, workspace_share_endpoints
+- `nextcloud_workspace_storage.py`
+- `workspace_sharing.py`
+- `workspace_share_endpoints.py`
 
-# After login has resolved the actual Hermes profile and issued token:
-workspace_sharing.bind_session(token, working_user, resolved_profile)
-
-# In do_POST, parse JSON and route exactly like mail_endpoints:
-if workspace_share_endpoints.is_workspace_share_path(self.path):
-    status, payload = workspace_share_endpoints.handle_workspace_share(
-        self.path, self.headers.get("Authorization"), body
-    )
-    # send payload as JSON with the returned status
-```
-
+The installer also binds newly issued login tokens to the server-resolved
+profile and adds the `/workspace-shares/*` routes with a 24 MiB request cap.
 Set `SAMWOO_WORKSPACE_DB` to move the SQLite catalog from its default
-`/opt/samwoo-auth/workspace-shares.db`. The module creates the file as mode 0600.
-Restart `samwoo-auth` after integrating the routes.
+`/opt/samwoo-auth/workspace-shares.db`. Restart `samwoo-auth` after deployment.
 
-Run the server module tests with:
+Run the server tests with:
 
 ```bash
 cd server/samwoo-auth
-python3 -m unittest test_workspace_sharing.py test_workspace_comments.py
+python3 -m unittest \
+  test_workspace_sharing.py \
+  test_workspace_comments.py \
+  test_nextcloud_workspace_storage.py
 ```
