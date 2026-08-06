@@ -121,6 +121,7 @@ jobs:
             src/renderer/src/components/status-bar/SamwooAuthStatusSegment.test.tsx `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
             config/scripts/electron-builder-samwoo-config.test.mjs `
+            config/scripts/samwoo-brand-assets.test.mjs `
             config/scripts/samwoo-windows-internal-signing-workflow.test.mjs `
             config/scripts/windows-one-click-integrity-contract.test.mjs `
             config/scripts/windows-one-click-launch-contract.test.mjs
