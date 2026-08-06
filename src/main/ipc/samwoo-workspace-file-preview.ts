@@ -5,8 +5,10 @@ import type {
   SamwooWorkspaceChange,
   SamwooWorkspaceSyncPreview
 } from '../../shared/samwoo-workspace-sharing'
-import { listSamwooWorkspaceUploadFiles } from './samwoo-workspace-file-policy'
-import { safeSamwooWorkspaceFolderName } from './samwoo-workspace-file-policy'
+import {
+  listSamwooWorkspaceUploadFiles,
+  safeSamwooWorkspaceFolderName
+} from './samwoo-workspace-file-policy'
 import { listSamwooWorkspaceRemoteFiles } from './samwoo-workspace-remote-files'
 import {
   readSamwooWorkspaceManifest,

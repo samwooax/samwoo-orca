@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Download, Loader2, Pencil, RefreshCw, Trash2, Upload } from 'lucide-react'
+import { Loader2, Pencil, RefreshCw, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,6 @@ import {
   readSharedWorkspaceAlias,
   writeSharedWorkspaceAlias
 } from '@/lib/shared-workspace-alias-store'
-import { useAppStore } from '@/store'
 import type {
   SamwooWorkspacePermission,
   SamwooWorkspaceShare
@@ -31,8 +30,8 @@ export function getSamwooWorkspacePermissionLabel(permission: SamwooWorkspacePer
   switch (permission) {
     case 'view':
       return translate('samwoo.workspaceSharing.permissionView', 'List only')
-    case 'clone':
-      return translate('samwoo.workspaceSharing.permissionClone', 'Local clone')
+    case 'download':
+      return translate('samwoo.workspaceSharing.permissionDownload', 'Local copy')
     case 'contribute':
       return translate('samwoo.workspaceSharing.permissionContribute', 'Can contribute')
   }
@@ -46,9 +45,7 @@ export default function SharedWorkspaceShareCard({
 }: Props): React.JSX.Element {
   const [name, setName] = useState(share.displayName)
   const [alias, setAlias] = useState(() => readSharedWorkspaceAlias(login, share.id))
-  const [cloneProgress, setCloneProgress] = useState<number | null>(null)
   const token = useSamwooAuthStore((state) => state.auth?.token)
-  const fetchRepos = useAppStore((state) => state.fetchRepos)
   const localName = alias.trim() || share.displayName
   const sync = useSharedWorkspaceSync({ share, login, localName, onRefresh })
 
@@ -72,37 +69,6 @@ export default function SharedWorkspaceShareCard({
     }
     toast.success(translate('samwoo.workspaceSharing.nameSaved', 'Shared name saved.'))
     await onRefresh()
-  }
-
-  const clone = async (): Promise<void> => {
-    if (share.permission === 'view') {
-      return
-    }
-    const destination = await window.api.repos.pickDirectory()
-    if (!destination) {
-      return
-    }
-    const unsubscribe = window.api.repos.onCloneProgress(({ percent }) => setCloneProgress(percent))
-    setCloneProgress(0)
-    try {
-      const repo = await window.api.repos.clone({ url: share.repositoryUrl, destination })
-      const localName = alias.trim() || share.displayName
-      await window.api.repos.update({ repoId: repo.id, updates: { displayName: localName } })
-      await fetchRepos()
-      toast.success(
-        translate('samwoo.workspaceSharing.cloneComplete', 'Shared workspace cloned locally.'),
-        { description: localName }
-      )
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : translate('samwoo.workspaceSharing.cloneFailed', 'Could not clone the workspace.')
-      )
-    } finally {
-      unsubscribe()
-      setCloneProgress(null)
-    }
   }
 
   const revoke = async (): Promise<void> => {
@@ -166,9 +132,7 @@ export default function SharedWorkspaceShareCard({
         ) : null}
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
           <span className="truncate">
-            {share.sourceKind === 'nextcloud'
-              ? translate('samwoo.workspaceSharing.profileCloud', 'Hermes profile cloud')
-              : share.repositoryUrl}
+            {translate('samwoo.workspaceSharing.profileCloud', 'Hermes profile cloud')}
           </span>
           <span className="flex shrink-0 items-center gap-2">
             {sync.hasRemoteChanges ? (
@@ -187,7 +151,7 @@ export default function SharedWorkspaceShareCard({
           />
         ) : null}
         <div className="flex justify-end gap-2">
-          {share.sourceKind === 'nextcloud' && (share.permission !== 'view' || share.isOwner) ? (
+          {share.permission !== 'view' || share.isOwner ? (
             <Button
               size="sm"
               variant="outline"
@@ -202,9 +166,7 @@ export default function SharedWorkspaceShareCard({
                   : translate('samwoo.workspaceSharing.downloadLocal', 'Download locally')}
             </Button>
           ) : null}
-          {share.sourceKind === 'nextcloud' &&
-          sync.localPath &&
-          (share.isOwner || share.permission === 'contribute') ? (
+          {sync.localPath && (share.isOwner || share.permission === 'contribute') ? (
             <Button
               size="sm"
               variant="outline"
@@ -215,21 +177,6 @@ export default function SharedWorkspaceShareCard({
               {sync.syncing === 'push'
                 ? translate('samwoo.workspaceSharing.uploading', 'Uploading…')
                 : translate('samwoo.workspaceSharing.pushChanges', 'Upload changes')}
-            </Button>
-          ) : null}
-          {share.sourceKind === 'git' && share.permission !== 'view' ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || cloneProgress !== null}
-              onClick={clone}
-            >
-              {cloneProgress !== null ? <Loader2 className="animate-spin" /> : <Download />}
-              {cloneProgress !== null
-                ? translate('samwoo.workspaceSharing.cloning', 'Cloning… {{percent}}%', {
-                    percent: Math.round(cloneProgress)
-                  })
-                : translate('samwoo.workspaceSharing.cloneLocal', 'Clone locally')}
             </Button>
           ) : null}
           {share.isOwner ? (

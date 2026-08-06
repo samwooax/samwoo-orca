@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import mail_ext
 import workspace_sharing
 
 _ROUTES = {
+    "/workspace-shares/session/revoke",
     "/workspace-shares/list", "/workspace-shares/create",
     "/workspace-shares/update", "/workspace-shares/revoke",
     "/workspace-shares/comments/list", "/workspace-shares/comments/create",
@@ -28,6 +30,10 @@ def _bearer(header: str | None) -> str:
 def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tuple[int, dict]:
     try:
         token = _bearer(auth_header)
+        if path == "/workspace-shares/session/revoke":
+            mail_ext.revoke_session(token)
+            workspace_sharing.revoke_session(token)
+            return 200, {"ok": True}
         if path == "/workspace-shares/list":
             return 200, {"ok": True, "shares": workspace_sharing.list_shares(token)}
         if path == "/workspace-shares/create":

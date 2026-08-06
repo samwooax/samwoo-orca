@@ -2,7 +2,7 @@
 
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { SamwooAuthStatusSegment } from './SamwooAuthStatusSegment'
 
@@ -24,6 +24,16 @@ describe('SamwooAuthStatusSegment', () => {
   beforeEach(() => {
     localStorage.clear()
     useSamwooAuthStore.setState({ auth: null })
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      value: {
+        preflight: {
+          samwooWorkspaceShares: {
+            revokeSession: vi.fn(async () => ({ ok: true }))
+          }
+        }
+      }
+    })
   })
 
   afterEach(async () => {
@@ -57,6 +67,9 @@ describe('SamwooAuthStatusSegment', () => {
 
     await act(async () => button?.click())
 
+    expect(window.api.preflight.samwooWorkspaceShares.revokeSession).toHaveBeenCalledWith(
+      'expired-token'
+    )
     expect(useSamwooAuthStore.getState().auth).toBeNull()
     expect(localStorage.getItem('samwoo.auth')).toBeNull()
     expect(container?.querySelector('button')).toBeNull()

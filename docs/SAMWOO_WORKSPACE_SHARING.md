@@ -1,11 +1,8 @@
 # SAMWOO workspace sharing
 
-SAMWOO-ORCA supports two profile-scoped sharing methods:
-
-- **Company cloud (default):** uploads project files to a profile-isolated
-  Nextcloud WebDAV workspace. Recipients do not need GitHub accounts.
-- **Git remote (legacy/advanced):** shares a Git URL while the repository
-  provider remains responsible for clone and write access.
+SAMWOO-ORCA uploads project files to a profile-isolated Nextcloud WebDAV
+workspace. Recipients do not need GitHub accounts, and Git remotes are not used
+for workspace sharing.
 
 The auth service derives the profile from the logged-in session. A client cannot
 select another profile, and users outside the profile cannot list, download, or
@@ -21,8 +18,9 @@ does not open an inbound connection to another employee laptop.
   The owner can always upload while the share remains active.
 - **Get changes** preserves locally modified files when the corresponding cloud
   file has also changed and reports them as conflicts instead of overwriting.
-- File removal is intentionally not synchronized. Revoking a share hides its
-  catalog entry but does not delete any employee's local copy.
+- File removal is synchronized only after it appears in the preview and the user
+  confirms it. Revoking a share hides its catalog entry but does not delete any
+  employee's local copy.
 - `.git`, `node_modules`, credential directories (`.ssh`, `.aws`, `.gnupg`),
   common secret files (`.env`, private-key formats, package credential files),
   and symbolic links are excluded from company-cloud uploads. Example/template
@@ -35,6 +33,8 @@ does not open an inbound connection to another employee laptop.
 Local aliases, local folder paths, passwords, tokens, and SSH keys are never
 stored in the central workspace catalog. Sync manifests containing only file
 hashes and ETags live under Orca's local application-data directory.
+Workspace login sessions survive auth-service restarts using SHA-256 token
+hashes in the restricted SQLite catalog; raw bearer tokens are never written.
 
 ## Nextcloud storage model
 

@@ -14,6 +14,11 @@ function hasToken(token: unknown): token is string {
 }
 
 export function registerSamwooWorkspaceSharingHandlers(): void {
+  ipcMain.handle('samwooWorkspaceShares:revokeSession', (_event, token: unknown) =>
+    hasToken(token)
+      ? postSamwooWorkspaceShare('/workspace-shares/session/revoke', token)
+      : Promise.resolve({ ok: false, error: 'login required' })
+  )
   ipcMain.handle('samwooWorkspaceShares:list', (_event, token: unknown) =>
     hasToken(token)
       ? postSamwooWorkspaceShare('/workspace-shares/list', token)
@@ -23,9 +28,7 @@ export function registerSamwooWorkspaceSharingHandlers(): void {
     hasToken(args?.token)
       ? postSamwooWorkspaceShare('/workspace-shares/create', args.token, {
           displayName: args.displayName,
-          repositoryUrl: args.repositoryUrl,
-          sourceKind: args.sourceKind,
-          defaultBranch: args.defaultBranch,
+          sourceKind: 'nextcloud',
           description: args.description,
           permission: args.permission
         })

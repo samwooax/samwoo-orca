@@ -17,7 +17,7 @@ export function SamwooAuthStatusSegment(): React.JSX.Element | null {
       variant="ghost"
       size="xs"
       className="max-w-48 text-muted-foreground hover:text-foreground"
-      onClick={logout}
+      onClick={() => void logout()}
       aria-label={translate(
         'samwoo.auth.logoutAriaLabel',
         'Sign out of the groupware account for {{name}}',

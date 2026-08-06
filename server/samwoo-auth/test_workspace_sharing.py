@@ -15,8 +15,13 @@ class WorkspaceSharingTest(unittest.TestCase):
         workspace_sharing.bind_session("token-owner-0123456789", "owner", "ai_center")
         workspace_sharing.bind_session("token-peer-01234567890", "peer", "ai_center")
         workspace_sharing.bind_session("token-other-0123456789", "other", "sales")
+        self.ensure_workspace = mock.patch(
+            "workspace_sharing.nextcloud_workspace_storage.ensure_workspace",
+            return_value="SAMWOO-Workspaces/profile/share-id",
+        ).start()
 
     def tearDown(self):
+        mock.patch.stopall()
         self.tempdir.cleanup()
 
     def create(self):
@@ -24,8 +29,8 @@ class WorkspaceSharingTest(unittest.TestCase):
             "token-owner-0123456789",
             {
                 "displayName": "프로젝트 보드",
-                "repositoryUrl": "https://github.com/samwoo/project.git",
-                "permission": "clone",
+                "sourceKind": "nextcloud",
+                "permission": "download",
             },
         )
 
@@ -34,12 +39,56 @@ class WorkspaceSharingTest(unittest.TestCase):
         self.assertEqual([share["id"]], [item["id"] for item in workspace_sharing.list_shares("token-peer-01234567890")])
         self.assertEqual([], workspace_sharing.list_shares("token-other-0123456789"))
 
+    def test_session_survives_memory_reset_without_storing_raw_token(self):
+        share = self.create()
+        workspace_sharing._sessions.clear()
+
+        self.assertEqual(
+            [share["id"]],
+            [
+                item["id"]
+                for item in workspace_sharing.list_shares("token-peer-01234567890")
+            ],
+        )
+        with workspace_sharing._connect() as conn:
+            stored = conn.execute(
+                "SELECT token_hash FROM workspace_sessions WHERE login='peer'"
+            ).fetchone()["token_hash"]
+        self.assertNotEqual("token-peer-01234567890", stored)
+        self.assertEqual(64, len(stored))
+
+    @mock.patch("workspace_share_endpoints.mail_ext.revoke_session")
+    def test_session_revoke_route_removes_persisted_session(self, revoke_mail_session):
+        status, result = workspace_share_endpoints.handle_workspace_share(
+            "/workspace-shares/session/revoke",
+            "Bearer token-peer-01234567890",
+            {},
+        )
+        self.assertEqual(200, status)
+        self.assertTrue(result["ok"])
+        revoke_mail_session.assert_called_once_with("token-peer-01234567890")
+        workspace_sharing._sessions.clear()
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.list_shares("token-peer-01234567890")
+
+    def test_invalid_share_does_not_create_nextcloud_directory(self):
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.create_share(
+                "token-owner-0123456789",
+                {
+                    "displayName": "",
+                    "sourceKind": "nextcloud",
+                    "permission": "download",
+                },
+            )
+        self.ensure_workspace.assert_not_called()
+
     def test_only_owner_can_edit_and_revoke(self):
         share = self.create()
         with self.assertRaises(workspace_sharing.WorkspaceShareError):
             workspace_sharing.update_share(
                 "token-peer-01234567890",
-                {"id": share["id"], "displayName": "탈취", "permission": "clone"},
+                {"id": share["id"], "displayName": "탈취", "permission": "download"},
             )
         workspace_sharing.update_share(
             "token-owner-0123456789",
@@ -48,16 +97,36 @@ class WorkspaceSharingTest(unittest.TestCase):
         workspace_sharing.revoke_share("token-owner-0123456789", {"id": share["id"]})
         self.assertEqual([], workspace_sharing.list_shares("token-peer-01234567890"))
 
-    def test_rejects_local_or_credentialed_remote(self):
-        for remote in (
-            "file:///tmp/project", "file:C:\\project", "/tmp/project", "C:\\project",
-            "https://token@example.com/p.git", "https://user:secret@example.com/p.git",
-        ):
-            with self.subTest(remote=remote), self.assertRaises(workspace_sharing.WorkspaceShareError):
+    def test_rejects_git_and_legacy_clients(self):
+        for source_kind in (None, "git"):
+            with self.subTest(source_kind=source_kind), self.assertRaises(
+                workspace_sharing.WorkspaceShareError
+            ):
                 workspace_sharing.create_share(
                     "token-owner-0123456789",
-                    {"displayName": "bad", "repositoryUrl": remote, "permission": "clone"},
+                    {
+                        "displayName": "bad",
+                        "sourceKind": source_kind,
+                        "repositoryUrl": "https://github.com/samwoo/project.git",
+                        "permission": "download",
+                    },
                 )
+
+    def test_legacy_git_rows_are_not_exposed(self):
+        share = self.create()
+        with workspace_sharing._connect() as conn:
+            conn.execute(
+                "UPDATE workspace_shares SET source_kind='git' WHERE id=?",
+                (share["id"],),
+            )
+
+        self.assertEqual(
+            [], workspace_sharing.list_shares("token-peer-01234567890")
+        )
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.list_comments(
+                "token-peer-01234567890", {"shareId": share["id"]}
+            )
 
     def test_profile_members_comment_and_track_completion(self):
         share = self.create()
@@ -111,22 +180,20 @@ class WorkspaceSharingTest(unittest.TestCase):
         self.assertEqual(1, listed["commentCount"])
         self.assertEqual(200, status)
 
-    @mock.patch("workspace_sharing.nextcloud_workspace_storage.ensure_workspace")
-    def test_nextcloud_share_is_profile_scoped(self, ensure_workspace):
-        ensure_workspace.return_value = "SAMWOO-Workspaces/ai_center/share-id"
+    def test_nextcloud_share_is_profile_scoped(self):
         share = workspace_sharing.create_share(
             "token-owner-0123456789",
             {
                 "displayName": "팀 자료",
                 "sourceKind": "nextcloud",
-                "permission": "clone",
+                "permission": "download",
             },
         )
-        self.assertEqual("nextcloud", share["sourceKind"])
-        self.assertEqual("", share["repositoryUrl"])
+        self.assertNotIn("sourceKind", share)
+        self.assertNotIn("repositoryUrl", share)
         self.assertNotIn("storagePath", share)
         self.assertEqual([], workspace_sharing.list_shares("token-other-0123456789"))
-        ensure_workspace.assert_called_once_with("ai_center", share["id"])
+        self.ensure_workspace.assert_called_with("ai_center", share["id"])
 
     @mock.patch("workspace_sharing.nextcloud_workspace_storage.list_directory")
     @mock.patch("workspace_sharing.nextcloud_workspace_storage.read_file")
@@ -139,7 +206,7 @@ class WorkspaceSharingTest(unittest.TestCase):
         list_directory.return_value = [{"name": "note.txt", "kind": "file", "size": 2}]
         share = workspace_sharing.create_share(
             "token-owner-0123456789",
-            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "clone"},
+            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "download"},
         )
         workspace_sharing.list_workspace_files(
             "token-peer-01234567890", {"shareId": share["id"]}
@@ -182,7 +249,7 @@ class WorkspaceSharingTest(unittest.TestCase):
             {
                 "displayName": "팀 자료",
                 "sourceKind": "nextcloud",
-                "permission": "clone",
+                "permission": "download",
             },
         )
         with self.assertRaises(workspace_sharing.WorkspaceShareError):
@@ -210,7 +277,7 @@ class WorkspaceSharingTest(unittest.TestCase):
         ensure_workspace.return_value = "SAMWOO-Workspaces/ai_center/share-id"
         share = workspace_sharing.create_share(
             "token-owner-0123456789",
-            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "clone"},
+            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "download"},
         )
         write_file.side_effect = (
             workspace_sharing.nextcloud_workspace_storage.NextcloudStorageConflictError(
@@ -239,7 +306,7 @@ class WorkspaceSharingTest(unittest.TestCase):
         delete_file.return_value = {"path": "old.txt"}
         share = workspace_sharing.create_share(
             "token-owner-0123456789",
-            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "clone"},
+            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "download"},
         )
         with self.assertRaises(workspace_sharing.WorkspaceShareError):
             workspace_sharing.delete_workspace_file(

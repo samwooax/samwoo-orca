@@ -1,22 +1,22 @@
-"""Profile-scoped shared Git workspace catalog for SAMWOO-ORCA."""
+"""Profile-scoped Nextcloud workspace catalog for SAMWOO-ORCA."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+import hashlib
 import os
 import re
 import sqlite3
 import threading
 import time
 import uuid
-from urllib.parse import urlparse
 
 import nextcloud_workspace_storage
 
 DB_PATH = os.environ.get("SAMWOO_WORKSPACE_DB", "/opt/samwoo-auth/workspace-shares.db")
 SESSION_TTL = int(os.environ.get("SAMWOO_WORKSPACE_SESSION_TTL", str(8 * 3600)))
-_PERMISSIONS = {"view", "clone", "contribute"}
-_SOURCE_KINDS = {"git", "nextcloud"}
-_SCP_REMOTE = re.compile(r"^(?:[^@\s:]+@)?[^:\s]+:.+$")
+_PERMISSIONS = {"view", "download", "contribute"}
 _SHARE_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.I)
 COMMENT_PAGE_SIZE = 50
 _sessions: dict[str, dict] = {}
@@ -35,22 +35,68 @@ def bind_session(token: str, login: str, profile: str, ttl: int = SESSION_TTL) -
     """Bind server-issued auth to its resolved profile; clients cannot select scope."""
     if not token or not login or not profile:
         raise WorkspaceShareError("workspace profile required")
+    expires = int(time.time()) + ttl
     with _lock:
-        _sessions[token] = {"login": login, "profile": profile, "expires": time.time() + ttl}
+        _sessions[token] = {"login": login, "profile": profile, "expires": expires}
+        conn = _connect()
+        try:
+            conn.execute(
+                """INSERT INTO workspace_sessions (token_hash,login,profile,expires_at)
+                VALUES (?,?,?,?) ON CONFLICT(token_hash) DO UPDATE SET
+                login=excluded.login,profile=excluded.profile,expires_at=excluded.expires_at""",
+                (_session_token_hash(token), login, profile, expires),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
 
 def revoke_session(token: str) -> None:
     with _lock:
         _sessions.pop(token, None)
+        conn = _connect()
+        try:
+            conn.execute(
+                "DELETE FROM workspace_sessions WHERE token_hash=?",
+                (_session_token_hash(token),),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def _session_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def _identity(token: str) -> tuple[str, str]:
     with _lock:
         session = _sessions.get(token)
-        if not session or session["expires"] <= time.time():
-            _sessions.pop(token, None)
-            raise WorkspaceShareError("invalid or expired session")
-        return session["login"], session["profile"]
+        if session and session["expires"] > time.time():
+            return session["login"], session["profile"]
+        _sessions.pop(token, None)
+        conn = _connect()
+        try:
+            row = conn.execute(
+                "SELECT login,profile,expires_at FROM workspace_sessions WHERE token_hash=?",
+                (_session_token_hash(token),),
+            ).fetchone()
+            if not row or row["expires_at"] <= time.time():
+                conn.execute(
+                    "DELETE FROM workspace_sessions WHERE token_hash=?",
+                    (_session_token_hash(token),),
+                )
+                conn.commit()
+                raise WorkspaceShareError("invalid or expired session")
+        finally:
+            conn.close()
+        restored = {
+            "login": row["login"],
+            "profile": row["profile"],
+            "expires": row["expires_at"],
+        }
+        _sessions[token] = restored
+        return restored["login"], restored["profile"]
 
 
 def _connect() -> sqlite3.Connection:
@@ -61,12 +107,22 @@ def _connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(
+        """CREATE TABLE IF NOT EXISTS workspace_sessions (
+        token_hash TEXT PRIMARY KEY, login TEXT NOT NULL, profile TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS workspace_sessions_expiry_idx ON workspace_sessions(expires_at)"
+    )
+    conn.execute("DELETE FROM workspace_sessions WHERE expires_at<=?", (int(time.time()),))
+    conn.execute(
         """CREATE TABLE IF NOT EXISTS workspace_shares (
         id TEXT PRIMARY KEY, owner_login TEXT NOT NULL, owner_profile TEXT NOT NULL,
         display_name TEXT NOT NULL, repository_url TEXT NOT NULL,
         default_branch TEXT, description TEXT, permission TEXT NOT NULL,
         created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, revoked_at INTEGER,
-        source_kind TEXT NOT NULL DEFAULT 'git', storage_path TEXT
+        source_kind TEXT NOT NULL DEFAULT 'nextcloud', storage_path TEXT
         )"""
     )
     conn.execute(
@@ -76,9 +132,12 @@ def _connect() -> sqlite3.Connection:
         row["name"] for row in conn.execute("PRAGMA table_info(workspace_shares)").fetchall()
     }
     if "source_kind" not in columns:
+        # Why: rows created before cloud sharing existed must stay hidden as legacy Git entries.
         conn.execute("ALTER TABLE workspace_shares ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'git'")
     if "storage_path" not in columns:
         conn.execute("ALTER TABLE workspace_shares ADD COLUMN storage_path TEXT")
+    # Why: remove the last Git-era permission name without discarding existing shares.
+    conn.execute("UPDATE workspace_shares SET permission='download' WHERE permission='clone'")
     conn.execute(
         """CREATE TABLE IF NOT EXISTS workspace_share_comments (
         id TEXT PRIMARY KEY, share_id TEXT NOT NULL, author_login TEXT NOT NULL,
@@ -101,6 +160,17 @@ def _connect() -> sqlite3.Connection:
     return conn
 
 
+@contextmanager
+def _database() -> Iterator[sqlite3.Connection]:
+    conn = _connect()
+    try:
+        with conn:
+            yield conn
+    finally:
+        # Why: deterministic closure prevents SQLite WAL handles blocking Windows cleanup.
+        conn.close()
+
+
 def _text(value: object, field: str, maximum: int, required: bool = False) -> str:
     result = str(value or "").strip()
     if required and not result:
@@ -119,33 +189,11 @@ def _comment_text(value: object) -> str:
     return result
 
 
-def _remote(value: object) -> str:
-    remote = _text(value, "repository url", 2048, True)
-    if re.match(r"^[A-Za-z]:[\\/]", remote):
-        raise WorkspaceShareError("unsupported repository url")
-    if remote.lower().startswith(("file:", "http:", "ftp:", "data:", "javascript:")):
-        raise WorkspaceShareError("unsupported repository url")
-    if _SCP_REMOTE.match(remote) and "://" not in remote:
-        return remote
-    parsed = urlparse(remote)
-    has_unsafe_userinfo = bool(parsed.password) or (parsed.scheme == "https" and bool(parsed.username))
-    if parsed.scheme not in {"https", "ssh"} or not parsed.hostname or has_unsafe_userinfo:
-        raise WorkspaceShareError("unsupported repository url")
-    return remote
-
-
 def _permission(value: object) -> str:
     permission = str(value or "")
     if permission not in _PERMISSIONS:
         raise WorkspaceShareError("invalid permission")
     return permission
-
-
-def _source_kind(value: object) -> str:
-    source_kind = str(value or "git")
-    if source_kind not in _SOURCE_KINDS:
-        raise WorkspaceShareError("invalid workspace source")
-    return source_kind
 
 
 def _share_id(value: object) -> str:
@@ -159,9 +207,7 @@ def _serialize(row: sqlite3.Row, login: str) -> dict:
     return {
         "id": row["id"], "ownerLogin": row["owner_login"],
         "ownerProfile": row["owner_profile"], "displayName": row["display_name"],
-        "repositoryUrl": row["repository_url"], "defaultBranch": row["default_branch"],
         "description": row["description"], "permission": row["permission"],
-        "sourceKind": row["source_kind"],
         "createdAt": row["created_at"], "updatedAt": row["updated_at"],
         "isOwner": row["owner_login"] == login,
         "commentCount": row["comment_count"] if "comment_count" in row.keys() else 0,
@@ -180,7 +226,7 @@ def _serialize_comment(row: sqlite3.Row, login: str) -> dict:
 
 def _require_active_share(conn: sqlite3.Connection, share_id: str, profile: str) -> None:
     row = conn.execute(
-        "SELECT 1 FROM workspace_shares WHERE id=? AND owner_profile=? AND revoked_at IS NULL",
+        "SELECT 1 FROM workspace_shares WHERE id=? AND owner_profile=? AND source_kind='nextcloud' AND revoked_at IS NULL",
         (share_id, profile),
     ).fetchone()
     if not row:
@@ -189,12 +235,12 @@ def _require_active_share(conn: sqlite3.Connection, share_id: str, profile: str)
 
 def list_shares(token: str) -> list[dict]:
     login, profile = _identity(token)
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         rows = conn.execute(
             """SELECT workspace_shares.*,
             (SELECT COUNT(*) FROM workspace_share_comments
              WHERE workspace_share_comments.share_id=workspace_shares.id) AS comment_count
-            FROM workspace_shares WHERE owner_profile=? AND revoked_at IS NULL
+            FROM workspace_shares WHERE owner_profile=? AND source_kind='nextcloud' AND revoked_at IS NULL
             ORDER BY updated_at DESC""",
             (profile,),
         ).fetchall()
@@ -205,23 +251,24 @@ def create_share(token: str, body: dict) -> dict:
     login, profile = _identity(token)
     now = int(time.time() * 1000)
     share_id = str(uuid.uuid4())
-    source_kind = _source_kind(body.get("sourceKind"))
-    repository_url = _remote(body.get("repositoryUrl")) if source_kind == "git" else ""
-    storage_path = None
-    if source_kind == "nextcloud":
-        try:
-            storage_path = nextcloud_workspace_storage.ensure_workspace(profile, share_id)
-        except nextcloud_workspace_storage.NextcloudStorageError as error:
-            raise WorkspaceShareError(str(error)) from error
+    if body.get("sourceKind") != "nextcloud":
+        raise WorkspaceShareError("company cloud workspace required")
+    display_name = _text(body.get("displayName"), "display name", 120, True)
+    description = _text(body.get("description"), "description", 1000) or None
+    permission = _permission(body.get("permission"))
+    try:
+        storage_path = nextcloud_workspace_storage.ensure_workspace(profile, share_id)
+    except nextcloud_workspace_storage.NextcloudStorageError as error:
+        raise WorkspaceShareError(str(error)) from error
     values = (
         share_id, login, profile,
-        _text(body.get("displayName"), "display name", 120, True),
-        repository_url,
-        _text(body.get("defaultBranch"), "default branch", 255) or None,
-        _text(body.get("description"), "description", 1000) or None,
-        _permission(body.get("permission")), now, now, source_kind, storage_path,
+        display_name,
+        "",
+        None,
+        description,
+        permission, now, now, "nextcloud", storage_path,
     )
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         conn.execute(
             "INSERT INTO workspace_shares (id,owner_login,owner_profile,display_name,repository_url,default_branch,description,permission,created_at,updated_at,source_kind,storage_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             values,
@@ -239,9 +286,9 @@ def update_share(token: str, body: dict) -> dict:
         _permission(body.get("permission")), int(time.time() * 1000),
         share_id, login, profile,
     )
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         cursor = conn.execute(
-            "UPDATE workspace_shares SET display_name=?,description=?,permission=?,updated_at=? WHERE id=? AND owner_login=? AND owner_profile=? AND revoked_at IS NULL",
+            "UPDATE workspace_shares SET display_name=?,description=?,permission=?,updated_at=? WHERE id=? AND owner_login=? AND owner_profile=? AND source_kind='nextcloud' AND revoked_at IS NULL",
             values,
         )
         if cursor.rowcount != 1:
@@ -253,9 +300,9 @@ def update_share(token: str, body: dict) -> dict:
 def revoke_share(token: str, body: dict) -> None:
     login, profile = _identity(token)
     share_id = _share_id(body.get("id"))
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         cursor = conn.execute(
-            "UPDATE workspace_shares SET revoked_at=?,updated_at=? WHERE id=? AND owner_login=? AND owner_profile=? AND revoked_at IS NULL",
+            "UPDATE workspace_shares SET revoked_at=?,updated_at=? WHERE id=? AND owner_login=? AND owner_profile=? AND source_kind='nextcloud' AND revoked_at IS NULL",
             (int(time.time() * 1000), int(time.time() * 1000), share_id, login, profile),
         )
         if cursor.rowcount != 1:
@@ -277,7 +324,7 @@ def _nextcloud_share(
 def list_workspace_files(token: str, body: dict) -> list[dict]:
     login, profile = _identity(token)
     share_id = _share_id(body.get("shareId"))
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         row = _nextcloud_share(conn, share_id, profile)
         if row["permission"] == "view" and row["owner_login"] != login:
             raise WorkspaceShareError("workspace download is not allowed")
@@ -292,7 +339,7 @@ def list_workspace_files(token: str, body: dict) -> list[dict]:
 def read_workspace_file(token: str, body: dict) -> dict:
     login, profile = _identity(token)
     share_id = _share_id(body.get("shareId"))
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         row = _nextcloud_share(conn, share_id, profile)
         if row["permission"] == "view" and row["owner_login"] != login:
             raise WorkspaceShareError("workspace download is not allowed")
@@ -305,7 +352,7 @@ def read_workspace_file(token: str, body: dict) -> dict:
 def write_workspace_file(token: str, body: dict) -> dict:
     login, profile = _identity(token)
     share_id = _share_id(body.get("shareId"))
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         row = _nextcloud_share(conn, share_id, profile)
         if row["owner_login"] != login and row["permission"] != "contribute":
             raise WorkspaceShareError("workspace contribution is not allowed")
@@ -325,7 +372,7 @@ def write_workspace_file(token: str, body: dict) -> dict:
         raise WorkspaceShareConflictError(str(error)) from error
     except nextcloud_workspace_storage.NextcloudStorageError as error:
         raise WorkspaceShareError(str(error)) from error
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         conn.execute(
             "UPDATE workspace_shares SET updated_at=? WHERE id=? AND owner_profile=?",
             (int(time.time() * 1000), share_id, profile),
@@ -336,7 +383,7 @@ def write_workspace_file(token: str, body: dict) -> dict:
 def delete_workspace_file(token: str, body: dict) -> dict:
     login, profile = _identity(token)
     share_id = _share_id(body.get("shareId"))
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         row = _nextcloud_share(conn, share_id, profile)
         if row["owner_login"] != login and row["permission"] != "contribute":
             raise WorkspaceShareError("workspace contribution is not allowed")
@@ -349,7 +396,7 @@ def delete_workspace_file(token: str, body: dict) -> dict:
         raise WorkspaceShareConflictError(str(error)) from error
     except nextcloud_workspace_storage.NextcloudStorageError as error:
         raise WorkspaceShareError(str(error)) from error
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         conn.execute(
             "UPDATE workspace_shares SET updated_at=? WHERE id=? AND owner_profile=?",
             (int(time.time() * 1000), share_id, profile),
@@ -373,7 +420,7 @@ def list_comments(token: str, body: dict) -> dict:
         or any(ord(char) < 32 for char in before_id)
     ):
         raise WorkspaceShareError("invalid comment cursor")
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         _require_active_share(conn, share_id, profile)
         where_cursor = (
             " AND (created_at < ? OR (created_at = ? AND id < ?))"
@@ -416,7 +463,7 @@ def create_comment(token: str, body: dict) -> dict:
     comment_body = _comment_text(body.get("body"))
     now = int(time.time() * 1000)
     values = (str(uuid.uuid4()), share_id, login, comment_body, now, now)
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         _require_active_share(conn, share_id, profile)
         conn.execute(
             "INSERT INTO workspace_share_comments (id,share_id,author_login,body,created_at,updated_at) VALUES (?,?,?,?,?,?)",
@@ -436,7 +483,7 @@ def set_comment_completed(token: str, body: dict) -> dict:
     if not isinstance(completed, bool):
         raise WorkspaceShareError("invalid completed state")
     now = int(time.time() * 1000)
-    with _lock, _connect() as conn:
+    with _lock, _database() as conn:
         _require_active_share(conn, share_id, profile)
         # Why: a conditional write makes repeated stale requests preserve the first actor.
         conn.execute(

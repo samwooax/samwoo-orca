@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 import workspace_share_endpoints
 import workspace_sharing
@@ -20,8 +21,13 @@ class WorkspaceCommentTest(unittest.TestCase):
         workspace_sharing.bind_session(OWNER_TOKEN, "owner", "ai_center")
         workspace_sharing.bind_session(PEER_TOKEN, "peer", "ai_center")
         workspace_sharing.bind_session(OTHER_TOKEN, "other", "sales")
+        self.ensure_workspace = mock.patch(
+            "workspace_sharing.nextcloud_workspace_storage.ensure_workspace",
+            return_value="SAMWOO-Workspaces/profile/share-id",
+        ).start()
 
     def tearDown(self):
+        mock.patch.stopall()
         self.tempdir.cleanup()
 
     def create_share(self, name="프로젝트 보드"):
@@ -29,8 +35,8 @@ class WorkspaceCommentTest(unittest.TestCase):
             OWNER_TOKEN,
             {
                 "displayName": name,
-                "repositoryUrl": f"https://github.com/samwoo/{name}.git",
-                "permission": "clone",
+                "sourceKind": "nextcloud",
+                "permission": "download",
             },
         )
 

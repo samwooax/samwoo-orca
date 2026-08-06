@@ -2197,6 +2197,7 @@ const api = {
       error?: string
     }> => ipcRenderer.invoke('samwoo:login', args),
     samwooWorkspaceShares: {
+      revokeSession: (token) => ipcRenderer.invoke('samwooWorkspaceShares:revokeSession', token),
       list: (token) => ipcRenderer.invoke('samwooWorkspaceShares:list', token),
       create: (args) => ipcRenderer.invoke('samwooWorkspaceShares:create', args),
       update: (args) => ipcRenderer.invoke('samwooWorkspaceShares:update', args),

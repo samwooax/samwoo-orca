@@ -789,6 +789,7 @@ export type PreflightApi = {
     error?: string
   }>
   samwooWorkspaceShares: {
+    revokeSession: (token: string) => Promise<SamwooWorkspaceShareResult>
     list: (token: string) => Promise<SamwooWorkspaceShareResult>
     create: (args: CreateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
     update: (args: UpdateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>

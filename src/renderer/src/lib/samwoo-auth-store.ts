@@ -17,7 +17,7 @@ export type SamwooAuth = {
 type SamwooAuthState = {
   auth: SamwooAuth | null
   setAuth: (auth: SamwooAuth) => void
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const STORAGE_KEY = 'samwoo.auth'
@@ -48,13 +48,18 @@ export const useSamwooAuthStore = create<SamwooAuthState>((set) => ({
     }
     set({ auth })
   },
-  logout: () => {
+  logout: async () => {
+    const token = useSamwooAuthStore.getState().auth?.token
+    // Why: network loss must not trap the user in a locally expired session.
     try {
       localStorage.removeItem(STORAGE_KEY)
     } catch {
       // ignore
     }
     set({ auth: null })
+    if (token) {
+      await window.api.preflight.samwooWorkspaceShares.revokeSession(token)
+    }
   }
 }))
 

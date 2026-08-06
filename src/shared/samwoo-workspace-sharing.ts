@@ -1,14 +1,10 @@
-export type SamwooWorkspacePermission = 'view' | 'clone' | 'contribute'
-export type SamwooWorkspaceSourceKind = 'git' | 'nextcloud'
+export type SamwooWorkspacePermission = 'view' | 'download' | 'contribute'
 
 export type SamwooWorkspaceShare = {
   id: string
   ownerLogin: string
   ownerProfile: string
   displayName: string
-  repositoryUrl: string
-  sourceKind: SamwooWorkspaceSourceKind
-  defaultBranch?: string | null
   description?: string | null
   permission: SamwooWorkspacePermission
   createdAt: number
@@ -92,9 +88,6 @@ export type SamwooWorkspaceShareResult = {
 export type CreateSamwooWorkspaceShareArgs = {
   token: string
   displayName: string
-  sourceKind?: SamwooWorkspaceSourceKind
-  repositoryUrl?: string
-  defaultBranch?: string
   description?: string
   permission: SamwooWorkspacePermission
 }
