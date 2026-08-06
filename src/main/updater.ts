@@ -30,6 +30,7 @@ import {
   disarmUpdateInstallExitWatchdog
 } from './update-install-exit-watchdog'
 import { registerAutoUpdaterHandlers } from './updater-events'
+import { resolveQuitAndInstallFlags } from './updater-install-flags'
 import { recordUpdaterLifecycle } from './updater-lifecycle-diagnostics'
 import { getLinuxRootPackageType } from './linux-update-package-type'
 import {
@@ -777,10 +778,11 @@ async function performQuitAndInstall(): Promise<void> {
       quitAndInstallNativeInvoked = true
       // Why: invoke before killAllPty/removing close listeners so a sync 'error' (the "no filepath" path) can recover while windows and PTYs are intact.
       const supervisorOwnsRelaunch = updateInstallMode === 'supervised-headless-serve'
+      const installFlags = resolveQuitAndInstallFlags(process.platform, supervisorOwnsRelaunch)
       // Why: BaseUpdater logs child stderr but drops it from the 'error' event, so retain it for the span of this call.
       beginLinuxPackageInstallDiagnosticCapture(getTrackedLinuxPackageArtifact()?.path ?? null)
       try {
-        getAutoUpdater().quitAndInstall(supervisorOwnsRelaunch, !supervisorOwnsRelaunch)
+        getAutoUpdater().quitAndInstall(installFlags.isSilent, installFlags.isForceRunAfter)
       } finally {
         const diagnostic = endLinuxPackageInstallDiagnosticCapture()
         // Why: a synchronous 'error' already consumed and reset this attempt; re-stashing would leak it into the next one.

@@ -447,17 +447,13 @@ if (-not $AdminPhase) {
   if ($userPhaseFailed -or $adminPhaseFailed) {
     exit 1
   }
-  Step "SAMWOO-ORCA 실행 확인..."
+  Step "SAMWOO-ORCA 실행..."
   try {
     $installedApp = Join-Path $env:LOCALAPPDATA "Programs\SAMWOO-ORCA\SAMWOO-ORCA.exe"
-    $appProcess = Start-Process -FilePath $installedApp -PassThru
-    Start-Sleep -Seconds 8
-    if ($appProcess.HasExited) {
-      throw "앱이 실행 직후 종료됐습니다 (종료 코드: $($appProcess.ExitCode))"
-    }
-    Write-Host "    [OK] SAMWOO-ORCA가 정상 실행됐습니다." -ForegroundColor Green
+    Start-Process -FilePath $installedApp
+    Write-Host "    [OK] SAMWOO-ORCA를 실행했습니다." -ForegroundColor Green
   } catch {
-    Write-Host "    [FAIL] SAMWOO-ORCA 실행 확인 -> $_" -ForegroundColor Red
+    Write-Host "    [FAIL] SAMWOO-ORCA 실행 -> $_" -ForegroundColor Red
     exit 1
   }
   exit 0

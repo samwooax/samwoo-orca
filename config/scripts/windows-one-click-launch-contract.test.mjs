@@ -44,4 +44,11 @@ describe('Windows one-click launch contract', () => {
     expect(launcher).toContain('exit /b %install_exit%')
     expect(launcher.trimEnd()).not.toMatch(/\npause$/)
   })
+
+  it('does not leave the installer console open beside the first app launch', () => {
+    const launchSection = installer.slice(installer.indexOf('Step "SAMWOO-ORCA 실행..."'))
+    expect(launchSection).toContain('Start-Process -FilePath $installedApp')
+    expect(launchSection).not.toContain('Start-Sleep -Seconds 8')
+    expect(launchSection).not.toContain('$appProcess.HasExited')
+  })
 })

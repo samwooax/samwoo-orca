@@ -23,6 +23,7 @@ describe('SAMWOO electron-builder identity', () => {
         artifactName: 'samwoo-orca-windows-setup.${ext}',
         oneClick: false,
         allowToChangeInstallationDirectory: true,
+        runAfterFinish: false,
         shortcutName: '${productName}',
         uninstallDisplayName: '${productName}'
       }

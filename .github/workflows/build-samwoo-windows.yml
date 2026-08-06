@@ -109,6 +109,7 @@ jobs:
             src/main/ipc/hermes-team-chat-device-context.test.ts `
             src/main/ipc/hermes-team-chat-models.test.ts `
             src/main/ipc/hermes-team-chat-page.test.ts `
+            src/main/updater-install-flags.test.ts `
             src/renderer/src/components/hermes-team-chat/HermesTeamChatModelControls.test.tsx `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-composer-options.test.ts `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-mail-token.test.ts `
@@ -119,6 +120,7 @@ jobs:
             src/renderer/src/components/native-chat/NativeChatSessionOptionPickers.test.tsx `
             src/renderer/src/components/status-bar/SamwooAuthStatusSegment.test.tsx `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
+            config/scripts/electron-builder-samwoo-config.test.mjs `
             config/scripts/samwoo-windows-internal-signing-workflow.test.mjs `
             config/scripts/windows-one-click-integrity-contract.test.mjs `
             config/scripts/windows-one-click-launch-contract.test.mjs
