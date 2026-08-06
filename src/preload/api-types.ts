@@ -30,6 +30,11 @@ import type {
 } from '../shared/local-log-tail-types'
 import type { ReadClipboardTextOptions } from '../shared/clipboard-text'
 import type { AppIdentity } from '../shared/app-identity'
+import type {
+  CreateSamwooWorkspaceShareArgs,
+  SamwooWorkspaceShareResult,
+  UpdateSamwooWorkspaceShareArgs
+} from '../shared/samwoo-workspace-sharing'
 import type { ReleaseChannel } from '../shared/release-channel'
 import type {
   HostQualifiedDetectedWorktreeResult,
@@ -774,6 +779,12 @@ export type PreflightApi = {
     token?: string
     error?: string
   }>
+  samwooWorkspaceShares: {
+    list: (token: string) => Promise<SamwooWorkspaceShareResult>
+    create: (args: CreateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
+    update: (args: UpdateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
+    revoke: (args: { token: string; id: string }) => Promise<SamwooWorkspaceShareResult>
+  }
   refreshAgents: (args?: PreflightRuntimeContext) => Promise<RefreshAgentsResult>
   detectRemoteAgents: (args: { connectionId: string }) => Promise<string[]>
   detectRemoteWindowsTerminalCapabilities: (args: { connectionId: string }) => Promise<{

@@ -14861,6 +14861,37 @@
       "passwordPlaceholder": "Password",
       "checking": "Checking…",
       "submit": "Sign in"
+    },
+    "workspaceSharing": {
+      "permissionView": "List only",
+      "permissionClone": "Local clone",
+      "permissionContribute": "Contribute with Git access",
+      "saveNameFailed": "Could not save the shared name.",
+      "nameSaved": "Shared name saved.",
+      "cloneComplete": "Shared workspace cloned locally.",
+      "cloneFailed": "Could not clone the workspace.",
+      "revokeFailed": "Could not revoke the share.",
+      "revoked": "Central share revoked.",
+      "sharedName": "Shared name",
+      "localAlias": "My local alias",
+      "saveSharedName": "Save shared name",
+      "centralName": "Central name: {{name}}",
+      "cloneLocal": "Clone locally",
+      "cloning": "Cloning… {{percent}}%",
+      "revoke": "Revoke share",
+      "loadFailed": "Could not load shared workspaces.",
+      "createFailed": "Could not create the share.",
+      "created": "Shared with the current Hermes profile.",
+      "title": "Team shared workspaces",
+      "description": "Only the Git remote is shared with the same Hermes profile. Each user clones it to their own laptop. Git access is still controlled by the repository provider.",
+      "project": "Project to share",
+      "projectPlaceholder": "Select a project with a Git remote",
+      "permission": "Permission",
+      "share": "Share with profile",
+      "list": "Shared list",
+      "refresh": "Refresh",
+      "empty": "There are no shared workspaces.",
+      "webUnavailable": "Workspace sharing is unavailable in the web client."
     }
   }
 }

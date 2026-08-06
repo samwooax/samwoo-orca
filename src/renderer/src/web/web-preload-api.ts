@@ -2840,6 +2840,36 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
       ok: false,
       error: 'Login is unavailable in the web client'
     }),
+    samwooWorkspaceShares: {
+      list: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.workspaceSharing.webUnavailable',
+          'Workspace sharing is unavailable in the web client.'
+        )
+      }),
+      create: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.workspaceSharing.webUnavailable',
+          'Workspace sharing is unavailable in the web client.'
+        )
+      }),
+      update: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.workspaceSharing.webUnavailable',
+          'Workspace sharing is unavailable in the web client.'
+        )
+      }),
+      revoke: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.workspaceSharing.webUnavailable',
+          'Workspace sharing is unavailable in the web client.'
+        )
+      })
+    },
     refreshAgents: () =>
       requireActiveEnvironmentOrNull()
         ? callRuntimeResult('preflight.refreshAgents')

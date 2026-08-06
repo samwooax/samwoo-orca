@@ -1,5 +1,5 @@
 import React from 'react'
-import { X } from 'lucide-react'
+import { Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import type { WorkspaceStatusDefinition } from '../../../../shared/types'
@@ -27,6 +27,7 @@ type WorkspaceKanbanDrawerHeaderProps = {
   onRemoveStatus: (statusId: string) => void
   onAddStatus: () => void
   onFilterMenuOpenChange: (open: boolean) => void
+  onOpenSharedWorkspaces: () => void
   onClose: () => void
 }
 
@@ -49,6 +50,7 @@ export default function WorkspaceKanbanDrawerHeader({
   onRemoveStatus,
   onAddStatus,
   onFilterMenuOpenChange,
+  onOpenSharedWorkspaces,
   onClose
 }: WorkspaceKanbanDrawerHeaderProps): React.JSX.Element {
   return (
@@ -94,6 +96,14 @@ export default function WorkspaceKanbanDrawerHeader({
       </SheetHeader>
 
       <div className="absolute right-3 top-2.5 flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label={translate('samwoo.workspaceSharing.title', 'Team shared workspaces')}
+          onClick={onOpenSharedWorkspaces}
+        >
+          <Users className="size-3.5" />
+        </Button>
         <SidebarFilter
           preserveWorkspaceBoardOpen
           tooltipSide="top"

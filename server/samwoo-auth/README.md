@@ -1,4 +1,14 @@
-# samwoo-auth — mail extension (secure variant)
+# samwoo-auth extensions
+
+This directory also contains profile-scoped workspace sharing:
+
+- `workspace_sharing.py` — SQLite catalog and server-bound profile sessions.
+- `workspace_share_endpoints.py` — `/workspace-shares/*` HTTP routing adapter.
+- `test_workspace_sharing.py` — isolation, ownership, revocation and URL safety tests.
+
+Deployment integration is documented in `docs/SAMWOO_WORKSPACE_SHARING.md`.
+
+## Mail extension (secure variant)
 
 Session-scoped IMAP/SMTP mail access for the team bots. Each employee accesses
 **only their own mailbox** with the credential they entered at login.

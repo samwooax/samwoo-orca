@@ -2196,6 +2196,12 @@ const api = {
       name?: string
       error?: string
     }> => ipcRenderer.invoke('samwoo:login', args),
+    samwooWorkspaceShares: {
+      list: (token) => ipcRenderer.invoke('samwooWorkspaceShares:list', token),
+      create: (args) => ipcRenderer.invoke('samwooWorkspaceShares:create', args),
+      update: (args) => ipcRenderer.invoke('samwooWorkspaceShares:update', args),
+      revoke: (args) => ipcRenderer.invoke('samwooWorkspaceShares:revoke', args)
+    },
     refreshAgents: (args?: PreflightRuntimeContext): Promise<RefreshAgentsResult> =>
       ipcRenderer.invoke('preflight:refreshAgents', args),
     detectRemoteAgents: (args: { connectionId: string }): Promise<string[]> =>

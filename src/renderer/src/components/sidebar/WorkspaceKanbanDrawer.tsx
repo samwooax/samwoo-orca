@@ -16,6 +16,7 @@ import WorkspaceKanbanAreaSelectionOverlay from './WorkspaceKanbanAreaSelectionO
 import WorkspaceKanbanDrawerHeader from './WorkspaceKanbanDrawerHeader'
 import WorkspaceKanbanLaneGrid from './WorkspaceKanbanLaneGrid'
 import WorkspaceKanbanPinDropTarget from './WorkspaceKanbanPinDropTarget'
+import SharedWorkspaceBoardDialog from './SharedWorkspaceBoardDialog'
 import {
   getWorkspaceStatus,
   hasWorkspaceDragData,
@@ -172,6 +173,7 @@ export default function WorkspaceKanbanDrawer({
   const [dragOverStatus, setDragOverStatus] = useState<WorkspaceStatus | null>(null)
   const [pinDragOver, setPinDragOver] = useState(false)
   const [renderCards, setRenderCards] = useState(false)
+  const [sharedWorkspacesOpen, setSharedWorkspacesOpen] = useState(false)
   const { canCreateWorktree, createWorktreeForStatus } = useWorkspaceKanbanCreateWorktree()
   const visibleWorktreeIdSet = useVisibleWorkspaceKanbanWorktreeIds({
     allWorktrees,
@@ -875,7 +877,12 @@ export default function WorkspaceKanbanDrawer({
           onRemoveStatus={handleRemoveStatus}
           onAddStatus={handleAddStatus}
           onFilterMenuOpenChange={onMenuOpenChange}
+          onOpenSharedWorkspaces={() => setSharedWorkspacesOpen(true)}
           onClose={handleHeaderClose}
+        />
+        <SharedWorkspaceBoardDialog
+          open={sharedWorkspacesOpen}
+          onOpenChange={setSharedWorkspacesOpen}
         />
         <div
           ref={boardRef}

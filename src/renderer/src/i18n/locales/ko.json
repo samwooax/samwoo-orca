@@ -14666,6 +14666,37 @@
       "passwordPlaceholder": "비밀번호",
       "checking": "확인 중…",
       "submit": "로그인"
+    },
+    "workspaceSharing": {
+      "permissionView": "목록만",
+      "permissionClone": "로컬 복제",
+      "permissionContribute": "Git 권한에 따라 기여",
+      "saveNameFailed": "공유 이름을 저장하지 못했습니다.",
+      "nameSaved": "공유 이름을 저장했습니다.",
+      "cloneComplete": "공유 워크스페이스를 로컬에 복제했습니다.",
+      "cloneFailed": "워크스페이스를 복제하지 못했습니다.",
+      "revokeFailed": "공유를 회수하지 못했습니다.",
+      "revoked": "중앙 공유를 회수했습니다.",
+      "sharedName": "공유 이름",
+      "localAlias": "내 로컬 별칭",
+      "saveSharedName": "공유 이름 저장",
+      "centralName": "중앙 이름: {{name}}",
+      "cloneLocal": "로컬 복제",
+      "cloning": "복제 중… {{percent}}%",
+      "revoke": "공유 회수",
+      "loadFailed": "공유 워크스페이스를 불러오지 못했습니다.",
+      "createFailed": "공유를 만들지 못했습니다.",
+      "created": "현재 Hermes 프로필에 공유했습니다.",
+      "title": "팀 공유 워크스페이스",
+      "description": "같은 Hermes 프로필에 Git 원격만 공유합니다. 각 사용자는 자신의 노트북에 복제하며 Git 접근 권한은 저장소 제공자가 계속 관리합니다.",
+      "project": "공유할 프로젝트",
+      "projectPlaceholder": "Git 원격이 있는 프로젝트 선택",
+      "permission": "권한",
+      "share": "프로필에 공유",
+      "list": "공유 목록",
+      "refresh": "새로 고침",
+      "empty": "공유된 워크스페이스가 없습니다.",
+      "webUnavailable": "웹 클라이언트에서는 워크스페이스 공유를 사용할 수 없습니다."
     }
   }
 }

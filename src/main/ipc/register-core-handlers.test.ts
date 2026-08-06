@@ -10,6 +10,7 @@ const {
   registerHermesDashboardTunnelHandlersMock,
   registerHermesChatServerHandlersMock,
   registerSamwooAuthHandlersMock,
+  registerSamwooWorkspaceSharingHandlersMock,
   registerClaudeUsageHandlersMock,
   registerCodexUsageHandlersMock,
   registerOpenCodeUsageHandlersMock,
@@ -79,6 +80,7 @@ const {
   registerHermesDashboardTunnelHandlersMock: vi.fn(),
   registerHermesChatServerHandlersMock: vi.fn(),
   registerSamwooAuthHandlersMock: vi.fn(),
+  registerSamwooWorkspaceSharingHandlersMock: vi.fn(),
   registerClaudeUsageHandlersMock: vi.fn(),
   registerCodexUsageHandlersMock: vi.fn(),
   registerOpenCodeUsageHandlersMock: vi.fn(),
@@ -196,6 +198,9 @@ vi.mock('./hermes-chat-server', () => ({
 
 vi.mock('./samwoo-auth', () => ({
   registerSamwooAuthHandlers: registerSamwooAuthHandlersMock
+}))
+vi.mock('./samwoo-workspace-sharing', () => ({
+  registerSamwooWorkspaceSharingHandlers: registerSamwooWorkspaceSharingHandlersMock
 }))
 
 vi.mock('./claude-usage', () => ({
@@ -576,6 +581,7 @@ describe('registerCoreHandlers', () => {
     expect(registerHermesDashboardTunnelHandlersMock).toHaveBeenCalled()
     expect(registerHermesChatServerHandlersMock).toHaveBeenCalledWith(store)
     expect(registerSamwooAuthHandlersMock).toHaveBeenCalled()
+    expect(registerSamwooWorkspaceSharingHandlersMock).toHaveBeenCalled()
     expect(registerShellHandlersMock).toHaveBeenCalledWith(store)
     expect(registerClipboardHandlersMock).toHaveBeenCalledWith(store)
     expect(registerUpdaterHandlersMock).toHaveBeenCalled()
