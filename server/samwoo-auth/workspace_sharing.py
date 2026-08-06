@@ -14,6 +14,7 @@ DB_PATH = os.environ.get("SAMWOO_WORKSPACE_DB", "/opt/samwoo-auth/workspace-shar
 SESSION_TTL = int(os.environ.get("SAMWOO_WORKSPACE_SESSION_TTL", str(8 * 3600)))
 _PERMISSIONS = {"view", "clone", "contribute"}
 _SCP_REMOTE = re.compile(r"^(?:[^@\s:]+@)?[^:\s]+:.+$")
+COMMENT_PAGE_SIZE = 50
 _sessions: dict[str, dict] = {}
 _lock = threading.RLock()
 
@@ -72,6 +73,9 @@ def _connect() -> sqlite3.Connection:
     )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS workspace_comments_share_idx ON workspace_share_comments(share_id, created_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS workspace_comments_cursor_idx ON workspace_share_comments(share_id, created_at, id)"
     )
     conn.commit()
     try:
@@ -218,16 +222,57 @@ def revoke_share(token: str, body: dict) -> None:
             raise WorkspaceShareError("share not found or not owner")
 
 
-def list_comments(token: str, body: dict) -> list[dict]:
+def list_comments(token: str, body: dict) -> dict:
     login, profile = _identity(token)
     share_id = _text(body.get("shareId"), "share id", 64, True)
+    before_created_at = body.get("beforeCreatedAt")
+    before_id = body.get("beforeId")
+    has_cursor = before_created_at is not None or before_id is not None
+    if has_cursor and (
+        not isinstance(before_created_at, int)
+        or isinstance(before_created_at, bool)
+        or before_created_at < 0
+        or not isinstance(before_id, str)
+        or not before_id
+        or len(before_id) > 64
+        or any(ord(char) < 32 for char in before_id)
+    ):
+        raise WorkspaceShareError("invalid comment cursor")
     with _lock, _connect() as conn:
         _require_active_share(conn, share_id, profile)
+        where_cursor = (
+            " AND (created_at < ? OR (created_at = ? AND id < ?))"
+            if has_cursor
+            else ""
+        )
+        parameters = (
+            (share_id, before_created_at, before_created_at, before_id, COMMENT_PAGE_SIZE + 1)
+            if has_cursor
+            else (share_id, COMMENT_PAGE_SIZE + 1)
+        )
         rows = conn.execute(
-            "SELECT * FROM workspace_share_comments WHERE share_id=? ORDER BY created_at ASC",
-            (share_id,),
+            f"""SELECT * FROM workspace_share_comments
+            WHERE share_id=?{where_cursor}
+            ORDER BY created_at DESC, id DESC LIMIT ?""",
+            parameters,
         ).fetchall()
-    return [_serialize_comment(row, login) for row in rows]
+        totals = conn.execute(
+            """SELECT COUNT(*) AS comment_count,
+            COALESCE(SUM(completed), 0) AS completed_count
+            FROM workspace_share_comments WHERE share_id=?""",
+            (share_id,),
+        ).fetchone()
+    has_more = len(rows) > COMMENT_PAGE_SIZE
+    page = list(reversed(rows[:COMMENT_PAGE_SIZE]))
+    oldest = page[0] if page else None
+    return {
+        "comments": [_serialize_comment(row, login) for row in page],
+        "commentCount": totals["comment_count"],
+        "completedCommentCount": totals["completed_count"],
+        "hasMoreComments": has_more,
+        "nextBeforeCreatedAt": oldest["created_at"] if has_more and oldest else None,
+        "nextBeforeId": oldest["id"] if has_more and oldest else None,
+    }
 
 
 def create_comment(token: str, body: dict) -> dict:
@@ -258,16 +303,18 @@ def set_comment_completed(token: str, body: dict) -> dict:
     now = int(time.time() * 1000)
     with _lock, _connect() as conn:
         _require_active_share(conn, share_id, profile)
-        cursor = conn.execute(
+        # Why: a conditional write makes repeated stale requests preserve the first actor.
+        conn.execute(
             """UPDATE workspace_share_comments
             SET completed=?,completed_by=?,completed_at=?,updated_at=?
-            WHERE id=? AND share_id=?""",
+            WHERE id=? AND share_id=? AND completed!=?""",
             (int(completed), login if completed else None, now if completed else None,
-             now, comment_id, share_id),
+             now, comment_id, share_id, int(completed)),
         )
-        if cursor.rowcount != 1:
-            raise WorkspaceShareError("comment not found")
         row = conn.execute(
-            "SELECT * FROM workspace_share_comments WHERE id=?", (comment_id,)
+            "SELECT * FROM workspace_share_comments WHERE id=? AND share_id=?",
+            (comment_id, share_id),
         ).fetchone()
+        if row is None:
+            raise WorkspaceShareError("comment not found")
     return _serialize_comment(row, login)

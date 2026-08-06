@@ -105,7 +105,9 @@ export function registerSamwooWorkspaceSharingHandlers(): void {
     (_event, args: ListSamwooWorkspaceCommentsArgs) =>
       hasToken(args?.token) && typeof args.shareId === 'string'
         ? postWorkspaceShare('/workspace-shares/comments/list', args.token, {
-            shareId: args.shareId
+            shareId: args.shareId,
+            beforeCreatedAt: args.beforeCreatedAt,
+            beforeId: args.beforeId
           })
         : Promise.resolve({ ok: false, error: 'login required' })
   )

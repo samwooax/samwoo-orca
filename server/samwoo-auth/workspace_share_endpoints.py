@@ -35,7 +35,7 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
             workspace_sharing.revoke_share(token, body)
             return 200, {"ok": True}
         if path == "/workspace-shares/comments/list":
-            return 200, {"ok": True, "comments": workspace_sharing.list_comments(token, body)}
+            return 200, {"ok": True, **workspace_sharing.list_comments(token, body)}
         if path == "/workspace-shares/comments/create":
             return 200, {"ok": True, "comment": workspace_sharing.create_comment(token, body)}
         if path == "/workspace-shares/comments/complete":

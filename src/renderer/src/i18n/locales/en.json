@@ -14901,6 +14901,7 @@
       "commentPlaceholder": "Add a comment or work item…",
       "addComment": "Add comment",
       "refreshComments": "Refresh comments",
+      "loadOlderComments": "Load earlier comments",
       "toggleCommentStatus": "Toggle progress for {{comment}}",
       "completedBy": "Completed by {{name}}",
       "webUnavailable": "Workspace sharing is unavailable in the web client."

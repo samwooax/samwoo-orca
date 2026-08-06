@@ -71,7 +71,7 @@ class WorkspaceSharingTest(unittest.TestCase):
         self.assertTrue(completed["completed"])
         self.assertEqual("owner", completed["completedBy"])
         listed = workspace_sharing.list_comments("token-peer-01234567890", {"shareId": share["id"]})
-        self.assertEqual([comment["id"]], [item["id"] for item in listed])
+        self.assertEqual([comment["id"]], [item["id"] for item in listed["comments"]])
         self.assertEqual(1, workspace_sharing.list_shares("token-owner-0123456789")[0]["commentCount"])
 
     def test_comments_are_profile_scoped_and_hidden_after_revoke(self):
@@ -107,6 +107,7 @@ class WorkspaceSharingTest(unittest.TestCase):
             {"shareId": share["id"]},
         )
         self.assertEqual(1, len(listed["comments"]))
+        self.assertEqual(1, listed["commentCount"])
         self.assertEqual(200, status)
 
 

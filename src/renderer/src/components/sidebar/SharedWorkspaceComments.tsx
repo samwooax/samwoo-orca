@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, Loader2, MessageSquare, RefreshCw, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ type Props = {
 
 // Why: the central catalog has no push channel, so refresh open threads without user action.
 const REFRESH_INTERVAL_MS = 15_000
+const COMMENT_LABEL_LENGTH = 80
 
 export default function SharedWorkspaceComments({
   shareId,
@@ -25,20 +26,26 @@ export default function SharedWorkspaceComments({
   const [expanded, setExpanded] = useState(false)
   const [comments, setComments] = useState<SamwooWorkspaceComment[]>([])
   const [knownCount, setKnownCount] = useState(initialCount)
+  const [knownCompletedCount, setKnownCompletedCount] = useState(0)
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [hasOlder, setHasOlder] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
-  const totalCount = expanded ? comments.length : knownCount
-  const completedCount = useMemo(
-    () => comments.filter((comment) => comment.completed).length,
-    [comments]
-  )
+  const commentsRef = useRef<SamwooWorkspaceComment[]>([])
+  const requestSequenceRef = useRef(0)
+  const appliedRequestRef = useRef(0)
+  const mutationVersionRef = useRef(0)
+  const olderCursorRef = useRef<{ createdAt: number; id: string } | null>(null)
+  const totalCount = knownCount
 
   useEffect(() => setKnownCount((current) => Math.max(current, initialCount)), [initialCount])
 
   const refresh = useCallback(
     async (showProgress = false): Promise<void> => {
+      const requestId = ++requestSequenceRef.current
+      const mutationVersion = mutationVersionRef.current
       if (showProgress) {
         setLoading(true)
       }
@@ -49,15 +56,41 @@ export default function SharedWorkspaceComments({
       if (showProgress) {
         setLoading(false)
       }
-      if (result.ok) {
+      const isCurrent =
+        requestId > appliedRequestRef.current && mutationVersion === mutationVersionRef.current
+      if (result.ok && isCurrent) {
+        appliedRequestRef.current = requestId
         const nextComments = result.comments ?? []
-        setComments(nextComments)
-        setKnownCount(nextComments.length)
-      } else if (showProgress) {
-        toast.error(
-          result.error ??
-            translate('samwoo.workspaceSharing.commentsLoadFailed', 'Could not load comments.')
+        const mergedComments = mergeCommentPages(commentsRef.current, nextComments)
+        commentsRef.current = mergedComments
+        setComments(mergedComments)
+        const commentCount = result.commentCount ?? mergedComments.length
+        setKnownCount(commentCount)
+        setKnownCompletedCount(
+          result.completedCommentCount ?? nextComments.filter((comment) => comment.completed).length
         )
+        const hasUnloadedComments = commentCount > mergedComments.length
+        setHasOlder(hasUnloadedComments)
+        if (!hasUnloadedComments) {
+          olderCursorRef.current = null
+        } else if (
+          !olderCursorRef.current &&
+          typeof result.nextBeforeCreatedAt === 'number' &&
+          result.nextBeforeId
+        ) {
+          // Why: polling the newest page must not move an in-progress older-page cursor backward.
+          olderCursorRef.current = {
+            createdAt: result.nextBeforeCreatedAt,
+            id: result.nextBeforeId
+          }
+        }
+      } else if (showProgress) {
+        if (!result.ok) {
+          toast.error(
+            result.error ??
+              translate('samwoo.workspaceSharing.commentsLoadFailed', 'Could not load comments.')
+          )
+        }
       }
     },
     [shareId, token]
@@ -72,12 +105,53 @@ export default function SharedWorkspaceComments({
     return () => window.clearInterval(interval)
   }, [expanded, refresh])
 
+  const loadOlder = async (): Promise<void> => {
+    const cursor = olderCursorRef.current
+    if (!cursor || loadingOlder) {
+      return
+    }
+    const mutationVersion = mutationVersionRef.current
+    setLoadingOlder(true)
+    const result = await window.api.preflight.samwooWorkspaceShares.listComments({
+      token,
+      shareId,
+      beforeCreatedAt: cursor.createdAt,
+      beforeId: cursor.id
+    })
+    setLoadingOlder(false)
+    if (mutationVersion !== mutationVersionRef.current) {
+      return
+    }
+    if (!result.ok) {
+      toast.error(
+        result.error ??
+          translate('samwoo.workspaceSharing.commentsLoadFailed', 'Could not load comments.')
+      )
+      return
+    }
+    const mergedComments = mergeCommentPages(commentsRef.current, result.comments ?? [])
+    commentsRef.current = mergedComments
+    setComments(mergedComments)
+    const commentCount = result.commentCount ?? knownCount
+    setKnownCount(commentCount)
+    if (result.completedCommentCount !== undefined) {
+      setKnownCompletedCount(result.completedCommentCount)
+    }
+    const hasUnloadedComments = commentCount > mergedComments.length
+    setHasOlder(hasUnloadedComments)
+    olderCursorRef.current =
+      hasUnloadedComments && typeof result.nextBeforeCreatedAt === 'number' && result.nextBeforeId
+        ? { createdAt: result.nextBeforeCreatedAt, id: result.nextBeforeId }
+        : null
+  }
+
   const createComment = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault()
     const body = draft.trim()
     if (!body || submitting) {
       return
     }
+    mutationVersionRef.current += 1
     setSubmitting(true)
     const result = await window.api.preflight.samwooWorkspaceShares.createComment({
       token,
@@ -93,7 +167,10 @@ export default function SharedWorkspaceComments({
       return
     }
     const createdComment = result.comment
-    setComments((current) => [...current, createdComment])
+    mutationVersionRef.current += 1
+    const mergedComments = mergeCommentPages(commentsRef.current, [createdComment])
+    commentsRef.current = mergedComments
+    setComments(mergedComments)
     setKnownCount((current) => current + 1)
     setDraft('')
   }
@@ -105,6 +182,7 @@ export default function SharedWorkspaceComments({
     if (togglingId) {
       return
     }
+    mutationVersionRef.current += 1
     setTogglingId(comment.id)
     const result = await window.api.preflight.samwooWorkspaceShares.setCommentCompleted({
       token,
@@ -124,9 +202,13 @@ export default function SharedWorkspaceComments({
       return
     }
     const updatedComment = result.comment
-    setComments((current) =>
-      current.map((item) => (item.id === comment.id ? updatedComment : item))
+    mutationVersionRef.current += 1
+    setKnownCompletedCount((current) =>
+      Math.max(0, current + Number(updatedComment.completed) - Number(comment.completed))
     )
+    const mergedComments = mergeCommentPages(commentsRef.current, [updatedComment])
+    commentsRef.current = mergedComments
+    setComments(mergedComments)
   }
 
   return (
@@ -145,8 +227,8 @@ export default function SharedWorkspaceComments({
           <>
             <span className="ml-auto text-xs text-muted-foreground">
               {translate('samwoo.workspaceSharing.commentProgress', '{{done}}/{{total}} complete', {
-                done: completedCount,
-                total: comments.length
+                done: knownCompletedCount,
+                total: knownCount
               })}
             </span>
             <ChevronUp />
@@ -199,7 +281,7 @@ export default function SharedWorkspaceComments({
                     aria-label={translate(
                       'samwoo.workspaceSharing.toggleCommentStatus',
                       'Toggle progress for {{comment}}',
-                      { comment: comment.body }
+                      { comment: summarizeComment(comment.body) }
                     )}
                     onCheckedChange={(checked) => void setCompleted(comment, checked === true)}
                   />
@@ -228,6 +310,19 @@ export default function SharedWorkspaceComments({
               </p>
             )}
           </div>
+          {hasOlder ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="w-full"
+              disabled={loadingOlder}
+              onClick={() => void loadOlder()}
+            >
+              {loadingOlder ? <Loader2 className="animate-spin" /> : null}
+              {translate('samwoo.workspaceSharing.loadOlderComments', 'Load earlier comments')}
+            </Button>
+          ) : null}
           <form className="flex items-end gap-2" onSubmit={(event) => void createComment(event)}>
             <Textarea
               className="min-h-16 resize-none"
@@ -249,6 +344,26 @@ export default function SharedWorkspaceComments({
       ) : null}
     </div>
   )
+}
+
+function mergeCommentPages(
+  current: SamwooWorkspaceComment[],
+  incoming: SamwooWorkspaceComment[]
+): SamwooWorkspaceComment[] {
+  const commentsById = new Map(current.map((comment) => [comment.id, comment]))
+  for (const comment of incoming) {
+    commentsById.set(comment.id, comment)
+  }
+  return [...commentsById.values()].sort(
+    (left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id)
+  )
+}
+
+function summarizeComment(body: string): string {
+  const singleLine = body.replace(/\s+/g, ' ').trim()
+  return singleLine.length > COMMENT_LABEL_LENGTH
+    ? `${singleLine.slice(0, COMMENT_LABEL_LENGTH)}…`
+    : singleLine
 }
 
 function formatCommentTime(value: number): string {

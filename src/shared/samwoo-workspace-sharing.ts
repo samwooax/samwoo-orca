@@ -34,6 +34,11 @@ export type SamwooWorkspaceShareResult = {
   shares?: SamwooWorkspaceShare[]
   comment?: SamwooWorkspaceComment
   comments?: SamwooWorkspaceComment[]
+  commentCount?: number
+  completedCommentCount?: number
+  hasMoreComments?: boolean
+  nextBeforeCreatedAt?: number | null
+  nextBeforeId?: string | null
   error?: string
 }
 
@@ -57,6 +62,8 @@ export type UpdateSamwooWorkspaceShareArgs = {
 export type ListSamwooWorkspaceCommentsArgs = {
   token: string
   shareId: string
+  beforeCreatedAt?: number
+  beforeId?: string
 }
 
 export type CreateSamwooWorkspaceCommentArgs = ListSamwooWorkspaceCommentsArgs & {

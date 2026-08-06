@@ -14,9 +14,11 @@ created.
 - Recipients may set a local alias. It is stored only on that laptop and does not
   rename the central entry.
 - Profile members can add comments to a shared workspace and mark each comment
-  complete. The comment records who created it and who last completed it.
+  complete. The comment records who created it and who established its current
+  completed state; repeated stale completion requests do not overwrite that user.
 - An expanded comment thread refreshes every 15 seconds and also provides a
-  manual refresh action.
+  manual refresh action. The latest 50 comments load first, with earlier comments
+  available in bounded pages so a long-running thread cannot exceed IPC limits.
 - Existing workspace cards retain Orca's normal rename behavior (double-click or
   the metadata action), independent of the Git repository name.
 - Revocation immediately removes the definition from the central list. It cannot
@@ -57,5 +59,5 @@ Run the server module tests with:
 
 ```bash
 cd server/samwoo-auth
-python3 -m unittest test_workspace_sharing.py
+python3 -m unittest test_workspace_sharing.py test_workspace_comments.py
 ```
