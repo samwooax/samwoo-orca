@@ -9,22 +9,22 @@ const installer = readFileSync(
 const launcher = readFileSync(resolve(import.meta.dirname, '../../deploy/install.bat'), 'utf8')
 
 describe('Windows one-click launch contract', () => {
-  it('blocks an elevated user phase before installing any user software', () => {
-    const guardIndex = installer.indexOf('if (Test-IsAdministrator)')
+  it('allows the user phase to continue when Windows already elevated the launcher', () => {
     const appInstallIndex = installer.indexOf('Step "SAMWOO-ORCA 앱 설치..."')
     const gitInstallIndex = installer.indexOf('Step "Git $GIT_VERSION 설치..."')
     const pythonInstallIndex = installer.indexOf('Step "Python $PYTHON_VERSION 설치..."')
 
-    expect(guardIndex).toBeGreaterThan(0)
-    expect(guardIndex).toBeLessThan(appInstallIndex)
-    expect(guardIndex).toBeLessThan(gitInstallIndex)
-    expect(guardIndex).toBeLessThan(pythonInstallIndex)
-    expect(installer).toContain('exit 64')
-    expect(installer).toContain('install.bat을 일반 더블클릭하세요')
+    expect(appInstallIndex).toBeGreaterThan(0)
+    expect(gitInstallIndex).toBeGreaterThan(appInstallIndex)
+    expect(pythonInstallIndex).toBeGreaterThan(gitInstallIndex)
+    expect(installer).not.toContain('exit 64')
+    expect(installer).not.toContain('install.bat을 관리자 권한으로 실행하면 안 됩니다')
   })
 
-  it('keeps elevation scoped to the machine-wide admin phase', () => {
-    expect(installer).toContain('Start-Process powershell -Verb RunAs')
+  it('requests elevation only when the machine-wide admin phase still needs it', () => {
+    expect(installer).toContain('if (-not (Test-IsAdministrator))')
+    expect(installer).toContain('$adminStartParameters["Verb"] = "RunAs"')
+    expect(installer).toContain('Start-Process @adminStartParameters')
     expect(installer).toContain('"-AdminPhase"')
   })
 
