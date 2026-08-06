@@ -14,6 +14,7 @@ import type {
   SamwooWorkspacePermission,
   SamwooWorkspaceShare
 } from '../../../../shared/samwoo-workspace-sharing'
+import SharedWorkspaceComments from './SharedWorkspaceComments'
 
 type Props = {
   share: SamwooWorkspaceShare
@@ -160,6 +161,13 @@ export default function SharedWorkspaceShareCard({
         <span className="truncate">{share.repositoryUrl}</span>
         <span className="shrink-0">{getSamwooWorkspacePermissionLabel(share.permission)}</span>
       </div>
+      {token ? (
+        <SharedWorkspaceComments
+          shareId={share.id}
+          token={token}
+          initialCount={share.commentCount ?? 0}
+        />
+      ) : null}
       <div className="flex justify-end gap-2">
         {share.permission !== 'view' ? (
           <Button

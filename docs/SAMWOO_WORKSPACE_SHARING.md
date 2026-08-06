@@ -13,6 +13,10 @@ created.
   choose catalog-only, local-clone, or contribute-with-Git-access behavior.
 - Recipients may set a local alias. It is stored only on that laptop and does not
   rename the central entry.
+- Profile members can add comments to a shared workspace and mark each comment
+  complete. The comment records who created it and who last completed it.
+- An expanded comment thread refreshes every 15 seconds and also provides a
+  manual refresh action.
 - Existing workspace cards retain Orca's normal rename behavior (double-click or
   the metadata action), independent of the Git repository name.
 - Revocation immediately removes the definition from the central list. It cannot
@@ -21,7 +25,8 @@ created.
 The contribution label does not grant Git write access. GitHub, GitLab, or the
 configured Git provider remains authoritative for clone and push permissions.
 
-No local path, password, access token, or SSH private key is stored centrally.
+Comments and their completion status are stored in the workspace catalog. No
+local path, password, access token, or SSH private key is stored centrally.
 GitHub, GitLab and other Git remotes are accepted through generic HTTPS, SSH URL,
 or SCP-style Git addresses.
 

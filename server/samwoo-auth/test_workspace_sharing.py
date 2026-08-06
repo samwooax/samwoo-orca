@@ -3,6 +3,7 @@ import tempfile
 import unittest
 
 import workspace_sharing
+import workspace_share_endpoints
 
 
 class WorkspaceSharingTest(unittest.TestCase):
@@ -56,6 +57,57 @@ class WorkspaceSharingTest(unittest.TestCase):
                     "token-owner-0123456789",
                     {"displayName": "bad", "repositoryUrl": remote, "permission": "clone"},
                 )
+
+    def test_profile_members_comment_and_track_completion(self):
+        share = self.create()
+        comment = workspace_sharing.create_comment(
+            "token-peer-01234567890",
+            {"shareId": share["id"], "body": "설계 검토\n완료 조건 확인"},
+        )
+        completed = workspace_sharing.set_comment_completed(
+            "token-owner-0123456789",
+            {"shareId": share["id"], "commentId": comment["id"], "completed": True},
+        )
+        self.assertTrue(completed["completed"])
+        self.assertEqual("owner", completed["completedBy"])
+        listed = workspace_sharing.list_comments("token-peer-01234567890", {"shareId": share["id"]})
+        self.assertEqual([comment["id"]], [item["id"] for item in listed])
+        self.assertEqual(1, workspace_sharing.list_shares("token-owner-0123456789")[0]["commentCount"])
+
+    def test_comments_are_profile_scoped_and_hidden_after_revoke(self):
+        share = self.create()
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.create_comment(
+                "token-other-0123456789", {"shareId": share["id"], "body": "침입"}
+            )
+        workspace_sharing.revoke_share("token-owner-0123456789", {"id": share["id"]})
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.list_comments(
+                "token-peer-01234567890", {"shareId": share["id"]}
+            )
+
+    def test_comment_http_routes(self):
+        share = self.create()
+        status, created = workspace_share_endpoints.handle_workspace_share(
+            "/workspace-shares/comments/create",
+            "Bearer token-peer-01234567890",
+            {"shareId": share["id"], "body": "배포 확인"},
+        )
+        self.assertEqual(200, status)
+        status, completed = workspace_share_endpoints.handle_workspace_share(
+            "/workspace-shares/comments/complete",
+            "Bearer token-owner-0123456789",
+            {"shareId": share["id"], "commentId": created["comment"]["id"], "completed": True},
+        )
+        self.assertEqual(200, status)
+        self.assertTrue(completed["comment"]["completed"])
+        status, listed = workspace_share_endpoints.handle_workspace_share(
+            "/workspace-shares/comments/list",
+            "Bearer token-peer-01234567890",
+            {"shareId": share["id"]},
+        )
+        self.assertEqual(1, len(listed["comments"]))
+        self.assertEqual(200, status)
 
 
 if __name__ == "__main__":

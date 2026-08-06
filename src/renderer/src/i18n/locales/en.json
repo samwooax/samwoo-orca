@@ -14891,6 +14891,18 @@
       "list": "Shared list",
       "refresh": "Refresh",
       "empty": "There are no shared workspaces.",
+      "comments": "Comments",
+      "commentsScope": "Visible to members of this Hermes profile.",
+      "commentsEmpty": "No comments yet.",
+      "commentsLoadFailed": "Could not load comments.",
+      "commentCreateFailed": "Could not add the comment.",
+      "commentStatusFailed": "Could not update the progress status.",
+      "commentProgress": "{{done}}/{{total}} complete",
+      "commentPlaceholder": "Add a comment or work item…",
+      "addComment": "Add comment",
+      "refreshComments": "Refresh comments",
+      "toggleCommentStatus": "Toggle progress for {{comment}}",
+      "completedBy": "Completed by {{name}}",
       "webUnavailable": "Workspace sharing is unavailable in the web client."
     }
   }

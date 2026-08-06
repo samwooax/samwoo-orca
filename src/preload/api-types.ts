@@ -31,8 +31,11 @@ import type {
 import type { ReadClipboardTextOptions } from '../shared/clipboard-text'
 import type { AppIdentity } from '../shared/app-identity'
 import type {
+  CreateSamwooWorkspaceCommentArgs,
   CreateSamwooWorkspaceShareArgs,
+  ListSamwooWorkspaceCommentsArgs,
   SamwooWorkspaceShareResult,
+  SetSamwooWorkspaceCommentCompletedArgs,
   UpdateSamwooWorkspaceShareArgs
 } from '../shared/samwoo-workspace-sharing'
 import type { ReleaseChannel } from '../shared/release-channel'
@@ -784,6 +787,11 @@ export type PreflightApi = {
     create: (args: CreateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
     update: (args: UpdateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
     revoke: (args: { token: string; id: string }) => Promise<SamwooWorkspaceShareResult>
+    listComments: (args: ListSamwooWorkspaceCommentsArgs) => Promise<SamwooWorkspaceShareResult>
+    createComment: (args: CreateSamwooWorkspaceCommentArgs) => Promise<SamwooWorkspaceShareResult>
+    setCommentCompleted: (
+      args: SetSamwooWorkspaceCommentCompletedArgs
+    ) => Promise<SamwooWorkspaceShareResult>
   }
   refreshAgents: (args?: PreflightRuntimeContext) => Promise<RefreshAgentsResult>
   detectRemoteAgents: (args: { connectionId: string }) => Promise<string[]>

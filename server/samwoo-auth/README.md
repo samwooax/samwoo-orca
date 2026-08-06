@@ -2,9 +2,9 @@
 
 This directory also contains profile-scoped workspace sharing:
 
-- `workspace_sharing.py` — SQLite catalog and server-bound profile sessions.
+- `workspace_sharing.py` — SQLite catalog, profile sessions, and shared progress comments.
 - `workspace_share_endpoints.py` — `/workspace-shares/*` HTTP routing adapter.
-- `test_workspace_sharing.py` — isolation, ownership, revocation and URL safety tests.
+- `test_workspace_sharing.py` — isolation, ownership, comments, revocation and URL safety tests.
 
 Deployment integration is documented in `docs/SAMWOO_WORKSPACE_SHARING.md`.
 

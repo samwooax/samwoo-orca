@@ -2200,7 +2200,11 @@ const api = {
       list: (token) => ipcRenderer.invoke('samwooWorkspaceShares:list', token),
       create: (args) => ipcRenderer.invoke('samwooWorkspaceShares:create', args),
       update: (args) => ipcRenderer.invoke('samwooWorkspaceShares:update', args),
-      revoke: (args) => ipcRenderer.invoke('samwooWorkspaceShares:revoke', args)
+      revoke: (args) => ipcRenderer.invoke('samwooWorkspaceShares:revoke', args),
+      listComments: (args) => ipcRenderer.invoke('samwooWorkspaceShares:listComments', args),
+      createComment: (args) => ipcRenderer.invoke('samwooWorkspaceShares:createComment', args),
+      setCommentCompleted: (args) =>
+        ipcRenderer.invoke('samwooWorkspaceShares:setCommentCompleted', args)
     },
     refreshAgents: (args?: PreflightRuntimeContext): Promise<RefreshAgentsResult> =>
       ipcRenderer.invoke('preflight:refreshAgents', args),

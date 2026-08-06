@@ -12,12 +12,28 @@ export type SamwooWorkspaceShare = {
   createdAt: number
   updatedAt: number
   isOwner: boolean
+  commentCount: number
+}
+
+export type SamwooWorkspaceComment = {
+  id: string
+  shareId: string
+  authorLogin: string
+  body: string
+  completed: boolean
+  completedBy?: string | null
+  completedAt?: number | null
+  createdAt: number
+  updatedAt: number
+  isAuthor: boolean
 }
 
 export type SamwooWorkspaceShareResult = {
   ok: boolean
   share?: SamwooWorkspaceShare
   shares?: SamwooWorkspaceShare[]
+  comment?: SamwooWorkspaceComment
+  comments?: SamwooWorkspaceComment[]
   error?: string
 }
 
@@ -36,4 +52,18 @@ export type UpdateSamwooWorkspaceShareArgs = {
   displayName: string
   description?: string
   permission: SamwooWorkspacePermission
+}
+
+export type ListSamwooWorkspaceCommentsArgs = {
+  token: string
+  shareId: string
+}
+
+export type CreateSamwooWorkspaceCommentArgs = ListSamwooWorkspaceCommentsArgs & {
+  body: string
+}
+
+export type SetSamwooWorkspaceCommentCompletedArgs = ListSamwooWorkspaceCommentsArgs & {
+  commentId: string
+  completed: boolean
 }

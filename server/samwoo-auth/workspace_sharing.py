@@ -62,6 +62,17 @@ def _connect() -> sqlite3.Connection:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS workspace_shares_profile_idx ON workspace_shares(owner_profile, revoked_at)"
     )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS workspace_share_comments (
+        id TEXT PRIMARY KEY, share_id TEXT NOT NULL, author_login TEXT NOT NULL,
+        body TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0,
+        completed_by TEXT, completed_at INTEGER,
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS workspace_comments_share_idx ON workspace_share_comments(share_id, created_at)"
+    )
     conn.commit()
     try:
         os.chmod(DB_PATH, 0o600)
@@ -76,6 +87,15 @@ def _text(value: object, field: str, maximum: int, required: bool = False) -> st
         raise WorkspaceShareError(f"{field} required")
     if len(result) > maximum or any(ord(char) < 32 for char in result):
         raise WorkspaceShareError(f"invalid {field}")
+    return result
+
+
+def _comment_text(value: object) -> str:
+    result = str(value or "").strip()
+    if not result:
+        raise WorkspaceShareError("comment required")
+    if len(result) > 2000 or any(ord(char) < 32 and char not in "\n\t" for char in result):
+        raise WorkspaceShareError("invalid comment")
     return result
 
 
@@ -109,14 +129,38 @@ def _serialize(row: sqlite3.Row, login: str) -> dict:
         "description": row["description"], "permission": row["permission"],
         "createdAt": row["created_at"], "updatedAt": row["updated_at"],
         "isOwner": row["owner_login"] == login,
+        "commentCount": row["comment_count"] if "comment_count" in row.keys() else 0,
     }
+
+
+def _serialize_comment(row: sqlite3.Row, login: str) -> dict:
+    return {
+        "id": row["id"], "shareId": row["share_id"],
+        "authorLogin": row["author_login"], "body": row["body"],
+        "completed": bool(row["completed"]), "completedBy": row["completed_by"],
+        "completedAt": row["completed_at"], "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"], "isAuthor": row["author_login"] == login,
+    }
+
+
+def _require_active_share(conn: sqlite3.Connection, share_id: str, profile: str) -> None:
+    row = conn.execute(
+        "SELECT 1 FROM workspace_shares WHERE id=? AND owner_profile=? AND revoked_at IS NULL",
+        (share_id, profile),
+    ).fetchone()
+    if not row:
+        raise WorkspaceShareError("share not found")
 
 
 def list_shares(token: str) -> list[dict]:
     login, profile = _identity(token)
     with _lock, _connect() as conn:
         rows = conn.execute(
-            "SELECT * FROM workspace_shares WHERE owner_profile=? AND revoked_at IS NULL ORDER BY updated_at DESC",
+            """SELECT workspace_shares.*,
+            (SELECT COUNT(*) FROM workspace_share_comments
+             WHERE workspace_share_comments.share_id=workspace_shares.id) AS comment_count
+            FROM workspace_shares WHERE owner_profile=? AND revoked_at IS NULL
+            ORDER BY updated_at DESC""",
             (profile,),
         ).fetchall()
     return [_serialize(row, login) for row in rows]
@@ -172,3 +216,58 @@ def revoke_share(token: str, body: dict) -> None:
         )
         if cursor.rowcount != 1:
             raise WorkspaceShareError("share not found or not owner")
+
+
+def list_comments(token: str, body: dict) -> list[dict]:
+    login, profile = _identity(token)
+    share_id = _text(body.get("shareId"), "share id", 64, True)
+    with _lock, _connect() as conn:
+        _require_active_share(conn, share_id, profile)
+        rows = conn.execute(
+            "SELECT * FROM workspace_share_comments WHERE share_id=? ORDER BY created_at ASC",
+            (share_id,),
+        ).fetchall()
+    return [_serialize_comment(row, login) for row in rows]
+
+
+def create_comment(token: str, body: dict) -> dict:
+    login, profile = _identity(token)
+    share_id = _text(body.get("shareId"), "share id", 64, True)
+    comment_body = _comment_text(body.get("body"))
+    now = int(time.time() * 1000)
+    values = (str(uuid.uuid4()), share_id, login, comment_body, now, now)
+    with _lock, _connect() as conn:
+        _require_active_share(conn, share_id, profile)
+        conn.execute(
+            "INSERT INTO workspace_share_comments (id,share_id,author_login,body,created_at,updated_at) VALUES (?,?,?,?,?,?)",
+            values,
+        )
+        row = conn.execute(
+            "SELECT * FROM workspace_share_comments WHERE id=?", (values[0],)
+        ).fetchone()
+    return _serialize_comment(row, login)
+
+
+def set_comment_completed(token: str, body: dict) -> dict:
+    login, profile = _identity(token)
+    share_id = _text(body.get("shareId"), "share id", 64, True)
+    comment_id = _text(body.get("commentId"), "comment id", 64, True)
+    completed = body.get("completed")
+    if not isinstance(completed, bool):
+        raise WorkspaceShareError("invalid completed state")
+    now = int(time.time() * 1000)
+    with _lock, _connect() as conn:
+        _require_active_share(conn, share_id, profile)
+        cursor = conn.execute(
+            """UPDATE workspace_share_comments
+            SET completed=?,completed_by=?,completed_at=?,updated_at=?
+            WHERE id=? AND share_id=?""",
+            (int(completed), login if completed else None, now if completed else None,
+             now, comment_id, share_id),
+        )
+        if cursor.rowcount != 1:
+            raise WorkspaceShareError("comment not found")
+        row = conn.execute(
+            "SELECT * FROM workspace_share_comments WHERE id=?", (comment_id,)
+        ).fetchone()
+    return _serialize_comment(row, login)

@@ -1,8 +1,11 @@
 import { request } from 'node:http'
 import { ipcMain } from 'electron'
 import type {
+  CreateSamwooWorkspaceCommentArgs,
   CreateSamwooWorkspaceShareArgs,
+  ListSamwooWorkspaceCommentsArgs,
   SamwooWorkspaceShareResult,
+  SetSamwooWorkspaceCommentCompletedArgs,
   UpdateSamwooWorkspaceShareArgs
 } from '../../shared/samwoo-workspace-sharing'
 
@@ -96,5 +99,35 @@ export function registerSamwooWorkspaceSharingHandlers(): void {
     hasToken(args?.token) && typeof args.id === 'string'
       ? postWorkspaceShare('/workspace-shares/revoke', args.token, { id: args.id })
       : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:listComments',
+    (_event, args: ListSamwooWorkspaceCommentsArgs) =>
+      hasToken(args?.token) && typeof args.shareId === 'string'
+        ? postWorkspaceShare('/workspace-shares/comments/list', args.token, {
+            shareId: args.shareId
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:createComment',
+    (_event, args: CreateSamwooWorkspaceCommentArgs) =>
+      hasToken(args?.token) && typeof args.shareId === 'string'
+        ? postWorkspaceShare('/workspace-shares/comments/create', args.token, {
+            shareId: args.shareId,
+            body: args.body
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:setCommentCompleted',
+    (_event, args: SetSamwooWorkspaceCommentCompletedArgs) =>
+      hasToken(args?.token) && typeof args.shareId === 'string'
+        ? postWorkspaceShare('/workspace-shares/comments/complete', args.token, {
+            shareId: args.shareId,
+            commentId: args.commentId,
+            completed: args.completed
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
   )
 }

@@ -7,6 +7,8 @@ import workspace_sharing
 _ROUTES = {
     "/workspace-shares/list", "/workspace-shares/create",
     "/workspace-shares/update", "/workspace-shares/revoke",
+    "/workspace-shares/comments/list", "/workspace-shares/comments/create",
+    "/workspace-shares/comments/complete",
 }
 
 
@@ -32,6 +34,13 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
         if path == "/workspace-shares/revoke":
             workspace_sharing.revoke_share(token, body)
             return 200, {"ok": True}
+        if path == "/workspace-shares/comments/list":
+            return 200, {"ok": True, "comments": workspace_sharing.list_comments(token, body)}
+        if path == "/workspace-shares/comments/create":
+            return 200, {"ok": True, "comment": workspace_sharing.create_comment(token, body)}
+        if path == "/workspace-shares/comments/complete":
+            comment = workspace_sharing.set_comment_completed(token, body)
+            return 200, {"ok": True, "comment": comment}
         return 404, {"ok": False, "error": "not found"}
     except workspace_sharing.WorkspaceShareError as error:
         message = str(error)
