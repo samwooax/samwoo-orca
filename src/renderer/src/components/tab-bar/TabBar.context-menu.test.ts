@@ -528,7 +528,8 @@ describe('TabBar context menu wiring', () => {
         login: 'dhoon21',
         name: '김동훈',
         role: 'ai_center',
-        label: 'AI 센터'
+        label: 'AI 센터',
+        token: 'session-token-long-enough'
       }
     })
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { resolveSamwooLoginProfile } from '@/lib/samwoo-login-profile'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
+import { isValidSamwooToken } from '@/lib/samwoo-session-validation'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
 import { Button } from '@/components/ui/button'
@@ -49,6 +50,15 @@ export default function SamwooLoginGate(): React.JSX.Element | null {
         )
         return
       }
+      if (!isValidSamwooToken(result.token)) {
+        setError(
+          translate(
+            'samwoo.login.missingSession',
+            'Login succeeded, but no session was created. Sign in again.'
+          )
+        )
+        return
+      }
       setAuth({
         login: result.login ?? login.trim(),
         name: result.name ?? login.trim(),
@@ -69,7 +79,7 @@ export default function SamwooLoginGate(): React.JSX.Element | null {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background text-foreground">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background text-foreground">
       <form
         onSubmit={submit}
         className="mx-4 flex w-full max-w-sm flex-col gap-3.5 rounded-xl border border-border bg-card p-7 shadow-xs"

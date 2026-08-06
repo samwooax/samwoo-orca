@@ -124,9 +124,13 @@ jobs:
             src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-attachments.test.tsx `
             src/renderer/src/components/native-chat/NativeChatComposerActions.test.tsx `
             src/renderer/src/components/native-chat/NativeChatSessionOptionPickers.test.tsx `
+            src/renderer/src/components/SamwooLoginGate.test.tsx `
+            src/renderer/src/components/sidebar/create-shared-workspace-with-upload.test.ts `
             src/renderer/src/components/sidebar/SharedWorkspaceComments.refresh-order.test.tsx `
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawerHeader.test.tsx `
             src/renderer/src/components/status-bar/SamwooAuthStatusSegment.test.tsx `
+            src/renderer/src/lib/samwoo-auth-store.test.ts `
+            src/renderer/src/lib/samwoo-session-validation.test.ts `
             src/renderer/src/lib/shared-workspace-alias-store.test.ts `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
             config/scripts/electron-builder-samwoo-config.test.mjs `

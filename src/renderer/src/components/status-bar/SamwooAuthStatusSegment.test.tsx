@@ -56,19 +56,19 @@ describe('SamwooAuthStatusSegment', () => {
       name: '김동훈',
       role: 'ai_center',
       label: 'AI Center',
-      token: 'expired-token'
+      token: 'expired-session-token-long-enough'
     }
     useSamwooAuthStore.getState().setAuth(auth)
     await renderSegment()
 
     const button = container?.querySelector('button')
     expect(button?.textContent).toContain('김동훈')
-    expect(localStorage.getItem('samwoo.auth')).toContain('expired-token')
+    expect(localStorage.getItem('samwoo.auth')).toContain('expired-session-token-long-enough')
 
     await act(async () => button?.click())
 
     expect(window.api.preflight.samwooWorkspaceShares.revokeSession).toHaveBeenCalledWith(
-      'expired-token'
+      'expired-session-token-long-enough'
     )
     expect(useSamwooAuthStore.getState().auth).toBeNull()
     expect(localStorage.getItem('samwoo.auth')).toBeNull()

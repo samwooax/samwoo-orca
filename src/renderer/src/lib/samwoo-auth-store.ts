@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { hasValidSamwooSession } from './samwoo-session-validation'
 
 /** SAMWOO-ORCA: the signed-in employee's identity + mapped team-bot role.
  *  Persisted to localStorage so the session survives app restarts until an
@@ -11,7 +12,7 @@ export type SamwooAuth = {
   /** SAMWOO-ORCA: opaque session handle from the auth service. Maps to the
    *  server-held mail credentials (never the password itself) so the team-bot
    *  can read/send this user's mail during the session. */
-  token?: string
+  token: string
 }
 
 type SamwooAuthState = {
@@ -28,10 +29,11 @@ function load(): SamwooAuth | null {
     if (!raw) {
       return null
     }
-    const parsed = JSON.parse(raw) as SamwooAuth
-    if (typeof parsed?.login === 'string') {
+    const parsed = JSON.parse(raw) as Partial<SamwooAuth>
+    if (hasValidSamwooSession(parsed)) {
       return parsed
     }
+    localStorage.removeItem(STORAGE_KEY)
   } catch {
     // ignore malformed persisted state
   }

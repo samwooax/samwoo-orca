@@ -14665,7 +14665,8 @@
       "usernamePlaceholder": "아이디 또는 이메일",
       "passwordPlaceholder": "비밀번호",
       "checking": "확인 중…",
-      "submit": "로그인"
+      "submit": "로그인",
+      "missingSession": "로그인에 성공했지만 세션이 생성되지 않았습니다. 다시 로그인하세요."
     },
     "workspaceSharing": {
       "permissionView": "목록만",
@@ -14682,7 +14683,13 @@
       "revoke": "공유 회수",
       "loadFailed": "공유 워크스페이스를 불러오지 못했습니다.",
       "createFailed": "공유를 만들지 못했습니다.",
-      "createdAwaitingUpload": "공유를 만들었습니다. 공유 목록에서 파일을 확인한 후 업로드하세요.",
+      "createUnexpected": "공유를 만들지 못했습니다: {{error}}",
+      "createdAndUploaded": "프로젝트를 공유했습니다. 파일 {{count}}개를 업로드했습니다.",
+      "initialUploadFailed": "공유는 만들었지만 파일을 업로드하지 못했습니다. 공유 카드에서 다시 시도하세요.",
+      "initialUploadUnexpected": "공유는 만들었지만 파일 업로드에 실패했습니다: {{error}} 공유 카드에서 다시 시도하세요.",
+      "sessionExpired": "세션이 만료되었습니다. 다시 로그인하세요.",
+      "creating": "공유 만드는 중…",
+      "uploadingInitial": "파일 업로드 중…",
       "title": "팀 공유 워크스페이스",
       "description": "현재 Hermes 프로필의 회사 클라우드에 프로젝트를 저장합니다. 다른 프로필에서는 목록이나 파일을 볼 수 없으며, 각 사용자는 로컬 사본으로 작업합니다.",
       "project": "공유할 프로젝트",

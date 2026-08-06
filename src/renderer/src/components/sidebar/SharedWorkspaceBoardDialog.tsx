@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
+import { isSamwooSessionError } from '@/lib/samwoo-session-validation'
 import {
   readSharedWorkspaceLocalPath,
   writeSharedWorkspaceLocalPath
@@ -37,6 +38,7 @@ import type {
 import SharedWorkspaceShareCard, {
   getSamwooWorkspacePermissionLabel
 } from './SharedWorkspaceShareCard'
+import { createSharedWorkspaceWithUpload } from './create-shared-workspace-with-upload'
 
 type Props = {
   open: boolean
@@ -72,7 +74,27 @@ export default function SharedWorkspaceBoardDialog({
   const [repoId, setRepoId] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [permission, setPermission] = useState<SamwooWorkspacePermission>('download')
-  const [busy, setBusy] = useState(false)
+  const logout = useSamwooAuthStore((state) => state.logout)
+  const [refreshing, setRefreshing] = useState(false)
+  const [createStage, setCreateStage] = useState<'create' | 'upload' | null>(null)
+  const busy = refreshing || createStage !== null
+
+  const handleSessionError = useCallback(
+    (error: string | undefined): boolean => {
+      if (!isSamwooSessionError(error)) {
+        return false
+      }
+      toast.error(
+        translate(
+          'samwoo.workspaceSharing.sessionExpired',
+          'Your session has expired. Sign in again.'
+        )
+      )
+      void logout()
+      return true
+    },
+    [logout]
+  )
 
   const applyShares = useCallback(
     (nextShares: SamwooWorkspaceShare[]): void => {
@@ -99,20 +121,21 @@ export default function SharedWorkspaceBoardDialog({
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!auth?.token) {
+      handleSessionError('login required')
       return
     }
-    setBusy(true)
+    setRefreshing(true)
     const result = await window.api.preflight.samwooWorkspaceShares.list(auth.token)
-    setBusy(false)
+    setRefreshing(false)
     if (result.ok) {
       applyShares(result.shares ?? [])
-    } else {
+    } else if (!handleSessionError(result.error)) {
       toast.error(
         result.error ??
           translate('samwoo.workspaceSharing.loadFailed', 'Could not load shared workspaces.')
       )
     }
-  }, [applyShares, auth?.token])
+  }, [applyShares, auth?.token, handleSessionError])
 
   useEffect(() => {
     if (!auth?.token) {
@@ -123,11 +146,13 @@ export default function SharedWorkspaceBoardDialog({
       const result = await window.api.preflight.samwooWorkspaceShares.list(token)
       if (result.ok) {
         applyShares(result.shares ?? [])
+      } else {
+        handleSessionError(result.error)
       }
     }
     const timer = window.setInterval(() => void poll(), 60_000)
     return () => window.clearInterval(timer)
-  }, [applyShares, auth?.token])
+  }, [applyShares, auth?.token, handleSessionError])
 
   useEffect(() => {
     if (open) {
@@ -154,36 +179,73 @@ export default function SharedWorkspaceBoardDialog({
 
   const selectedRepo = shareableRepos.find((item) => item.selectionKey === repoId)?.repo
   const create = async (): Promise<void> => {
-    if (!auth?.token || !selectedRepo || !displayName.trim()) {
+    if (!auth?.token) {
+      handleSessionError('login required')
       return
     }
-    setBusy(true)
-    const result = await window.api.preflight.samwooWorkspaceShares.create({
-      token: auth.token,
-      displayName: displayName.trim(),
-      permission
-    })
-    if (!result.ok) {
-      setBusy(false)
+    if (!selectedRepo || !displayName.trim()) {
+      return
+    }
+    setCreateStage('create')
+    try {
+      const result = await createSharedWorkspaceWithUpload({
+        api: window.api.preflight.samwooWorkspaceShares,
+        token: auth.token,
+        displayName: displayName.trim(),
+        permission,
+        sourcePath: selectedRepo.path,
+        onUploadStart: (share) => {
+          // Why: retain the retry path even when an initial upload only partially succeeds.
+          writeSharedWorkspaceLocalPath(auth.login, share.id, selectedRepo.path)
+          setDisplayName('')
+          setCreateStage('upload')
+        }
+      })
+      if (!result.ok) {
+        if (handleSessionError(result.error)) {
+          return
+        }
+        if (result.phase === 'upload') {
+          toast.error(
+            result.error
+              ? translate(
+                  'samwoo.workspaceSharing.initialUploadUnexpected',
+                  'The share was created, but file upload failed: {{error}} Retry from the shared card.',
+                  { error: result.error }
+                )
+              : translate(
+                  'samwoo.workspaceSharing.initialUploadFailed',
+                  'The share was created, but its files could not be uploaded. Retry from the shared card.'
+                )
+          )
+          await refresh()
+          return
+        }
+        toast.error(
+          result.error ??
+            translate('samwoo.workspaceSharing.createFailed', 'Could not create the share.')
+        )
+        return
+      }
+      toast.success(
+        translate(
+          'samwoo.workspaceSharing.createdAndUploaded',
+          'Project shared. {{count}} files uploaded.',
+          { count: result.transferredFiles }
+        )
+      )
+      await refresh()
+    } catch (error) {
       toast.error(
-        result.error ??
-          translate('samwoo.workspaceSharing.createFailed', 'Could not create the share.')
+        translate(
+          'samwoo.workspaceSharing.createUnexpected',
+          'Could not create the share: {{error}}',
+          { error: String(error) }
+        )
       )
-      return
+    } finally {
+      setCreateStage(null)
     }
-    if (result.share) {
-      // Why: creation and upload are separate so users can review the initial file list first.
-      writeSharedWorkspaceLocalPath(auth.login, result.share.id, selectedRepo.path)
-    }
-    setBusy(false)
-    setDisplayName('')
-    toast.success(
-      translate(
-        'samwoo.workspaceSharing.createdAwaitingUpload',
-        'Share created. Review and upload its files from the shared list.'
-      )
-    )
-    await refresh()
   }
 
   return (
@@ -259,8 +321,17 @@ export default function SharedWorkspaceBoardDialog({
               </Select>
             </div>
           </div>
-          <Button disabled={busy || !selectedRepo || !displayName.trim()} onClick={create}>
-            <Plus /> {translate('samwoo.workspaceSharing.share', 'Share with profile')}
+          <Button
+            className="w-44"
+            disabled={busy || !selectedRepo || !displayName.trim()}
+            onClick={create}
+          >
+            {createStage ? <Loader2 className="animate-spin" /> : <Plus />}
+            {createStage === 'create'
+              ? translate('samwoo.workspaceSharing.creating', 'Creating share…')
+              : createStage === 'upload'
+                ? translate('samwoo.workspaceSharing.uploadingInitial', 'Uploading files…')
+                : translate('samwoo.workspaceSharing.share', 'Share with profile')}
           </Button>
         </div>
         <div className="flex items-center justify-between">
@@ -274,7 +345,7 @@ export default function SharedWorkspaceBoardDialog({
             disabled={busy}
             onClick={refresh}
           >
-            {busy ? <Loader2 className="animate-spin" /> : <RotateCw />}
+            {refreshing ? <Loader2 className="animate-spin" /> : <RotateCw />}
           </Button>
         </div>
         <div className="space-y-3">

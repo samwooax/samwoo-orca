@@ -14860,7 +14860,8 @@
       "usernamePlaceholder": "Username or email",
       "passwordPlaceholder": "Password",
       "checking": "Checking…",
-      "submit": "Sign in"
+      "submit": "Sign in",
+      "missingSession": "Login succeeded, but no session was created. Sign in again."
     },
     "workspaceSharing": {
       "permissionView": "List only",
@@ -14877,7 +14878,13 @@
       "revoke": "Revoke share",
       "loadFailed": "Could not load shared workspaces.",
       "createFailed": "Could not create the share.",
-      "createdAwaitingUpload": "Share created. Review and upload its files from the shared list.",
+      "createUnexpected": "Could not create the share: {{error}}",
+      "createdAndUploaded": "Project shared. {{count}} files uploaded.",
+      "initialUploadFailed": "The share was created, but its files could not be uploaded. Retry from the shared card.",
+      "initialUploadUnexpected": "The share was created, but file upload failed: {{error}} Retry from the shared card.",
+      "sessionExpired": "Your session has expired. Sign in again.",
+      "creating": "Creating share…",
+      "uploadingInitial": "Uploading files…",
       "title": "Team shared workspaces",
       "description": "Projects are stored in the current Hermes profile workspace. Other profiles cannot list or download them, and each user works from a local copy.",
       "project": "Project to share",
