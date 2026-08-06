@@ -200,6 +200,24 @@ describe('NativeChatSessionOptionPickers', () => {
     expect(screen.queryByRole('button', { name: /Effort/ })).toBeNull()
   })
 
+  it('can place the model before effort for the Hermes composer layout', () => {
+    render(
+      <NativeChatSessionOptionPickers
+        surface={surface}
+        snapshot={[model(), effort]}
+        isWorking={false}
+        modelFirst
+      />
+    )
+
+    expect(
+      screen
+        .getByRole('button', { name: 'Model Opus 4.8' })
+        .compareDocumentPosition(screen.getByRole('button', { name: 'Effort High' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).not.toBe(0)
+  })
+
   it('names a lone unknown effort control explicitly', () => {
     render(
       <NativeChatSessionOptionPickers

@@ -32,6 +32,7 @@ export type NativeChatSessionOptionPickersProps = {
   surface: SessionOptionsSurface | null
   snapshot: SessionOptionDescriptor[]
   isWorking: boolean
+  modelFirst?: boolean
 }
 
 const CATEGORY_ORDER: Record<string, number> = {
@@ -222,7 +223,8 @@ function runSurfaceCall(
 function NativeChatSessionOptionPickersInner({
   surface,
   snapshot,
-  isWorking
+  isWorking,
+  modelFirst = false
 }: NativeChatSessionOptionPickersProps): React.JSX.Element | null {
   const [pendingId, setPendingId] = useState<string | null>(null)
   const model = snapshot.find((descriptor) => descriptor.category === 'model')
@@ -246,59 +248,74 @@ function NativeChatSessionOptionPickersInner({
       ? nativeChatSessionOptionDisabledReason(options[0]?.disabledReason)
       : null
 
-  return (
-    <div className="flex min-w-0 items-center gap-0.5">
-      {options.length > 0 ? (
-        <DropdownMenu>
-          <PickerTrigger
-            label={nativeChatOptionsPillLabel(options)}
-            tooltipLabel={optionsTooltip}
-            disabled={isWorking || pendingId !== null}
-            disabledReason={optionsReason}
-            dispatched={options.some((descriptor) => descriptor.valueSource === 'dispatched')}
-          />
-          <DropdownMenuContent align="start" className="w-60">
-            {options.map((descriptor, index) => {
-              const reason = nativeChatSessionOptionDisabledReason(descriptor.disabledReason)
-              return (
-                <div key={descriptor.id}>
-                  {index > 0 ? <DropdownMenuSeparator /> : null}
-                  <DropdownMenuLabel>{nativeChatSessionOptionLabel(descriptor)}</DropdownMenuLabel>
-                  {reason && !descriptor.settable ? (
-                    <DropdownMenuLabel className="font-normal">{reason}</DropdownMenuLabel>
-                  ) : null}
-                  <DescriptorMenuRows
-                    descriptor={descriptor}
-                    pending={pendingId !== null}
-                    setValue={(value) => setOption(descriptor, value)}
-                    invokeAction={() => invokeAction(descriptor)}
-                  />
-                </div>
-              )
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
+  const optionsPicker =
+    options.length > 0 ? (
       <DropdownMenu>
         <PickerTrigger
-          label={nativeChatModelPillLabel(model)}
-          tooltipLabel={modelTooltip}
+          label={nativeChatOptionsPillLabel(options)}
+          tooltipLabel={optionsTooltip}
           disabled={isWorking || pendingId !== null}
-          disabledReason={modelReason}
-          dispatched={model.valueSource === 'dispatched'}
+          disabledReason={optionsReason}
+          dispatched={options.some((descriptor) => descriptor.valueSource === 'dispatched')}
         />
-        <DropdownMenuContent align="start" className="w-64">
-          {modelReason && !model.settable ? (
-            <DropdownMenuLabel className="font-normal">{modelReason}</DropdownMenuLabel>
-          ) : null}
-          <DescriptorMenuRows
-            descriptor={model}
-            pending={pendingId !== null}
-            setValue={(value) => setOption(model, value)}
-            invokeAction={() => invokeAction(model)}
-          />
+        <DropdownMenuContent align="start" className="w-60">
+          {options.map((descriptor, index) => {
+            const reason = nativeChatSessionOptionDisabledReason(descriptor.disabledReason)
+            return (
+              <div key={descriptor.id}>
+                {index > 0 ? <DropdownMenuSeparator /> : null}
+                <DropdownMenuLabel>{nativeChatSessionOptionLabel(descriptor)}</DropdownMenuLabel>
+                {reason && !descriptor.settable ? (
+                  <DropdownMenuLabel className="font-normal">{reason}</DropdownMenuLabel>
+                ) : null}
+                <DescriptorMenuRows
+                  descriptor={descriptor}
+                  pending={pendingId !== null}
+                  setValue={(value) => setOption(descriptor, value)}
+                  invokeAction={() => invokeAction(descriptor)}
+                />
+              </div>
+            )
+          })}
         </DropdownMenuContent>
       </DropdownMenu>
+    ) : null
+  const modelPicker = (
+    <DropdownMenu>
+      <PickerTrigger
+        label={nativeChatModelPillLabel(model)}
+        tooltipLabel={modelTooltip}
+        disabled={isWorking || pendingId !== null}
+        disabledReason={modelReason}
+        dispatched={model.valueSource === 'dispatched'}
+      />
+      <DropdownMenuContent align="start" className="w-64">
+        {modelReason && !model.settable ? (
+          <DropdownMenuLabel className="font-normal">{modelReason}</DropdownMenuLabel>
+        ) : null}
+        <DescriptorMenuRows
+          descriptor={model}
+          pending={pendingId !== null}
+          setValue={(value) => setOption(model, value)}
+          invokeAction={() => invokeAction(model)}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
+  return (
+    <div className="flex min-w-0 items-center gap-0.5">
+      {modelFirst ? (
+        <>
+          {modelPicker}
+          {optionsPicker}
+        </>
+      ) : (
+        <>
+          {optionsPicker}
+          {modelPicker}
+        </>
+      )}
     </div>
   )
 }

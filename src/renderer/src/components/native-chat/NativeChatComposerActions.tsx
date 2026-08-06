@@ -23,6 +23,7 @@ export type NativeChatComposerActionsProps = {
   onStop?: () => void
   sessionOptionsSurface: SessionOptionsSurface | null
   sessionOptionsSnapshot: SessionOptionDescriptor[]
+  sessionOptionsModelFirst?: boolean
 }
 
 export function NativeChatComposerActions({
@@ -39,7 +40,8 @@ export function NativeChatComposerActions({
   onSend,
   onStop,
   sessionOptionsSurface,
-  sessionOptionsSnapshot
+  sessionOptionsSnapshot,
+  sessionOptionsModelFirst = false
 }: NativeChatComposerActionsProps): React.JSX.Element {
   const dictationLabel = isDictating
     ? translate('components.native-chat.composer.stopDictation', 'Stop dictation')
@@ -67,12 +69,12 @@ export function NativeChatComposerActions({
         </Tooltip>
       </div>
       <div className="ml-auto flex items-center gap-1.5">
-        {/* Why: keep session controls beside the actions they affect; the
-        model trigger is ordered last so it sits directly next to dictation. */}
+        {/* Why: keep session controls beside the actions they affect; Hermes opts into its requested model-first order. */}
         <NativeChatSessionOptionPickers
           surface={sessionOptionsSurface}
           snapshot={sessionOptionsSnapshot}
           isWorking={isWorking}
+          modelFirst={sessionOptionsModelFirst}
         />
         <Tooltip>
           <TooltipTrigger asChild>

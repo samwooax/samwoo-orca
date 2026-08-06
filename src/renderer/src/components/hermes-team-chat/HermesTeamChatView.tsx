@@ -18,7 +18,7 @@ import {
 } from '../../../../shared/hermes-team-chat-models'
 import type { HermesTeamChatRoute } from './hermes-team-chat-route'
 import { HermesTeamChatActivity } from './HermesTeamChatActivity'
-import { HermesTeamChatModelControls } from './HermesTeamChatModelControls'
+import { createTeamChatComposerOptions } from './hermes-team-chat-composer-options'
 import { useHermesTeamChatProgress } from './use-hermes-team-chat-progress'
 import { hermesTeamChatStorageKey } from './hermes-team-chat-storage-key'
 import { readStoredTeamChat } from './hermes-team-chat-stored-session'
@@ -93,6 +93,16 @@ export function HermesTeamChatView({
     setModel(nextModel)
     setEffort((current) => resolveTeamChatEffort(nextModel, current))
   }, [])
+  const composerOptions = useMemo(
+    () =>
+      createTeamChatComposerOptions({
+        model,
+        effort,
+        onModelChange: changeModel,
+        onEffortChange: (value) => setEffort(resolveTeamChatEffort(model, value))
+      }),
+    [changeModel, effort, model]
+  )
 
   const insertFileReference = useCallback(
     (relativePath: string): boolean => {
@@ -273,13 +283,6 @@ export function HermesTeamChatView({
         <div className="px-3 pt-2 pb-4 sm:px-4">
           <div className="mx-auto w-full max-w-4xl">
             <div className="rounded-lg border border-border bg-muted/50 p-1.5 shadow-xs dark:bg-input/40">
-              <HermesTeamChatModelControls
-                model={model}
-                effort={effort}
-                disabled={busy}
-                onModelChange={changeModel}
-                onEffortChange={(value) => setEffort(resolveTeamChatEffort(model, value))}
-              />
               {attachmentNotice ? (
                 <p className="mb-1.5 px-1 text-xs text-muted-foreground">{attachmentNotice}</p>
               ) : null}
@@ -365,8 +368,9 @@ export function HermesTeamChatView({
                   onDictationHoldEnd={() => {}}
                   onSend={() => void send()}
                   onStop={stop}
-                  sessionOptionsSurface={null}
-                  sessionOptionsSnapshot={[]}
+                  sessionOptionsSurface={composerOptions.surface}
+                  sessionOptionsSnapshot={composerOptions.snapshot}
+                  sessionOptionsModelFirst
                 />
               </div>
             </div>
