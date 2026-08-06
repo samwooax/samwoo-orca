@@ -337,7 +337,7 @@ export function HermesTeamChatView({
                   'auto.components.HermesTeamChatView.placeholder',
                   'Enter a message…'
                 )}
-                className="scrollbar-sleek min-h-12 max-h-28 w-full resize-none bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
+                className="scrollbar-sleek min-h-12 max-h-28 w-full resize-none bg-transparent px-2 pb-0.5 pt-1.5 text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
                 onChange={(event) => setDraft(event.target.value)}
                 onPaste={pasteClipboardImage}
                 onKeyDown={(event) => {

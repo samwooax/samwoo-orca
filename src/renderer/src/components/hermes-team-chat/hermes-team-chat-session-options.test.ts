@@ -28,11 +28,11 @@ describe('createTeamChatOptionSnapshot', () => {
       type: 'select',
       currentValue: 'high',
       choices: [
-        { value: 'low', label: 'Low' },
-        { value: 'medium', label: 'Medium' },
-        { value: 'high', label: 'High' },
+        { value: 'max', label: 'Max' },
         { value: 'xhigh', label: 'Extra high' },
-        { value: 'max', label: 'Max' }
+        { value: 'high', label: 'High' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'low', label: 'Low' }
       ]
     })
   })
@@ -45,10 +45,10 @@ describe('createTeamChatOptionSnapshot', () => {
       type: 'select',
       currentValue: 'medium',
       choices: [
-        { value: 'minimal', label: 'Minimal' },
-        { value: 'low', label: 'Low' },
+        { value: 'high', label: 'High' },
         { value: 'medium', label: 'Medium' },
-        { value: 'high', label: 'High' }
+        { value: 'low', label: 'Low' },
+        { value: 'minimal', label: 'Minimal' }
       ]
     })
   })

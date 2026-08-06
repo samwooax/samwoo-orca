@@ -50,7 +50,9 @@ export function createTeamChatOptionSnapshot(
       kind: {
         type: 'select',
         currentValue: effort,
-        choices: model.efforts.map((value) => ({ value, label: teamChatEffortLabel(value) }))
+        choices: model.efforts
+          .toReversed()
+          .map((value) => ({ value, label: teamChatEffortLabel(value) }))
       },
       valueSource: 'applied',
       settable: true
