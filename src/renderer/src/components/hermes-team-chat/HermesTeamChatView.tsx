@@ -23,6 +23,8 @@ import { useHermesTeamChatProgress } from './use-hermes-team-chat-progress'
 import { hermesTeamChatStorageKey } from './hermes-team-chat-storage-key'
 import { readStoredTeamChat } from './hermes-team-chat-stored-session'
 import { useHermesTeamChatAttachments } from './use-hermes-team-chat-attachments'
+import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
+import { resolveHermesTeamChatMailToken } from './hermes-team-chat-mail-token'
 
 function nativeMessages(messages: TeamChatHistoryMessage[]): NativeChatMessage[] {
   return messages.map((message, index) => ({
@@ -61,6 +63,7 @@ export function HermesTeamChatView({
   const [conversationId, setConversationId] = useState(stored.conversationId)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  const currentMailToken = useSamwooAuthStore((state) => state.auth?.token)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const requestIdRef = useRef<string | null>(null)
@@ -157,7 +160,7 @@ export function HermesTeamChatView({
         profile: route.profile,
         host: route.host,
         cwd: route.cwd,
-        mailtoken: route.mailToken,
+        mailtoken: resolveHermesTeamChatMailToken(currentMailToken, route.mailToken),
         model,
         effort,
         message: text,
@@ -198,6 +201,7 @@ export function HermesTeamChatView({
     busy,
     clearAttachments,
     conversationId,
+    currentMailToken,
     draft,
     effort,
     finishProgress,

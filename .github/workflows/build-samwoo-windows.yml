@@ -111,6 +111,7 @@ jobs:
             src/main/ipc/hermes-team-chat-page.test.ts `
             src/renderer/src/components/hermes-team-chat/HermesTeamChatModelControls.test.tsx `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-composer-options.test.ts `
+            src/renderer/src/components/hermes-team-chat/hermes-team-chat-mail-token.test.ts `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-session-options.test.ts `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-stored-session.test.ts `
             src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-attachments.test.tsx `
