@@ -50,6 +50,8 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
             comment = workspace_sharing.set_comment_completed(token, body)
             return 200, {"ok": True, "comment": comment}
         return 404, {"ok": False, "error": "not found"}
+    except workspace_sharing.WorkspaceShareConflictError as error:
+        return 409, {"ok": False, "errorCode": "file_conflict", "error": str(error)}
     except workspace_sharing.WorkspaceShareError as error:
         message = str(error)
         status = 401 if "session" in message or "bearer" in message else 400

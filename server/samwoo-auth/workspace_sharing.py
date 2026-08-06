@@ -27,6 +27,10 @@ class WorkspaceShareError(Exception):
     pass
 
 
+class WorkspaceShareConflictError(WorkspaceShareError):
+    pass
+
+
 def bind_session(token: str, login: str, profile: str, ttl: int = SESSION_TTL) -> None:
     """Bind server-issued auth to its resolved profile; clients cannot select scope."""
     if not token or not login or not profile:
@@ -271,11 +275,11 @@ def _nextcloud_share(
 
 
 def list_workspace_files(token: str, body: dict) -> list[dict]:
-    _, profile = _identity(token)
+    login, profile = _identity(token)
     share_id = _share_id(body.get("shareId"))
     with _lock, _connect() as conn:
         row = _nextcloud_share(conn, share_id, profile)
-        if row["permission"] == "view":
+        if row["permission"] == "view" and row["owner_login"] != login:
             raise WorkspaceShareError("workspace download is not allowed")
     try:
         return nextcloud_workspace_storage.list_directory(
@@ -286,11 +290,11 @@ def list_workspace_files(token: str, body: dict) -> list[dict]:
 
 
 def read_workspace_file(token: str, body: dict) -> dict:
-    _, profile = _identity(token)
+    login, profile = _identity(token)
     share_id = _share_id(body.get("shareId"))
     with _lock, _connect() as conn:
         row = _nextcloud_share(conn, share_id, profile)
-        if row["permission"] == "view":
+        if row["permission"] == "view" and row["owner_login"] != login:
             raise WorkspaceShareError("workspace download is not allowed")
     try:
         return nextcloud_workspace_storage.read_file(profile, share_id, body.get("path"))
@@ -305,6 +309,9 @@ def write_workspace_file(token: str, body: dict) -> dict:
         row = _nextcloud_share(conn, share_id, profile)
         if row["owner_login"] != login and row["permission"] != "contribute":
             raise WorkspaceShareError("workspace contribution is not allowed")
+    create_only = body.get("createOnly", False)
+    if not isinstance(create_only, bool):
+        raise WorkspaceShareError("invalid create-only condition")
     try:
         return nextcloud_workspace_storage.write_file(
             profile,
@@ -312,7 +319,10 @@ def write_workspace_file(token: str, body: dict) -> dict:
             body.get("path"),
             body.get("contentBase64"),
             body.get("expectedEtag"),
+            create_only,
         )
+    except nextcloud_workspace_storage.NextcloudStorageConflictError as error:
+        raise WorkspaceShareConflictError(str(error)) from error
     except nextcloud_workspace_storage.NextcloudStorageError as error:
         raise WorkspaceShareError(str(error)) from error
 

@@ -142,8 +142,12 @@ def patch_auth_server() -> pathlib.Path | None:
             return
 
 '''
-        if legacy_route not in source:
+        has_route = "workspace_share_endpoints.is_workspace_share_path(self.path)" in source
+        has_request_cap = "workspace request is too large" in source
+        if legacy_route not in source and has_route and has_request_cap:
             return None
+        if legacy_route not in source:
+            raise RuntimeError("existing workspace route cannot be safely upgraded")
         patched = source.replace(legacy_route, ROUTE_BLOCK)
         backup = AUTH_SERVER.with_name(f"auth-server.py.bak-{int(time.time())}")
         shutil.copy2(AUTH_SERVER, backup)

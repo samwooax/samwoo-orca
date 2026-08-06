@@ -27,6 +27,12 @@ type Props = {
   onRefresh: () => Promise<void>
 }
 
+function conflictDescription(paths: string[]): string {
+  const visiblePaths = paths.slice(0, 5).join('\n')
+  const remaining = paths.length - 5
+  return remaining > 0 ? `${visiblePaths}\n+${remaining}` : visiblePaths
+}
+
 export function getSamwooWorkspacePermissionLabel(permission: SamwooWorkspacePermission): string {
   switch (permission) {
     case 'view':
@@ -107,7 +113,7 @@ export default function SharedWorkspaceShareCard({
   }
 
   const pullNextcloud = async (): Promise<void> => {
-    if (!token || share.permission === 'view') {
+    if (!token || (share.permission === 'view' && !share.isOwner)) {
       return
     }
     let pullArgs: { destinationPath: string } | { destinationParent: string; folderName: string }
@@ -150,12 +156,13 @@ export default function SharedWorkspaceShareCard({
           'samwoo.workspaceSharing.downloadConflicts',
           '{{count}} locally changed files were not overwritten.',
           { count: result.conflicts.length }
-        )
+        ),
+        { description: conflictDescription(result.conflicts) }
       )
       return
     }
     toast.success(
-      translate('samwoo.workspaceSharing.downloadComplete', 'Shared workspace is up to date.'),
+      translate('samwoo.workspaceSharing.downloadComplete', 'Workspace changes checked.'),
       { description: result.destinationPath }
     )
   }
@@ -175,6 +182,17 @@ export default function SharedWorkspaceShareCard({
       toast.error(
         result.error ??
           translate('samwoo.workspaceSharing.uploadFailed', 'Could not upload workspace changes.')
+      )
+      return
+    }
+    if (result.conflicts?.length) {
+      toast.warning(
+        translate(
+          'samwoo.workspaceSharing.uploadConflicts',
+          '{{count}} remotely changed files were not overwritten.',
+          { count: result.conflicts.length }
+        ),
+        { description: conflictDescription(result.conflicts) }
       )
       return
     }
@@ -264,7 +282,7 @@ export default function SharedWorkspaceShareCard({
         />
       ) : null}
       <div className="flex justify-end gap-2">
-        {share.sourceKind === 'nextcloud' && share.permission !== 'view' ? (
+        {share.sourceKind === 'nextcloud' && (share.permission !== 'view' || share.isOwner) ? (
           <Button
             size="sm"
             variant="outline"

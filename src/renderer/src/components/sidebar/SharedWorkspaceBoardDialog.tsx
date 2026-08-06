@@ -52,13 +52,13 @@ export default function SharedWorkspaceBoardDialog({
   const [sourceKind, setSourceKind] = useState<SamwooWorkspaceSourceKind>('nextcloud')
   const shareableRepos = useMemo(
     () =>
-      localRepos
+      (sourceKind === 'nextcloud' ? localRepos : repos)
         .filter((repo) => sourceKind === 'nextcloud' || Boolean(repo.gitRemoteIdentity?.remoteUrl))
         .map((repo) => ({
           repo,
           selectionKey: `${repo.id}::${repo.executionHostId ?? repo.connectionId ?? 'local'}::${repo.path}`
         })),
-    [localRepos, sourceKind]
+    [localRepos, repos, sourceKind]
   )
   const [shares, setShares] = useState<SamwooWorkspaceShare[]>([])
   const [repoId, setRepoId] = useState('')

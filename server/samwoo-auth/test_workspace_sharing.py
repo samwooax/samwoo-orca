@@ -159,6 +159,12 @@ class WorkspaceSharingTest(unittest.TestCase):
             workspace_sharing.list_workspace_files(
                 "token-peer-01234567890", {"shareId": share["id"]}
             )
+        workspace_sharing.list_workspace_files(
+            "token-owner-0123456789", {"shareId": share["id"]}
+        )
+        workspace_sharing.read_workspace_file(
+            "token-owner-0123456789", {"shareId": share["id"], "path": "note.txt"}
+        )
 
     def test_rejects_invalid_share_identity_before_storage_access(self):
         with self.assertRaises(workspace_sharing.WorkspaceShareError):
@@ -197,6 +203,34 @@ class WorkspaceSharingTest(unittest.TestCase):
             {"shareId": share["id"], "path": "note.txt", "contentBase64": "b2s="},
         )
         self.assertEqual(2, write_file.call_count)
+
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.write_file")
+    @mock.patch("workspace_sharing.nextcloud_workspace_storage.ensure_workspace")
+    def test_file_conflict_has_a_distinct_http_response(self, ensure_workspace, write_file):
+        ensure_workspace.return_value = "SAMWOO-Workspaces/ai_center/share-id"
+        share = workspace_sharing.create_share(
+            "token-owner-0123456789",
+            {"displayName": "팀 자료", "sourceKind": "nextcloud", "permission": "clone"},
+        )
+        write_file.side_effect = (
+            workspace_sharing.nextcloud_workspace_storage.NextcloudStorageConflictError(
+                "changed"
+            )
+        )
+
+        status, result = workspace_share_endpoints.handle_workspace_share(
+            "/workspace-shares/files/write",
+            "Bearer token-owner-0123456789",
+            {
+                "shareId": share["id"],
+                "path": "note.txt",
+                "contentBase64": "b2s=",
+                "createOnly": True,
+            },
+        )
+
+        self.assertEqual(409, status)
+        self.assertEqual("file_conflict", result["errorCode"])
 
 
 if __name__ == "__main__":

@@ -56,6 +56,7 @@ export type SamwooWorkspaceComment = {
 
 export type SamwooWorkspaceShareResult = {
   ok: boolean
+  errorCode?: 'file_conflict'
   share?: SamwooWorkspaceShare
   shares?: SamwooWorkspaceShare[]
   comment?: SamwooWorkspaceComment

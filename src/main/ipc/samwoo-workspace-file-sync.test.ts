@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postSamwooWorkspaceShare } from './samwoo-workspace-share-client'
+import { isSamwooWorkspacePathSupported } from './samwoo-workspace-file-policy'
 import { pullSamwooWorkspaceFiles, pushSamwooWorkspaceFiles } from './samwoo-workspace-file-sync'
 
 vi.mock('electron', () => ({
@@ -52,8 +53,81 @@ describe('SAMWOO workspace file sync', () => {
     expect(result).toMatchObject({ ok: true, transferredFiles: 1 })
     expect(postSamwooWorkspaceShare).toHaveBeenCalledOnce()
     expect(vi.mocked(postSamwooWorkspaceShare).mock.calls[0]?.[2]).toMatchObject({
-      path: 'src/index.ts'
+      path: 'src/index.ts',
+      createOnly: true
     })
+  })
+
+  it('excludes a Git worktree metadata file as well as a Git directory', async () => {
+    const sourcePath = path.join(testRoot, 'worktree')
+    await fs.mkdir(sourcePath)
+    await fs.writeFile(path.join(sourcePath, '.git'), 'gitdir: ../.git/worktrees/feature')
+    await fs.writeFile(path.join(sourcePath, 'README.md'), 'safe')
+    vi.mocked(postSamwooWorkspaceShare).mockResolvedValue({
+      ok: true,
+      file: { path: 'README.md', contentBase64: '', etag: 'etag-1', size: 4 }
+    })
+
+    await pushSamwooWorkspaceFiles({ token: TOKEN, shareId: SHARE_ID, sourcePath })
+
+    expect(postSamwooWorkspaceShare).toHaveBeenCalledOnce()
+    expect(vi.mocked(postSamwooWorkspaceShare).mock.calls[0]?.[2]).toMatchObject({
+      path: 'README.md'
+    })
+  })
+
+  it('persists each uploaded file so a partial failure resumes safely', async () => {
+    const sourcePath = path.join(testRoot, 'partial')
+    await fs.mkdir(sourcePath)
+    await fs.writeFile(path.join(sourcePath, 'a.txt'), 'first')
+    await fs.writeFile(path.join(sourcePath, 'b.txt'), 'second')
+    vi.mocked(postSamwooWorkspaceShare)
+      .mockResolvedValueOnce({
+        ok: true,
+        file: { path: 'a.txt', contentBase64: '', etag: 'etag-a', size: 5 }
+      })
+      .mockResolvedValueOnce({ ok: false, error: 'temporary failure' })
+
+    await expect(
+      pushSamwooWorkspaceFiles({ token: TOKEN, shareId: SHARE_ID, sourcePath })
+    ).rejects.toThrow('temporary failure')
+    vi.mocked(postSamwooWorkspaceShare).mockReset()
+    vi.mocked(postSamwooWorkspaceShare).mockResolvedValue({
+      ok: true,
+      file: { path: 'b.txt', contentBase64: '', etag: 'etag-b', size: 6 }
+    })
+
+    const retry = await pushSamwooWorkspaceFiles({ token: TOKEN, shareId: SHARE_ID, sourcePath })
+
+    expect(retry).toMatchObject({ ok: true, transferredFiles: 1, skippedFiles: 1 })
+    expect(postSamwooWorkspaceShare).toHaveBeenCalledOnce()
+    expect(vi.mocked(postSamwooWorkspaceShare).mock.calls[0]?.[2]).toMatchObject({ path: 'b.txt' })
+  })
+
+  it('reports a create-only upload conflict without overwriting the remote file', async () => {
+    const sourcePath = path.join(testRoot, 'conflict')
+    await fs.mkdir(sourcePath)
+    await fs.writeFile(path.join(sourcePath, 'note.txt'), 'local')
+    vi.mocked(postSamwooWorkspaceShare).mockResolvedValue({
+      ok: false,
+      errorCode: 'file_conflict',
+      error: 'changed'
+    })
+
+    const result = await pushSamwooWorkspaceFiles({ token: TOKEN, shareId: SHARE_ID, sourcePath })
+
+    expect(result).toMatchObject({ ok: true, transferredFiles: 0, conflicts: ['note.txt'] })
+    expect(vi.mocked(postSamwooWorkspaceShare).mock.calls[0]?.[2]).toMatchObject({
+      path: 'note.txt',
+      createOnly: true
+    })
+  })
+
+  it('identifies file names that cannot be created on Windows', () => {
+    expect(isSamwooWorkspacePathSupported('reports/summary.txt', 'win32')).toBe(true)
+    expect(isSamwooWorkspacePathSupported('reports/CON.txt', 'win32')).toBe(false)
+    expect(isSamwooWorkspacePathSupported('reports/trailing. ', 'win32')).toBe(false)
+    expect(isSamwooWorkspacePathSupported('reports/question?.txt', 'win32')).toBe(false)
   })
 
   it('preserves a locally edited file when the cloud ETag has changed', async () => {

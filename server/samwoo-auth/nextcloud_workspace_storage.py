@@ -18,11 +18,19 @@ MAX_FILE_BYTES = int(os.environ.get("SAMWOO_NEXTCLOUD_MAX_FILE_BYTES", str(16 * 
 REQUEST_TIMEOUT = int(os.environ.get("SAMWOO_NEXTCLOUD_TIMEOUT", "30"))
 
 _PROFILE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-_SHARE_ID = re.compile(r"^[0-9a-f-]{36}$")
+_SHARE_ID = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.I,
+)
 _DAV = "{DAV:}"
+MAX_PATH_SEGMENTS = 64
 
 
 class NextcloudStorageError(Exception):
+    pass
+
+
+class NextcloudStorageConflictError(NextcloudStorageError):
     pass
 
 
@@ -55,7 +63,7 @@ def normalize_relative_path(value: object, allow_empty: bool = True) -> str:
         or len(segment) > 255
         or any(ord(char) < 32 for char in segment)
         for segment in segments
-    ):
+    ) or len(segments) > MAX_PATH_SEGMENTS:
         raise NextcloudStorageError("invalid file path")
     return "/".join(segments)
 
@@ -104,8 +112,12 @@ def _request(
             return error.code, b"", {}
         if error.code == 404:
             raise NextcloudStorageError("Nextcloud workspace file not found") from error
-        if error.code in {409, 412, 423}:
-            raise NextcloudStorageError("Nextcloud workspace file changed; refresh and retry") from error
+        if error.code in {409, 412}:
+            raise NextcloudStorageConflictError(
+                "Nextcloud workspace file changed; refresh and retry"
+            ) from error
+        if error.code == 423:
+            raise NextcloudStorageError("Nextcloud workspace file is locked; retry later") from error
         raise NextcloudStorageError(f"Nextcloud request failed ({error.code})") from error
     except (urllib.error.URLError, TimeoutError) as error:
         raise NextcloudStorageError("Nextcloud workspace storage is unavailable") from error
@@ -153,7 +165,11 @@ def list_directory(profile: str, share_id: str, relative_path: object = "") -> l
         child = decoded_path[marker_index + len(marker) :].strip("/")
         if not child or "/" in child:
             continue
-        prop = response.find(f"{_DAV}propstat/{_DAV}prop")
+        prop = None
+        for propstat in response.findall(f"{_DAV}propstat"):
+            if (propstat.findtext(f"{_DAV}status") or "").strip().endswith(" 200 OK"):
+                prop = propstat.find(f"{_DAV}prop")
+                break
         if prop is None:
             continue
         is_directory = prop.find(f"{_DAV}resourcetype/{_DAV}collection") is not None
@@ -188,6 +204,7 @@ def write_file(
     relative_path: object,
     content_base64: object,
     expected_etag: object = None,
+    create_only: object = False,
 ) -> dict:
     relative = normalize_relative_path(relative_path, allow_empty=False)
     try:
@@ -209,6 +226,8 @@ def write_file(
     headers = {"Content-Type": "application/octet-stream"}
     if expected_etag:
         headers["If-Match"] = f'"{str(expected_etag).strip(chr(34))}"'
+    elif create_only is True:
+        headers["If-None-Match"] = "*"
     _, _, response_headers = _request("PUT", file_segments, body=payload, headers=headers)
     return {
         "path": relative,

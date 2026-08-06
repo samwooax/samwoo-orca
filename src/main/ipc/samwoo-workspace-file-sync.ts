@@ -9,20 +9,17 @@ import type {
   SamwooWorkspaceSyncResult
 } from '../../shared/samwoo-workspace-sharing'
 import { postSamwooWorkspaceShare } from './samwoo-workspace-share-client'
+import {
+  isSamwooWorkspacePathSupported,
+  listSamwooWorkspaceUploadFiles,
+  safeSamwooWorkspaceFolderName
+} from './samwoo-workspace-file-policy'
 
 const MAX_FILE_BYTES = 16 * 1024 * 1024
 const MAX_FILES = 5_000
+const MAX_REMOTE_ENTRIES = 10_000
+const MAX_DIRECTORY_DEPTH = 64
 const LARGE_RESPONSE_BYTES = 24 * 1024 * 1024
-const EXCLUDED_DIRECTORIES = new Set(['.aws', '.git', '.gnupg', '.ssh', 'node_modules'])
-const EXCLUDED_SECRET_FILES = new Set([
-  '.netrc',
-  '.npmrc',
-  '.pypirc',
-  'credentials',
-  'id_dsa',
-  'id_ed25519',
-  'id_rsa'
-])
 const SHARE_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -39,29 +36,6 @@ function isShareId(value: unknown): value is string {
 
 function fileHash(content: Buffer): string {
   return createHash('sha256').update(content).digest('hex')
-}
-
-function safeFolderName(value: string): string {
-  const printable = [...value]
-    .map((character) => (character.charCodeAt(0) < 32 ? '-' : character))
-    .join('')
-  const sanitized = printable
-    .trim()
-    .replace(/[<>:"/\\|?*]/g, '-')
-    .replace(/[. ]+$/g, '')
-  return sanitized.slice(0, 120) || 'Shared workspace'
-}
-
-function isExcludedSecretFile(name: string): boolean {
-  const lowerName = name.toLowerCase()
-  const isEnvironmentSecret =
-    (lowerName === '.env' || lowerName.startsWith('.env.')) &&
-    !['.env.example', '.env.sample', '.env.template'].includes(lowerName)
-  return (
-    isEnvironmentSecret ||
-    EXCLUDED_SECRET_FILES.has(lowerName) ||
-    ['.key', '.p12', '.pem', '.pfx'].some((extension) => lowerName.endsWith(extension))
-  )
 }
 
 function manifestPath(rootPath: string, shareId: string): string {
@@ -111,12 +85,21 @@ async function walkRemoteFiles(
   token: string,
   shareId: string,
   relativePath = '',
-  files: { path: string; etag: string }[] = []
+  files: { path: string; etag: string }[] = [],
+  state = { entries: 0 },
+  depth = 0
 ): Promise<{ path: string; etag: string }[]> {
+  if (depth > MAX_DIRECTORY_DEPTH) {
+    throw new Error('Shared workspace directory nesting is too deep')
+  }
   for (const entry of await remoteEntries(token, shareId, relativePath)) {
+    state.entries += 1
+    if (state.entries > MAX_REMOTE_ENTRIES) {
+      throw new Error('Shared workspace contains too many entries')
+    }
     const childPath = relativePath ? `${relativePath}/${entry.name}` : entry.name
     if (entry.kind === 'directory') {
-      await walkRemoteFiles(token, shareId, childPath, files)
+      await walkRemoteFiles(token, shareId, childPath, files, state, depth + 1)
     } else {
       files.push({ path: childPath, etag: entry.etag })
     }
@@ -152,7 +135,10 @@ export async function pullSamwooWorkspaceFiles(
   }
   const rootPath = args.destinationPath
     ? path.resolve(args.destinationPath)
-    : path.join(path.resolve(args.destinationParent || ''), safeFolderName(args.folderName || ''))
+    : path.join(
+        path.resolve(args.destinationParent || ''),
+        safeSamwooWorkspaceFolderName(args.folderName || '')
+      )
   if (!args.destinationPath && (!args.destinationParent || !args.folderName)) {
     return { ok: false, error: 'download destination required' }
   }
@@ -162,6 +148,10 @@ export async function pullSamwooWorkspaceFiles(
   let transferredFiles = 0
   let skippedFiles = 0
   for (const remote of await walkRemoteFiles(args.token, args.shareId)) {
+    if (!isSamwooWorkspacePathSupported(remote.path)) {
+      conflicts.push(remote.path)
+      continue
+    }
     const targetPath = path.resolve(rootPath, ...remote.path.split('/'))
     if (targetPath !== rootPath && !targetPath.startsWith(`${rootPath}${path.sep}`)) {
       throw new Error('Shared workspace returned an invalid file path')
@@ -190,39 +180,12 @@ export async function pullSamwooWorkspaceFiles(
       etag: downloaded.etag || remote.etag,
       hash: fileHash(downloaded.content)
     }
+    // Why: a later download failure must not make completed files look locally untracked on retry.
+    await writeManifest(rootPath, manifest)
     transferredFiles += 1
   }
   await writeManifest(rootPath, manifest)
   return { ok: true, destinationPath: rootPath, transferredFiles, skippedFiles, conflicts }
-}
-
-async function walkLocalFiles(
-  rootPath: string,
-  relativePath = '',
-  files: string[] = []
-): Promise<string[]> {
-  const directoryPath = relativePath ? path.join(rootPath, relativePath) : rootPath
-  for (const entry of await fs.readdir(directoryPath, { withFileTypes: true })) {
-    if (entry.isDirectory() && EXCLUDED_DIRECTORIES.has(entry.name)) {
-      continue
-    }
-    const childRelative = relativePath ? path.join(relativePath, entry.name) : entry.name
-    if (entry.isSymbolicLink()) {
-      continue
-    }
-    if (entry.isFile() && isExcludedSecretFile(entry.name)) {
-      continue
-    }
-    if (entry.isDirectory()) {
-      await walkLocalFiles(rootPath, childRelative, files)
-    } else if (entry.isFile()) {
-      files.push(childRelative)
-    }
-    if (files.length > MAX_FILES) {
-      throw new Error('Workspace contains too many files')
-    }
-  }
-  return files
 }
 
 export async function pushSamwooWorkspaceFiles(
@@ -236,9 +199,10 @@ export async function pushSamwooWorkspaceFiles(
     return { ok: false, error: 'workspace folder required' }
   }
   const manifest = await readManifest(rootPath, args.shareId)
+  const conflicts: string[] = []
   let transferredFiles = 0
   let skippedFiles = 0
-  for (const platformRelative of await walkLocalFiles(rootPath)) {
+  for (const platformRelative of await listSamwooWorkspaceUploadFiles(rootPath)) {
     const content = await fs.readFile(path.join(rootPath, platformRelative))
     if (content.length > MAX_FILE_BYTES) {
       throw new Error(`${platformRelative} exceeds 16 MiB`)
@@ -256,18 +220,24 @@ export async function pushSamwooWorkspaceFiles(
         shareId: args.shareId,
         path: remotePath,
         contentBase64: content.toString('base64'),
-        expectedEtag: manifest.files[remotePath]?.etag
+        expectedEtag: manifest.files[remotePath]?.etag,
+        createOnly: !manifest.files[remotePath]
       },
       LARGE_RESPONSE_BYTES
     )
+    if (!result.ok && result.errorCode === 'file_conflict') {
+      conflicts.push(remotePath)
+      continue
+    }
     if (!result.ok || !result.file) {
       throw new Error(result.error || `Could not upload ${remotePath}`)
     }
     manifest.files[remotePath] = { etag: result.file.etag, hash }
+    // Why: persisting each success prevents a later failure from making retries overwrite it.
+    await writeManifest(rootPath, manifest)
     transferredFiles += 1
   }
-  await writeManifest(rootPath, manifest)
-  return { ok: true, destinationPath: rootPath, transferredFiles, skippedFiles, conflicts: [] }
+  return { ok: true, destinationPath: rootPath, transferredFiles, skippedFiles, conflicts }
 }
 
 function asFailure(error: unknown): SamwooWorkspaceSyncResult {
