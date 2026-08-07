@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { resolveQuitAndInstallFlags } from './updater-install-flags'
 
 describe('resolveQuitAndInstallFlags', () => {
-  it('installs Windows updates silently and relaunches the app', () => {
+  it('shows Windows installer progress and relaunches the app', () => {
     expect(resolveQuitAndInstallFlags('win32', false)).toEqual({
-      isSilent: true,
+      isSilent: false,
       isForceRunAfter: true
     })
   })

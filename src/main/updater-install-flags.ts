@@ -4,11 +4,12 @@ export type QuitAndInstallFlags = {
 }
 
 export function resolveQuitAndInstallFlags(
-  platform: NodeJS.Platform,
+  _platform: NodeJS.Platform,
   supervisorOwnsRelaunch: boolean
 ): QuitAndInstallFlags {
   return {
-    isSilent: supervisorOwnsRelaunch || platform === 'win32',
+    // Why: the Windows NSIS update page is the only UI that survives after Electron exits.
+    isSilent: supervisorOwnsRelaunch,
     isForceRunAfter: !supervisorOwnsRelaunch
   }
 }

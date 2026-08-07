@@ -23,6 +23,26 @@
       SendMessage $MultiUser.InstallModePage.CurrentUser ${WM_SETTEXT} 0 "STR:현재 사용자"
     FunctionEnd
   !macroend
+
+  ; Updates use the native progress page, then close and relaunch without requiring a Finish click.
+  !macro customFinishPage
+    !define MUI_PAGE_CUSTOMFUNCTION_PRE SamwooFinishPagePre
+    !insertmacro MUI_PAGE_FINISH
+  !macroend
+
+  Function SamwooFinishPagePre
+    ${if} ${isUpdated}
+      Abort
+    ${endIf}
+  FunctionEnd
+
+  !macro customInstall
+    ${if} ${isUpdated}
+    ${andIfNot} ${Silent}
+      HideWindow
+      !insertmacro StartApp
+    ${endIf}
+  !macroend
 !endif
 
 !macro customUnInstall
