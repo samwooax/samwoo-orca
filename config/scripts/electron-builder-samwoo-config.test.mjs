@@ -40,6 +40,9 @@ describe('SAMWOO electron-builder identity', () => {
 
     expect(include).toContain('!macro customFinishPage')
     expect(include).toContain('!define MUI_PAGE_CUSTOMFUNCTION_PRE SamwooFinishPagePre')
+    expect(include).toMatch(
+      /!macro customFinishPage[\s\S]*Function SamwooFinishPagePre[\s\S]*!macroend/
+    )
     expect(include).toContain('${if} ${isUpdated}')
     expect(include).toContain('${andIfNot} ${Silent}')
     expect(include).toContain('!insertmacro StartApp')
