@@ -33,7 +33,7 @@ export default function ProfileMessageRow({
           </Button>
         </div>
         <div
-          className={`rounded-lg border border-border px-3 py-2 text-sm ${message.isAuthor ? 'bg-primary text-primary-foreground' : 'bg-card text-card-foreground'}`}
+          className={`rounded-lg border border-border px-3 py-2 text-sm ${message.isAuthor ? 'bg-secondary text-secondary-foreground' : 'bg-card text-card-foreground'}`}
         >
           {message.replyToId ? (
             <div className="mb-2 border-l-2 border-current/30 pl-2 text-xs opacity-75">

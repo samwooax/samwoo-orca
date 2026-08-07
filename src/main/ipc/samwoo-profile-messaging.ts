@@ -7,6 +7,9 @@ import type {
 } from '../../shared/samwoo-profile-messaging'
 import { postSamwooWorkspaceShare } from './samwoo-workspace-share-client'
 
+// Why: 100 maximal Unicode messages can exceed the workspace client's 512 KiB metadata default.
+export const PROFILE_MESSAGE_RESPONSE_BYTES = 8 * 1024 * 1024
+
 function hasToken(token: unknown): token is string {
   return typeof token === 'string' && token.length >= 20 && token.length <= 256
 }
@@ -35,7 +38,8 @@ export function registerSamwooProfileMessagingHandlers(): void {
               shareId: args.shareId,
               beforeCreatedAt: args.beforeCreatedAt,
               beforeId: args.beforeId
-            }
+            },
+            PROFILE_MESSAGE_RESPONSE_BYTES
           )
         : loginRequired()
   )

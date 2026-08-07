@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Hash, Loader2, MessageCircle, Reply, Send, Users, X } from 'lucide-react'
+import { Hash, Loader2, MessageCircle, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { Textarea } from '@/components/ui/textarea'
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { isSamwooSessionError } from '@/lib/samwoo-session-validation'
@@ -19,6 +18,11 @@ import type {
   SamwooProfileMessageChannel
 } from '../../../../shared/samwoo-profile-messaging'
 import ProfileMessageRow, { mergeProfileMessages } from './ProfileMessageRow'
+import ProfileMessageComposer from './ProfileMessageComposer'
+import {
+  shouldApplyProfileMessageResponse,
+  shouldMarkProfileMessagesRead
+} from './profile-message-interaction-admission'
 
 type Props = {
   open: boolean
@@ -46,6 +50,8 @@ export default function ProfileMessagesDialog({
   const [hasOlder, setHasOlder] = useState(false)
   const [sending, setSending] = useState(false)
   const requestSequence = useRef(0)
+  const activeChannelKeyRef = useRef('team')
+  const lastMarkedMessageByChannelRef = useRef(new Map<string, string>())
   const messageViewportRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
   const selectedChannel = useMemo(
@@ -91,7 +97,10 @@ export default function ProfileMessagesDialog({
       const nextChannels = result.channels ?? []
       setChannels(nextChannels)
       if (!nextChannels.some((channel) => channel.key === selectedKey)) {
-        setSelectedKey(nextChannels[0]?.key ?? 'team')
+        const nextKey = nextChannels[0]?.key ?? 'team'
+        activeChannelKeyRef.current = nextKey
+        requestSequence.current += 1
+        setSelectedKey(nextKey)
       }
       onUnreadCountChange(nextChannels.reduce((total, channel) => total + channel.unreadCount, 0))
     },
@@ -131,14 +140,32 @@ export default function ProfileMessagesDialog({
       setMessages((current) => mergeProfileMessages(current, nextMessages))
       setHasOlder(Boolean(result.hasMore))
       const latest = nextMessages.at(-1)
-      if (latest) {
-        await window.api.preflight.samwooProfileMessages.markRead({
+      if (
+        latest &&
+        shouldMarkProfileMessagesRead({
+          messageId: latest.id,
+          lastMarkedMessageId: lastMarkedMessageByChannelRef.current.get(selectedChannelKey),
+          isAtBottom: stickToBottomRef.current,
+          documentHasFocus: document.hasFocus()
+        })
+      ) {
+        lastMarkedMessageByChannelRef.current.set(selectedChannelKey, latest.id)
+        const readResult = await window.api.preflight.samwooProfileMessages.markRead({
           token: auth.token,
           channelKind: selectedChannelKind,
           shareId: selectedShareId,
           messageId: latest.id
         })
-        void refreshChannels(false)
+        if (readResult.ok) {
+          void refreshChannels(false)
+        } else {
+          if (lastMarkedMessageByChannelRef.current.get(selectedChannelKey) === latest.id) {
+            lastMarkedMessageByChannelRef.current.delete(selectedChannelKey)
+          }
+          if (isSamwooSessionError(readResult.error)) {
+            handleError(readResult.error, '')
+          }
+        }
       }
     },
     [
@@ -191,6 +218,7 @@ export default function ProfileMessagesDialog({
     if (!auth?.token || !selectedChannel || !oldest || loadingOlder) {
       return
     }
+    const requestedChannelKey = selectedChannel.key
     setLoadingOlder(true)
     const result = await window.api.preflight.samwooProfileMessages.listMessages({
       token: auth.token,
@@ -200,6 +228,9 @@ export default function ProfileMessagesDialog({
       beforeId: oldest.id
     })
     setLoadingOlder(false)
+    if (!shouldApplyProfileMessageResponse(requestedChannelKey, activeChannelKeyRef.current)) {
+      return
+    }
     if (!result.ok) {
       handleError(
         result.error,
@@ -216,6 +247,7 @@ export default function ProfileMessagesDialog({
     if (!auth?.token || !selectedChannel || !body || sending) {
       return
     }
+    const requestedChannelKey = selectedChannel.key
     setSending(true)
     const result = await window.api.preflight.samwooProfileMessages.sendMessage({
       token: auth.token,
@@ -225,6 +257,9 @@ export default function ProfileMessagesDialog({
       replyToId: replyTo?.id
     })
     setSending(false)
+    if (!shouldApplyProfileMessageResponse(requestedChannelKey, activeChannelKeyRef.current)) {
+      return
+    }
     if (!result.ok || !result.message) {
       handleError(
         result.error,
@@ -253,15 +288,19 @@ export default function ProfileMessagesDialog({
             )}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-h-0 flex-1 grid-cols-[220px_1fr]">
-          <nav className="overflow-y-auto border-r border-border bg-muted/30 p-2 scrollbar-sleek">
+        <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_1fr] sm:grid-cols-[220px_1fr] sm:grid-rows-1">
+          <nav className="max-h-32 overflow-y-auto border-b border-border bg-muted/30 p-2 scrollbar-sleek sm:max-h-none sm:border-b-0 sm:border-r">
             {channels.map((channel) => (
               <button
                 key={channel.key}
                 type="button"
                 data-current={channel.key === selectedChannel?.key}
                 className="mb-1 flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent data-[current=true]:bg-accent"
-                onClick={() => setSelectedKey(channel.key)}
+                onClick={() => {
+                  activeChannelKeyRef.current = channel.key
+                  requestSequence.current += 1
+                  setSelectedKey(channel.key)
+                }}
               >
                 {channel.kind === 'team' ? (
                   <Users className="mt-0.5 size-4 shrink-0" />
@@ -331,52 +370,14 @@ export default function ProfileMessagesDialog({
                 </div>
               )}
             </div>
-            <div className="border-t border-border p-3">
-              {replyTo ? (
-                <div className="mb-2 flex items-center gap-2 rounded-md bg-muted px-2 py-1.5 text-xs">
-                  <Reply className="size-3.5" />
-                  <span className="min-w-0 flex-1 truncate">
-                    {translate('samwoo.profileMessages.replyingTo', 'Replying to {{name}}', {
-                      name: replyTo.authorLogin
-                    })}{' '}
-                    · {replyTo.body}
-                  </span>
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-label={translate('samwoo.profileMessages.cancelReply', 'Cancel reply')}
-                    onClick={() => setReplyTo(null)}
-                  >
-                    <X />
-                  </Button>
-                </div>
-              ) : null}
-              <div className="flex items-end gap-2">
-                <Textarea
-                  className="min-h-16 resize-none"
-                  maxLength={4000}
-                  value={draft}
-                  placeholder={translate('samwoo.profileMessages.placeholder', 'Write a message…')}
-                  aria-label={translate('samwoo.profileMessages.placeholder', 'Write a message')}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault()
-                      void sendMessage()
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  disabled={!draft.trim() || sending}
-                  onClick={() => void sendMessage()}
-                >
-                  {sending ? <Loader2 className="animate-spin" /> : <Send />}
-                  {translate('samwoo.profileMessages.send', 'Send')}
-                </Button>
-              </div>
-            </div>
+            <ProfileMessageComposer
+              draft={draft}
+              replyTo={replyTo}
+              sending={sending}
+              onDraftChange={setDraft}
+              onCancelReply={() => setReplyTo(null)}
+              onSend={() => void sendMessage()}
+            />
           </section>
         </div>
       </DialogContent>

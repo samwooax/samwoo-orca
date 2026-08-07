@@ -128,6 +128,7 @@ jobs:
             src/renderer/src/components/SamwooLoginGate.test.tsx `
             src/renderer/src/components/sidebar/create-shared-workspace-with-upload.test.ts `
             src/renderer/src/components/sidebar/ProfileMessageRow.test.ts `
+            src/renderer/src/components/sidebar/profile-message-interaction-admission.test.ts `
             src/renderer/src/components/sidebar/SharedWorkspaceComments.refresh-order.test.tsx `
             src/renderer/src/components/sidebar/shared-workspace-board-status.test.ts `
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawer.task-status-sync.test.tsx `

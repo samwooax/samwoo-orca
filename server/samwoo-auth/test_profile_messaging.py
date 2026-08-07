@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -106,6 +107,76 @@ class ProfileMessagingTest(unittest.TestCase):
             "/profile-messages/channels/list", None, {}
         )
         self.assertEqual(401, status)
+
+    def test_same_timestamp_pagination_is_complete_and_bounded(self):
+        with workspace_sharing._database() as conn:
+            profile_messaging._schema(conn)
+            conn.executemany(
+                """INSERT INTO profile_messages
+                (id,owner_profile,channel_key,channel_kind,author_login,body,created_at)
+                VALUES (?,?,?,?,?,?,?)""",
+                [
+                    (f"message-{index:03}", "ai_center", "team", "team", "owner", "x", 10)
+                    for index in range(profile_messaging.MESSAGE_PAGE_SIZE + 1)
+                ],
+            )
+        first = profile_messaging.list_messages(PEER_TOKEN, {"channelKind": "team"})
+        self.assertEqual(profile_messaging.MESSAGE_PAGE_SIZE, len(first["messages"]))
+        self.assertTrue(first["hasMore"])
+        second = profile_messaging.list_messages(
+            PEER_TOKEN,
+            {
+                "channelKind": "team",
+                "beforeCreatedAt": first["messages"][0]["createdAt"],
+                "beforeId": first["messages"][0]["id"],
+            },
+        )
+        ids = [item["id"] for item in second["messages"] + first["messages"]]
+        self.assertEqual([f"message-{index:03}" for index in range(101)], ids)
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_read_cursor_cannot_move_backward(self):
+        with workspace_sharing._database() as conn:
+            profile_messaging._schema(conn)
+            conn.executemany(
+                """INSERT INTO profile_messages
+                (id,owner_profile,channel_key,channel_kind,author_login,body,created_at)
+                VALUES (?,?,?,?,?,?,?)""",
+                [
+                    ("first", "ai_center", "team", "team", "owner", "first", 1),
+                    ("second", "ai_center", "team", "team", "owner", "second", 2),
+                ],
+            )
+        profile_messaging.mark_read(
+            PEER_TOKEN, {"channelKind": "team", "messageId": "second"}
+        )
+        profile_messaging.mark_read(
+            PEER_TOKEN, {"channelKind": "team", "messageId": "first"}
+        )
+        self.assertEqual(0, profile_messaging.list_channels(PEER_TOKEN)[0]["unreadCount"])
+
+    def test_revoked_workspace_channel_is_removed_from_catalog(self):
+        share = self.create_share()
+        keys = [channel["key"] for channel in profile_messaging.list_channels(PEER_TOKEN)]
+        self.assertIn(f"workspace:{share['id']}", keys)
+        workspace_sharing.revoke_share(OWNER_TOKEN, {"id": share["id"]})
+        keys = [channel["key"] for channel in profile_messaging.list_channels(PEER_TOKEN)]
+        self.assertNotIn(f"workspace:{share['id']}", keys)
+
+    def test_maximal_unicode_page_fits_client_response_budget(self):
+        with workspace_sharing._database() as conn:
+            profile_messaging._schema(conn)
+            conn.executemany(
+                """INSERT INTO profile_messages
+                (id,owner_profile,channel_key,channel_kind,author_login,body,created_at)
+                VALUES (?,?,?,?,?,?,?)""",
+                [
+                    (f"unicode-{index:03}", "ai_center", "team", "team", "owner", "😀" * 4000, index)
+                    for index in range(profile_messaging.MESSAGE_PAGE_SIZE)
+                ],
+            )
+        page = profile_messaging.list_messages(PEER_TOKEN, {"channelKind": "team"})
+        self.assertLess(len(json.dumps(page).encode("utf-8")), 8 * 1024 * 1024)
 
 
 if __name__ == "__main__":

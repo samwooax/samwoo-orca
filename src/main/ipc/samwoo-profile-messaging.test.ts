@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { postSamwooWorkspaceShare } from './samwoo-workspace-share-client'
-import { registerSamwooProfileMessagingHandlers } from './samwoo-profile-messaging'
+import {
+  PROFILE_MESSAGE_RESPONSE_BYTES,
+  registerSamwooProfileMessagingHandlers
+} from './samwoo-profile-messaging'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 
@@ -49,5 +52,18 @@ describe('SAMWOO profile messaging IPC', () => {
       error: 'login required'
     })
     expect(postSamwooWorkspaceShare).not.toHaveBeenCalled()
+  })
+
+  it('allows a bounded page of maximal Unicode messages', async () => {
+    const handler = handlers.get('samwooProfileMessages:listMessages')
+    await handler?.({}, { token: TOKEN, channelKind: 'team' })
+
+    expect(postSamwooWorkspaceShare).toHaveBeenCalledWith(
+      '/profile-messages/list',
+      TOKEN,
+      expect.objectContaining({ channelKind: 'team' }),
+      PROFILE_MESSAGE_RESPONSE_BYTES
+    )
+    expect(PROFILE_MESSAGE_RESPONSE_BYTES).toBe(8 * 1024 * 1024)
   })
 })
