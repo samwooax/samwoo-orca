@@ -1,7 +1,7 @@
 SAMWOO-ORCA one-click package versions
 ========================================
 
-SAMWOO-ORCA: 1.4.181
+SAMWOO-ORCA: 1.4.182
 
 SAMWOO internal code signing:
 - Root certificate SHA256: 1dff110f0759f0c43b630f11ed7ca0430e1683fc7848af1e4b9581ea7b869c0f

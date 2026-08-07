@@ -97,6 +97,89 @@ class WorkspaceSharingTest(unittest.TestCase):
         workspace_sharing.revoke_share("token-owner-0123456789", {"id": share["id"]})
         self.assertEqual([], workspace_sharing.list_shares("token-peer-01234567890"))
 
+    def test_board_status_is_shared_with_audit_without_file_change_notification(self):
+        share = self.create()
+        self.assertEqual("todo", share["boardStatus"])
+        file_revision = share["updatedAt"]
+
+        moved = workspace_sharing.update_board_status(
+            "token-owner-0123456789",
+            {"shareId": share["id"], "status": "in-progress"},
+        )
+
+        self.assertEqual("in-progress", moved["boardStatus"])
+        self.assertEqual("owner", moved["boardStatusUpdatedBy"])
+        self.assertGreaterEqual(moved["boardStatusUpdatedAt"], share["boardStatusUpdatedAt"])
+        self.assertEqual(file_revision, moved["updatedAt"])
+        peer_view = workspace_sharing.list_shares("token-peer-01234567890")[0]
+        self.assertEqual("in-progress", peer_view["boardStatus"])
+        self.assertEqual("owner", peer_view["boardStatusUpdatedBy"])
+
+    def test_board_status_requires_owner_or_contribute_permission(self):
+        share = self.create()
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.update_board_status(
+                "token-peer-01234567890",
+                {"shareId": share["id"], "status": "completed"},
+            )
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.update_board_status(
+                "token-other-0123456789",
+                {"shareId": share["id"], "status": "completed"},
+            )
+
+        workspace_sharing.update_share(
+            "token-owner-0123456789",
+            {"id": share["id"], "displayName": "프로젝트 보드", "permission": "contribute"},
+        )
+        moved = workspace_sharing.update_board_status(
+            "token-peer-01234567890",
+            {"shareId": share["id"], "status": "in-review"},
+        )
+        self.assertEqual("in-review", moved["boardStatus"])
+        self.assertEqual("peer", moved["boardStatusUpdatedBy"])
+
+    def test_board_status_route_and_validation(self):
+        share = self.create()
+        status, result = workspace_share_endpoints.handle_workspace_share(
+            "/workspace-shares/status/update",
+            "Bearer token-owner-0123456789",
+            {"shareId": share["id"], "status": "completed"},
+        )
+        self.assertEqual(200, status)
+        self.assertEqual("completed", result["share"]["boardStatus"])
+
+        status, result = workspace_share_endpoints.handle_workspace_share(
+            "/workspace-shares/status/update",
+            "Bearer token-owner-0123456789",
+            {"shareId": share["id"], "status": "../../done"},
+        )
+        self.assertEqual(400, status)
+        self.assertFalse(result["ok"])
+
+    def test_existing_share_catalog_migrates_board_status_columns(self):
+        with workspace_sharing._database() as conn:
+            conn.execute("DROP TABLE workspace_shares")
+            conn.execute(
+                """CREATE TABLE workspace_shares (
+                id TEXT PRIMARY KEY, owner_login TEXT NOT NULL, owner_profile TEXT NOT NULL,
+                display_name TEXT NOT NULL, repository_url TEXT NOT NULL,
+                default_branch TEXT, description TEXT, permission TEXT NOT NULL,
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, revoked_at INTEGER,
+                source_kind TEXT NOT NULL DEFAULT 'nextcloud', storage_path TEXT
+                )"""
+            )
+
+        with workspace_sharing._database() as conn:
+            columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(workspace_shares)")
+            }
+        self.assertTrue(
+            {"board_status", "board_status_updated_by", "board_status_updated_at"}.issubset(
+                columns
+            )
+        )
+
     def test_rejects_git_and_legacy_clients(self):
         for source_kind in (None, "git"):
             with self.subTest(source_kind=source_kind), self.assertRaises(

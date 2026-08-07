@@ -1,4 +1,5 @@
 export type SamwooWorkspacePermission = 'view' | 'download' | 'contribute'
+export type SamwooWorkspaceBoardStatus = string
 
 export type SamwooWorkspaceShare = {
   id: string
@@ -9,6 +10,9 @@ export type SamwooWorkspaceShare = {
   permission: SamwooWorkspacePermission
   createdAt: number
   updatedAt: number
+  boardStatus?: SamwooWorkspaceBoardStatus
+  boardStatusUpdatedBy?: string | null
+  boardStatusUpdatedAt?: number
   isOwner: boolean
   commentCount: number
 }
@@ -131,6 +135,12 @@ export type UpdateSamwooWorkspaceShareArgs = {
   displayName: string
   description?: string
   permission: SamwooWorkspacePermission
+}
+
+export type UpdateSamwooWorkspaceBoardStatusArgs = {
+  token: string
+  shareId: string
+  status: SamwooWorkspaceBoardStatus
 }
 
 export type ListSamwooWorkspaceCommentsArgs = {

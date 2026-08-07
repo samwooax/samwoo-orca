@@ -4,6 +4,13 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import {
@@ -18,6 +25,7 @@ import SharedWorkspaceComments from './SharedWorkspaceComments'
 import SharedWorkspaceConflictDialog from './SharedWorkspaceConflictDialog'
 import SharedWorkspaceSyncPreviewDialog from './SharedWorkspaceSyncPreviewDialog'
 import { useSharedWorkspaceSync } from './use-shared-workspace-sync'
+import { useAppStore } from '@/store'
 
 type Props = {
   share: SamwooWorkspaceShare
@@ -45,9 +53,54 @@ export default function SharedWorkspaceShareCard({
 }: Props): React.JSX.Element {
   const [name, setName] = useState(share.displayName)
   const [alias, setAlias] = useState(() => readSharedWorkspaceAlias(login, share.id))
+  const [updatingStatus, setUpdatingStatus] = useState(false)
   const token = useSamwooAuthStore((state) => state.auth?.token)
+  const workspaceStatuses = useAppStore((state) => state.workspaceStatuses)
   const localName = alias.trim() || share.displayName
   const sync = useSharedWorkspaceSync({ share, login, localName, onRefresh })
+  const hasCentralBoardStatus = typeof share.boardStatus === 'string'
+  const canUpdateStatus =
+    hasCentralBoardStatus && (share.isOwner || share.permission === 'contribute')
+  const boardStatus = share.boardStatus ?? 'todo'
+  const hasLocalBoardStatus = workspaceStatuses.some((status) => status.id === boardStatus)
+
+  const updateBoardStatus = async (status: string): Promise<void> => {
+    if (!token || !canUpdateStatus || status === boardStatus) {
+      return
+    }
+    setUpdatingStatus(true)
+    let result
+    try {
+      result = await window.api.preflight.samwooWorkspaceShares.updateBoardStatus({
+        token,
+        shareId: share.id,
+        status
+      })
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : translate(
+              'samwoo.workspaceSharing.statusUpdateFailed',
+              'Could not update the shared workspace status.'
+            )
+      )
+      return
+    } finally {
+      setUpdatingStatus(false)
+    }
+    if (!result.ok) {
+      toast.error(
+        result.error ??
+          translate(
+            'samwoo.workspaceSharing.statusUpdateFailed',
+            'Could not update the shared workspace status.'
+          )
+      )
+      return
+    }
+    await onRefresh()
+  }
 
   const saveName = async (): Promise<void> => {
     if (!token || !name.trim()) {
@@ -142,6 +195,45 @@ export default function SharedWorkspaceShareCard({
             ) : null}
             {getSamwooWorkspacePermissionLabel(share.permission)}
           </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium">
+              {translate('samwoo.workspaceSharing.boardStatus', 'Board status')}
+            </p>
+            {share.boardStatusUpdatedBy ? (
+              <p className="truncate text-[11px] text-muted-foreground">
+                {translate(
+                  'samwoo.workspaceSharing.boardStatusAudit',
+                  'Updated by {{name}} · {{time}}',
+                  {
+                    name: share.boardStatusUpdatedBy,
+                    time: new Date(share.boardStatusUpdatedAt ?? 0).toLocaleString()
+                  }
+                )}
+              </p>
+            ) : null}
+          </div>
+          <Select
+            value={boardStatus}
+            disabled={busy || updatingStatus || !canUpdateStatus}
+            onValueChange={(status) => void updateBoardStatus(status)}
+          >
+            <SelectTrigger className="w-40">
+              {updatingStatus ? <Loader2 className="animate-spin" /> : null}
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {!hasLocalBoardStatus ? (
+                <SelectItem value={boardStatus}>{boardStatus}</SelectItem>
+              ) : null}
+              {workspaceStatuses.map((status) => (
+                <SelectItem key={status.id} value={status.id}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {token ? (
           <SharedWorkspaceComments

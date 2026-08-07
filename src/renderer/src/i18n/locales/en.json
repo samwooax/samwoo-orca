@@ -14940,7 +14940,12 @@
       "loadOlderComments": "Load earlier comments",
       "toggleCommentStatus": "Toggle progress for {{comment}}",
       "completedBy": "Completed by {{name}}",
-      "webUnavailable": "Workspace sharing is unavailable in the web client."
+      "webUnavailable": "Workspace sharing is unavailable in the web client.",
+      "statusUpdateFailed": "Could not update the shared workspace status.",
+      "boardStatus": "Board status",
+      "boardStatusAudit": "Updated by {{name}} · {{time}}",
+      "statusPermissionDenied": "Only owners and contributors can move a shared workspace.",
+      "missingCreatedShare": "Share server returned no workspace."
     }
   }
 }

@@ -18,6 +18,7 @@ DB_PATH = os.environ.get("SAMWOO_WORKSPACE_DB", "/opt/samwoo-auth/workspace-shar
 SESSION_TTL = int(os.environ.get("SAMWOO_WORKSPACE_SESSION_TTL", str(8 * 3600)))
 _PERMISSIONS = {"view", "download", "contribute"}
 _SHARE_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.I)
+_BOARD_STATUS = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 COMMENT_PAGE_SIZE = 50
 _sessions: dict[str, dict] = {}
 _lock = threading.RLock()
@@ -122,7 +123,9 @@ def _connect() -> sqlite3.Connection:
         display_name TEXT NOT NULL, repository_url TEXT NOT NULL,
         default_branch TEXT, description TEXT, permission TEXT NOT NULL,
         created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, revoked_at INTEGER,
-        source_kind TEXT NOT NULL DEFAULT 'nextcloud', storage_path TEXT
+        source_kind TEXT NOT NULL DEFAULT 'nextcloud', storage_path TEXT,
+        board_status TEXT NOT NULL DEFAULT 'todo', board_status_updated_by TEXT,
+        board_status_updated_at INTEGER NOT NULL DEFAULT 0
         )"""
     )
     conn.execute(
@@ -136,6 +139,16 @@ def _connect() -> sqlite3.Connection:
         conn.execute("ALTER TABLE workspace_shares ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'git'")
     if "storage_path" not in columns:
         conn.execute("ALTER TABLE workspace_shares ADD COLUMN storage_path TEXT")
+    if "board_status" not in columns:
+        conn.execute(
+            "ALTER TABLE workspace_shares ADD COLUMN board_status TEXT NOT NULL DEFAULT 'todo'"
+        )
+    if "board_status_updated_by" not in columns:
+        conn.execute("ALTER TABLE workspace_shares ADD COLUMN board_status_updated_by TEXT")
+    if "board_status_updated_at" not in columns:
+        conn.execute(
+            "ALTER TABLE workspace_shares ADD COLUMN board_status_updated_at INTEGER NOT NULL DEFAULT 0"
+        )
     # Why: remove the last Git-era permission name without discarding existing shares.
     conn.execute("UPDATE workspace_shares SET permission='download' WHERE permission='clone'")
     conn.execute(
@@ -203,12 +216,22 @@ def _share_id(value: object) -> str:
     return share_id
 
 
+def _board_status(value: object) -> str:
+    status = str(value or "").strip().lower()
+    if not _BOARD_STATUS.fullmatch(status):
+        raise WorkspaceShareError("invalid board status")
+    return status
+
+
 def _serialize(row: sqlite3.Row, login: str) -> dict:
     return {
         "id": row["id"], "ownerLogin": row["owner_login"],
         "ownerProfile": row["owner_profile"], "displayName": row["display_name"],
         "description": row["description"], "permission": row["permission"],
         "createdAt": row["created_at"], "updatedAt": row["updated_at"],
+        "boardStatus": row["board_status"],
+        "boardStatusUpdatedBy": row["board_status_updated_by"],
+        "boardStatusUpdatedAt": row["board_status_updated_at"],
         "isOwner": row["owner_login"] == login,
         "commentCount": row["comment_count"] if "comment_count" in row.keys() else 0,
     }
@@ -266,11 +289,11 @@ def create_share(token: str, body: dict) -> dict:
         "",
         None,
         description,
-        permission, now, now, "nextcloud", storage_path,
+        permission, now, now, "nextcloud", storage_path, "todo", login, now,
     )
     with _lock, _database() as conn:
         conn.execute(
-            "INSERT INTO workspace_shares (id,owner_login,owner_profile,display_name,repository_url,default_branch,description,permission,created_at,updated_at,source_kind,storage_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO workspace_shares (id,owner_login,owner_profile,display_name,repository_url,default_branch,description,permission,created_at,updated_at,source_kind,storage_path,board_status,board_status_updated_by,board_status_updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             values,
         )
         row = conn.execute("SELECT * FROM workspace_shares WHERE id=?", (values[0],)).fetchone()
@@ -295,6 +318,25 @@ def update_share(token: str, body: dict) -> dict:
             raise WorkspaceShareError("share not found or not owner")
         row = conn.execute("SELECT * FROM workspace_shares WHERE id=?", (share_id,)).fetchone()
     return _serialize(row, login)
+
+
+def update_board_status(token: str, body: dict) -> dict:
+    login, profile = _identity(token)
+    share_id = _share_id(body.get("shareId"))
+    status = _board_status(body.get("status"))
+    now = int(time.time() * 1000)
+    with _lock, _database() as conn:
+        row = _nextcloud_share(conn, share_id, profile)
+        if row["owner_login"] != login and row["permission"] != "contribute":
+            raise WorkspaceShareError("workspace status contribution is not allowed")
+        conn.execute(
+            "UPDATE workspace_shares SET board_status=?,board_status_updated_by=?,board_status_updated_at=? WHERE id=? AND owner_profile=?",
+            (status, login, now, share_id, profile),
+        )
+        updated = conn.execute(
+            "SELECT * FROM workspace_shares WHERE id=?", (share_id,)
+        ).fetchone()
+    return _serialize(updated, login)
 
 
 def revoke_share(token: str, body: dict) -> None:

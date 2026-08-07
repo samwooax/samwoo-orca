@@ -5,6 +5,7 @@ import type {
   SamwooWorkspaceShareResult,
   SamwooWorkspaceSyncResult
 } from '../../../../shared/samwoo-workspace-sharing'
+import { translate } from '@/i18n/i18n'
 
 type WorkspaceShareApi = {
   create: (args: CreateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
@@ -57,7 +58,14 @@ export async function createSharedWorkspaceWithUpload({
     }
   }
   if (!created.share) {
-    return { ok: false, phase: 'create', error: 'Share server returned no workspace.' }
+    return {
+      ok: false,
+      phase: 'create',
+      error: translate(
+        'samwoo.workspaceSharing.missingCreatedShare',
+        'Share server returned no workspace.'
+      )
+    }
   }
 
   onUploadStart?.(created.share)

@@ -56,6 +56,7 @@ import { STATUS_BAR_RESERVE_HEIGHT, WORKSPACE_TOP_CHROME_HEIGHT } from './worksp
 import { useContextualTour } from '@/components/contextual-tours/use-contextual-tour'
 import { translate } from '@/i18n/i18n'
 import { registerWorkspaceKanbanSidebarDropGroups } from './workspace-kanban-sidebar-drop'
+import { useSharedWorkspaceBoardStatusSync } from './use-shared-workspace-board-status-sync'
 
 type WorkspaceKanbanDrawerProps = {
   leftSidebarStyle?: React.CSSProperties
@@ -192,6 +193,12 @@ export default function WorkspaceKanbanDrawer({
     () => new Map(allWorktrees.map((worktree) => [worktree.id, worktree])),
     [allWorktrees]
   )
+  const { filterMovableWorktreeIds, syncMovedWorktrees } = useSharedWorkspaceBoardStatusSync({
+    open,
+    worktrees: allWorktrees,
+    workspaceStatuses,
+    updateWorktreeMeta
+  })
   const boardWorktrees = useMemo(
     () => workspaceStatuses.flatMap((status) => worktreesByStatus.get(status.id) ?? []),
     [worktreesByStatus, workspaceStatuses]
@@ -321,24 +328,36 @@ export default function WorkspaceKanbanDrawer({
   )
   const moveWorktreeToStatus = useCallback(
     (worktreeId: string, status: WorkspaceStatus) => {
+      if (filterMovableWorktreeIds([worktreeId]).length === 0) {
+        return
+      }
       const current = worktreeById.get(worktreeId)
       if (!current || getWorkspaceStatus(current, workspaceStatuses) === status) {
         return
       }
       useAppStore.getState().recordFeatureInteraction('workspace-board-actions')
       void updateWorktreeMeta(worktreeId, { workspaceStatus: status })
+      syncMovedWorktrees([worktreeId], status)
       maybeSyncWorkspaceBoardTaskStatuses([worktreeId], status)
     },
-    [maybeSyncWorkspaceBoardTaskStatuses, updateWorktreeMeta, workspaceStatuses, worktreeById]
+    [
+      maybeSyncWorkspaceBoardTaskStatuses,
+      filterMovableWorktreeIds,
+      syncMovedWorktrees,
+      updateWorktreeMeta,
+      workspaceStatuses,
+      worktreeById
+    ]
   )
   // Why: the board's context-menu "Move to Status" must funnel through the same
   // local-first + Linear-sync path as drag-and-drop. Without this callback the
   // menu only writes the local status and silently drops the Linear sync.
   const moveWorktreesToStatus = useCallback(
     (worktreeIds: readonly string[], status: WorkspaceStatus) => {
+      const movableWorktreeIds = filterMovableWorktreeIds(worktreeIds)
       const updates = new Map<string, Partial<WorktreeMeta>>()
       const changedIds: string[] = []
-      for (const worktreeId of worktreeIds) {
+      for (const worktreeId of movableWorktreeIds) {
         const current = worktreeById.get(worktreeId)
         if (!current || getWorkspaceStatus(current, workspaceStatuses) === status) {
           continue
@@ -351,9 +370,17 @@ export default function WorkspaceKanbanDrawer({
       }
       useAppStore.getState().recordFeatureInteraction('workspace-board-actions')
       void updateWorktreesMeta(updates)
+      syncMovedWorktrees(changedIds, status)
       maybeSyncWorkspaceBoardTaskStatuses(changedIds, status)
     },
-    [maybeSyncWorkspaceBoardTaskStatuses, updateWorktreesMeta, workspaceStatuses, worktreeById]
+    [
+      maybeSyncWorkspaceBoardTaskStatuses,
+      filterMovableWorktreeIds,
+      syncMovedWorktrees,
+      updateWorktreesMeta,
+      workspaceStatuses,
+      worktreeById
+    ]
   )
   const getSourceStatusKeys = useCallback(
     (worktreeIds: readonly string[]): WorkspaceStatus[] =>
@@ -379,9 +406,13 @@ export default function WorkspaceKanbanDrawer({
       dropIndex: number
       writeManualOrder?: boolean
     }) => {
+      const movableWorktreeIds = filterMovableWorktreeIds(args.worktreeIds)
+      if (movableWorktreeIds.length === 0) {
+        return
+      }
       const updates = new Map<string, Partial<WorktreeMeta>>()
       const writeManualOrder =
-        args.writeManualOrder ?? shouldWriteDropManualOrder(args.worktreeIds, args.status)
+        args.writeManualOrder ?? shouldWriteDropManualOrder(movableWorktreeIds, args.status)
       const rankByWorktreeId = writeManualOrder
         ? (() => {
             const ranks = new Map<string, number>()
@@ -400,14 +431,14 @@ export default function WorkspaceKanbanDrawer({
         ? buildManualOrderUpdatesForGroupDrop({
             groups: boardDragGroups,
             targetGroupKey: args.status,
-            draggedIds: args.worktreeIds,
+            draggedIds: movableWorktreeIds,
             dropIndex: args.dropIndex,
             now: Date.now(),
             rankByWorktreeId
           })
         : { changed: false, updates: new Map<string, { manualOrder: number }>() }
 
-      for (const worktreeId of args.worktreeIds) {
+      for (const worktreeId of movableWorktreeIds) {
         const current = worktreeById.get(worktreeId)
         if (!current) {
           continue
@@ -444,12 +475,15 @@ export default function WorkspaceKanbanDrawer({
       }
       useAppStore.getState().recordFeatureInteraction('workspace-board-actions')
       void updateWorktreesMeta(updates)
-      maybeSyncWorkspaceBoardTaskStatuses(args.worktreeIds, args.status)
+      syncMovedWorktrees(movableWorktreeIds, args.status)
+      maybeSyncWorkspaceBoardTaskStatuses(movableWorktreeIds, args.status)
     },
     [
       boardDragGroups,
       maybeSyncWorkspaceBoardTaskStatuses,
       setSortBy,
+      filterMovableWorktreeIds,
+      syncMovedWorktrees,
       shouldWriteDropManualOrder,
       updateWorktreesMeta,
       workspaceStatuses,

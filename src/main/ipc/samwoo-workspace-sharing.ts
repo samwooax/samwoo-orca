@@ -4,6 +4,7 @@ import type {
   CreateSamwooWorkspaceShareArgs,
   ListSamwooWorkspaceCommentsArgs,
   SetSamwooWorkspaceCommentCompletedArgs,
+  UpdateSamwooWorkspaceBoardStatusArgs,
   UpdateSamwooWorkspaceShareArgs
 } from '../../shared/samwoo-workspace-sharing'
 import { registerSamwooWorkspaceFileSyncHandlers } from './samwoo-workspace-file-sync'
@@ -48,6 +49,16 @@ export function registerSamwooWorkspaceSharingHandlers(): void {
     hasToken(args?.token) && typeof args.id === 'string'
       ? postSamwooWorkspaceShare('/workspace-shares/revoke', args.token, { id: args.id })
       : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:updateBoardStatus',
+    (_event, args: UpdateSamwooWorkspaceBoardStatusArgs) =>
+      hasToken(args?.token) && typeof args.shareId === 'string' && typeof args.status === 'string'
+        ? postSamwooWorkspaceShare('/workspace-shares/status/update', args.token, {
+            shareId: args.shareId,
+            status: args.status
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
   )
   ipcMain.handle(
     'samwooWorkspaceShares:listComments',

@@ -42,6 +42,7 @@ import type {
   SamwooWorkspaceSyncPreview,
   SamwooWorkspaceSyncResult,
   SetSamwooWorkspaceCommentCompletedArgs,
+  UpdateSamwooWorkspaceBoardStatusArgs,
   UpdateSamwooWorkspaceShareArgs
 } from '../shared/samwoo-workspace-sharing'
 import type { ReleaseChannel } from '../shared/release-channel'
@@ -793,6 +794,9 @@ export type PreflightApi = {
     list: (token: string) => Promise<SamwooWorkspaceShareResult>
     create: (args: CreateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
     update: (args: UpdateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
+    updateBoardStatus: (
+      args: UpdateSamwooWorkspaceBoardStatusArgs
+    ) => Promise<SamwooWorkspaceShareResult>
     revoke: (args: { token: string; id: string }) => Promise<SamwooWorkspaceShareResult>
     listComments: (args: ListSamwooWorkspaceCommentsArgs) => Promise<SamwooWorkspaceShareResult>
     createComment: (args: CreateSamwooWorkspaceCommentArgs) => Promise<SamwooWorkspaceShareResult>

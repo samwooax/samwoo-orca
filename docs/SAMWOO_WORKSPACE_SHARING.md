@@ -29,6 +29,11 @@ does not open an inbound connection to another employee laptop.
   company-cloud upload; they must first be copied locally.
 - Profile members can comment and mark comments complete. The latest 50 comments
   load first, with bounded pagination for older comments.
+- A shared workspace's board lane is central profile state. Owners and members
+  with **Can contribute** permission can move its local card between board
+  columns; other profile members receive the lane change while the board is
+  open. Lane updates record the actor and time without pretending that project
+  files changed.
 
 Local aliases, local folder paths, passwords, tokens, and SSH keys are never
 stored in the central workspace catalog. Sync manifests containing only file
