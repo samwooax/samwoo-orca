@@ -14751,6 +14751,24 @@
       "boardStatusAudit": "{{name}}님이 변경 · {{time}}",
       "statusPermissionDenied": "소유자와 기여 권한이 있는 사용자만 공유 워크스페이스를 이동할 수 있습니다.",
       "missingCreatedShare": "공유 서버에서 생성된 워크스페이스 정보를 받지 못했습니다."
+    },
+    "profileMessages": {
+      "title": "메시지",
+      "description": "연결된 Hermes 프로필의 구성원에게만 대화가 표시됩니다.",
+      "teamChat": "팀 채팅",
+      "unreadButton": "메시지, 읽지 않음 {{count}}개",
+      "channelsLoadFailed": "대화 목록을 불러오지 못했습니다.",
+      "messagesLoadFailed": "메시지를 불러오지 못했습니다.",
+      "sendFailed": "메시지를 보내지 못했습니다.",
+      "sessionExpired": "세션이 만료되었습니다. 다시 로그인하세요.",
+      "loadOlder": "이전 메시지 불러오기",
+      "empty": "아직 메시지가 없습니다.",
+      "replyingTo": "{{name}}님에게 답장",
+      "cancelReply": "답장 취소",
+      "reply": "답장",
+      "placeholder": "메시지 작성…",
+      "send": "보내기",
+      "webUnavailable": "웹 클라이언트에서는 프로필 메시지를 사용할 수 없습니다."
     }
   }
 }

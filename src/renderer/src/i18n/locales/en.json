@@ -14946,6 +14946,24 @@
       "boardStatusAudit": "Updated by {{name}} · {{time}}",
       "statusPermissionDenied": "Only owners and contributors can move a shared workspace.",
       "missingCreatedShare": "Share server returned no workspace."
+    },
+    "profileMessages": {
+      "title": "Messages",
+      "description": "Conversations are visible only to members of the connected Hermes profile.",
+      "teamChat": "Team chat",
+      "unreadButton": "Messages, {{count}} unread",
+      "channelsLoadFailed": "Could not load conversations.",
+      "messagesLoadFailed": "Could not load messages.",
+      "sendFailed": "Could not send the message.",
+      "sessionExpired": "Your session has expired. Sign in again.",
+      "loadOlder": "Load earlier messages",
+      "empty": "No messages yet.",
+      "replyingTo": "Replying to {{name}}",
+      "cancelReply": "Cancel reply",
+      "reply": "Reply",
+      "placeholder": "Write a message…",
+      "send": "Send",
+      "webUnavailable": "Profile messaging is unavailable in the web client."
     }
   }
 }

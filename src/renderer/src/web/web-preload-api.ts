@@ -2933,6 +2933,36 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
         )
       })
     },
+    samwooProfileMessages: {
+      listChannels: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.profileMessages.webUnavailable',
+          'Profile messaging is unavailable in the web client.'
+        )
+      }),
+      listMessages: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.profileMessages.webUnavailable',
+          'Profile messaging is unavailable in the web client.'
+        )
+      }),
+      sendMessage: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.profileMessages.webUnavailable',
+          'Profile messaging is unavailable in the web client.'
+        )
+      }),
+      markRead: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.profileMessages.webUnavailable',
+          'Profile messaging is unavailable in the web client.'
+        )
+      })
+    },
     refreshAgents: () =>
       requireActiveEnvironmentOrNull()
         ? callRuntimeResult('preflight.refreshAgents')

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Users, X } from 'lucide-react'
+import { MessageCircle, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import type { WorkspaceStatusDefinition } from '../../../../shared/types'
@@ -29,6 +29,8 @@ type WorkspaceKanbanDrawerHeaderProps = {
   onFilterMenuOpenChange: (open: boolean) => void
   onOpenSharedWorkspaces: () => void
   sharedWorkspaceChangeCount?: number
+  onOpenMessages?: () => void
+  unreadMessageCount?: number
   onClose: () => void
 }
 
@@ -53,11 +55,13 @@ export default function WorkspaceKanbanDrawerHeader({
   onFilterMenuOpenChange,
   onOpenSharedWorkspaces,
   sharedWorkspaceChangeCount = 0,
+  onOpenMessages,
+  unreadMessageCount = 0,
   onClose
 }: WorkspaceKanbanDrawerHeaderProps): React.JSX.Element {
   return (
     <>
-      <SheetHeader className="border-b border-worktree-sidebar-border px-4 py-3 pr-32">
+      <SheetHeader className="border-b border-worktree-sidebar-border px-4 py-3 pr-40">
         {/* Why: SheetTitle is the sheet's aria-labelledby target and renders an
             <h2>, so the field must be its sibling, not a descendant. */}
         <div className="flex items-center gap-2">
@@ -98,6 +102,28 @@ export default function WorkspaceKanbanDrawerHeader({
       </SheetHeader>
 
       <div className="absolute right-3 top-2.5 flex items-center gap-1">
+        {onOpenMessages ? (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="relative"
+            aria-label={
+              unreadMessageCount
+                ? translate('samwoo.profileMessages.unreadButton', 'Messages, {{count}} unread', {
+                    count: unreadMessageCount
+                  })
+                : translate('samwoo.profileMessages.title', 'Messages')
+            }
+            onClick={onOpenMessages}
+          >
+            <MessageCircle className="size-3.5" />
+            {unreadMessageCount ? (
+              <span className="absolute -right-0.5 -top-0.5 flex min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] leading-3.5 text-primary-foreground">
+                {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+              </span>
+            ) : null}
+          </Button>
+        ) : null}
         <Button
           variant="ghost"
           size="icon-xs"

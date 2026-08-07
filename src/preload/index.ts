@@ -2213,6 +2213,12 @@ const api = {
       pushFiles: (args) => ipcRenderer.invoke('samwooWorkspaceShares:pushFiles', args),
       resolveConflicts: (args) => ipcRenderer.invoke('samwooWorkspaceShares:resolveConflicts', args)
     },
+    samwooProfileMessages: {
+      listChannels: (token) => ipcRenderer.invoke('samwooProfileMessages:listChannels', token),
+      listMessages: (args) => ipcRenderer.invoke('samwooProfileMessages:listMessages', args),
+      sendMessage: (args) => ipcRenderer.invoke('samwooProfileMessages:sendMessage', args),
+      markRead: (args) => ipcRenderer.invoke('samwooProfileMessages:markRead', args)
+    },
     refreshAgents: (args?: PreflightRuntimeContext): Promise<RefreshAgentsResult> =>
       ipcRenderer.invoke('preflight:refreshAgents', args),
     detectRemoteAgents: (args: { connectionId: string }): Promise<string[]> =>

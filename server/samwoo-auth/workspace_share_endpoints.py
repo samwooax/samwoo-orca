@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import mail_ext
+import profile_messaging
 import workspace_sharing
 
 _ROUTES = {
@@ -12,6 +13,8 @@ _ROUTES = {
     "/workspace-shares/status/update",
     "/workspace-shares/comments/list", "/workspace-shares/comments/create",
     "/workspace-shares/comments/complete",
+    "/profile-messages/channels/list", "/profile-messages/list",
+    "/profile-messages/send", "/profile-messages/read",
     "/workspace-shares/files/list", "/workspace-shares/files/read",
     "/workspace-shares/files/write",
     "/workspace-shares/files/delete",
@@ -62,6 +65,15 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
         if path == "/workspace-shares/comments/complete":
             comment = workspace_sharing.set_comment_completed(token, body)
             return 200, {"ok": True, "comment": comment}
+        if path == "/profile-messages/channels/list":
+            return 200, {"ok": True, "channels": profile_messaging.list_channels(token)}
+        if path == "/profile-messages/list":
+            return 200, {"ok": True, **profile_messaging.list_messages(token, body)}
+        if path == "/profile-messages/send":
+            return 200, {"ok": True, "message": profile_messaging.send_message(token, body)}
+        if path == "/profile-messages/read":
+            profile_messaging.mark_read(token, body)
+            return 200, {"ok": True}
         return 404, {"ok": False, "error": "not found"}
     except workspace_sharing.WorkspaceShareConflictError as error:
         return 409, {"ok": False, "errorCode": "file_conflict", "error": str(error)}
@@ -69,5 +81,7 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
         message = str(error)
         status = 401 if "session" in message or "bearer" in message else 400
         return status, {"ok": False, "error": message}
+    except profile_messaging.ProfileMessagingError as error:
+        return 400, {"ok": False, "error": str(error)}
     except Exception:
         return 500, {"ok": False, "error": "internal error"}

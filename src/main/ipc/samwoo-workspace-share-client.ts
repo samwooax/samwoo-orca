@@ -4,12 +4,14 @@ import type { SamwooWorkspaceShareResult } from '../../shared/samwoo-workspace-s
 const AUTH_URL = 'http://100.116.18.119:8823'
 const DEFAULT_MAX_RESPONSE_BYTES = 512 * 1024
 
-export function postSamwooWorkspaceShare(
+export function postSamwooWorkspaceShare<
+  Result extends { ok: boolean; error?: string } = SamwooWorkspaceShareResult
+>(
   route: string,
   token: string,
   body: Record<string, unknown> = {},
   maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES
-): Promise<SamwooWorkspaceShareResult> {
+): Promise<Result> {
   return new Promise((resolve) => {
     const url = new URL(route, AUTH_URL)
     const payload = JSON.stringify(body)
@@ -37,22 +39,22 @@ export function postSamwooWorkspaceShare(
         })
         response.on('end', () => {
           if (responseBytes > maxResponseBytes) {
-            resolve({ ok: false, error: 'workspace share response is too large' })
+            resolve({ ok: false, error: 'workspace share response is too large' } as Result)
             return
           }
           try {
-            resolve(JSON.parse(responseBody) as SamwooWorkspaceShareResult)
+            resolve(JSON.parse(responseBody) as Result)
           } catch {
-            resolve({ ok: false, error: `bad response (${response.statusCode})` })
+            resolve({ ok: false, error: `bad response (${response.statusCode})` } as Result)
           }
         })
       }
     )
     req.on('timeout', () => {
       req.destroy()
-      resolve({ ok: false, error: 'workspace share server timed out' })
+      resolve({ ok: false, error: 'workspace share server timed out' } as Result)
     })
-    req.on('error', (error) => resolve({ ok: false, error: error.message }))
+    req.on('error', (error) => resolve({ ok: false, error: error.message } as Result))
     req.end(payload)
   })
 }

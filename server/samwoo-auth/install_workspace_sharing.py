@@ -15,6 +15,7 @@ AUTH_SERVER = ROOT / "auth-server.py"
 RAW_ROOT = "https://raw.githubusercontent.com/samwooax/samwoo-orca/main/server/samwoo-auth"
 MODULES = (
     "nextcloud_workspace_storage.py",
+    "profile_messaging.py",
     "workspace_sharing.py",
     "workspace_share_endpoints.py",
 )

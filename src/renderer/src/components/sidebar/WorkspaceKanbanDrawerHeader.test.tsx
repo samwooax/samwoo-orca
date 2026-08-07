@@ -115,6 +115,18 @@ describe('WorkspaceKanbanDrawerHeader', () => {
     expect(button).not.toBeNull()
   })
 
+  it('opens profile messages and announces unread messages', () => {
+    const onOpenMessages = vi.fn()
+    const button = findElement(
+      renderHeader(vi.fn(), { onOpenMessages, unreadMessageCount: 3 }),
+      (props) => props['aria-label'] === 'Messages, 3 unread'
+    )
+
+    button?.props.onClick?.()
+
+    expect(onOpenMessages).toHaveBeenCalledOnce()
+  })
+
   it('renders the search field as a sibling of the sheet title, not inside it', () => {
     const header = renderHeader(vi.fn(), {
       query: 'orca',
@@ -153,9 +165,9 @@ describe('WorkspaceKanbanDrawerHeader', () => {
     const header = renderHeader(vi.fn(), { selectedCount: 3, query: 'orca' })
 
     // The title (with its badge) never shrinks the field into the absolute cluster,
-    // which the header reserves space for with pr-32.
+    // which the header reserves space for with pr-40.
     expect(findByType(header, SheetTitle)?.props.className).toContain('shrink-0')
-    expect(findByType(header, SheetHeader)?.props.className).toContain('pr-32')
+    expect(findByType(header, SheetHeader)?.props.className).toContain('pr-40')
     expect(
       findElement(header, (props) => Boolean(props.className?.includes('rounded-full')))
     ).not.toBeNull()

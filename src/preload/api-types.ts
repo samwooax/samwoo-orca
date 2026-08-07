@@ -45,6 +45,12 @@ import type {
   UpdateSamwooWorkspaceBoardStatusArgs,
   UpdateSamwooWorkspaceShareArgs
 } from '../shared/samwoo-workspace-sharing'
+import type {
+  ListSamwooProfileMessagesArgs,
+  MarkSamwooProfileMessagesReadArgs,
+  SamwooProfileMessagingResult,
+  SendSamwooProfileMessageArgs
+} from '../shared/samwoo-profile-messaging'
 import type { ReleaseChannel } from '../shared/release-channel'
 import type {
   HostQualifiedDetectedWorktreeResult,
@@ -809,6 +815,12 @@ export type PreflightApi = {
     resolveConflicts: (
       args: ResolveSamwooWorkspaceConflictsArgs
     ) => Promise<SamwooWorkspaceSyncResult>
+  }
+  samwooProfileMessages: {
+    listChannels: (token: string) => Promise<SamwooProfileMessagingResult>
+    listMessages: (args: ListSamwooProfileMessagesArgs) => Promise<SamwooProfileMessagingResult>
+    sendMessage: (args: SendSamwooProfileMessageArgs) => Promise<SamwooProfileMessagingResult>
+    markRead: (args: MarkSamwooProfileMessagesReadArgs) => Promise<SamwooProfileMessagingResult>
   }
   refreshAgents: (args?: PreflightRuntimeContext) => Promise<RefreshAgentsResult>
   detectRemoteAgents: (args: { connectionId: string }) => Promise<string[]>

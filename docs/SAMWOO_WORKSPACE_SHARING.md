@@ -29,6 +29,12 @@ does not open an inbound connection to another employee laptop.
   company-cloud upload; they must first be copied locally.
 - Profile members can comment and mark comments complete. The latest 50 comments
   load first, with bounded pagination for older comments.
+- Comments remain workspace work records. **Workspace board → Messages** opens a
+  separate profile messenger with one team channel and one channel per active
+  shared workspace. Messages support replies, per-user unread cursors, bounded
+  history, and a three-second refresh while the messenger is open. Message rows
+  are stored separately from comments so chat activity cannot change task
+  completion or project-file revision state.
 - A shared workspace's board lane is central profile state. Owners and members
   with **Can contribute** permission can move its local card between board
   columns; other profile members receive the lane change while the board is
@@ -70,6 +76,7 @@ Nextcloud administrator account.
 `/opt/samwoo-auth/auth-server.py`:
 
 - `nextcloud_workspace_storage.py`
+- `profile_messaging.py`
 - `workspace_sharing.py`
 - `workspace_share_endpoints.py`
 
@@ -85,5 +92,6 @@ cd server/samwoo-auth
 python3 -m unittest \
   test_workspace_sharing.py \
   test_workspace_comments.py \
+  test_profile_messaging.py \
   test_nextcloud_workspace_storage.py
 ```

@@ -115,6 +115,7 @@ jobs:
             src/main/ipc/hermes-team-chat-models.test.ts `
             src/main/ipc/hermes-team-chat-page.test.ts `
             src/main/ipc/samwoo-workspace-file-sync.test.ts `
+            src/main/ipc/samwoo-profile-messaging.test.ts `
             src/main/updater-install-flags.test.ts `
             src/renderer/src/components/hermes-team-chat/HermesTeamChatModelControls.test.tsx `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-composer-options.test.ts `
@@ -126,6 +127,7 @@ jobs:
             src/renderer/src/components/native-chat/NativeChatSessionOptionPickers.test.tsx `
             src/renderer/src/components/SamwooLoginGate.test.tsx `
             src/renderer/src/components/sidebar/create-shared-workspace-with-upload.test.ts `
+            src/renderer/src/components/sidebar/ProfileMessageRow.test.ts `
             src/renderer/src/components/sidebar/SharedWorkspaceComments.refresh-order.test.tsx `
             src/renderer/src/components/sidebar/shared-workspace-board-status.test.ts `
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawer.task-status-sync.test.tsx `
