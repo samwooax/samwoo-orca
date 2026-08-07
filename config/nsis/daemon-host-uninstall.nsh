@@ -41,7 +41,7 @@
     ${if} ${isUpdated}
     ${andIfNot} ${Silent}
       HideWindow
-      !insertmacro StartApp
+      ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "--updated"
     ${endIf}
   !macroend
 !endif

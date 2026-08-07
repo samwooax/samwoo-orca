@@ -45,6 +45,7 @@ describe('SAMWOO electron-builder identity', () => {
     )
     expect(include).toContain('${if} ${isUpdated}')
     expect(include).toContain('${andIfNot} ${Silent}')
-    expect(include).toContain('!insertmacro StartApp')
+    expect(include).toContain('${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "--updated"')
+    expect(include).not.toContain('!insertmacro StartApp')
   })
 })
