@@ -65,6 +65,15 @@ export const useSamwooAuthStore = create<SamwooAuthState>((set) => ({
   }
 }))
 
+if (typeof window !== 'undefined') {
+  // Why: the main and messenger renderers share authentication through their common session.
+  window.addEventListener('storage', (event) => {
+    if (event.key === STORAGE_KEY) {
+      useSamwooAuthStore.setState({ auth: load() })
+    }
+  })
+}
+
 /** Non-hook accessor for use inside worktree activation logic. */
 export function getSamwooAuth(): SamwooAuth | null {
   return useSamwooAuthStore.getState().auth

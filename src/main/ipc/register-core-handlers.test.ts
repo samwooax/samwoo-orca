@@ -11,6 +11,7 @@ const {
   registerHermesChatServerHandlersMock,
   registerSamwooAuthHandlersMock,
   registerSamwooWorkspaceSharingHandlersMock,
+  registerSamwooConnectionHealthHandlersMock,
   registerClaudeUsageHandlersMock,
   registerCodexUsageHandlersMock,
   registerOpenCodeUsageHandlersMock,
@@ -61,6 +62,7 @@ const {
   registerCodexConfigSyncHandlersMock,
   registerOnboardingHandlersMock,
   registerDashboardPopoutHandlersMock,
+  registerMessengerPopoutHandlersMock,
   registerTerminalPreviewHandlersMock,
   registerSpeechHandlersMock,
   registerSkillsHandlersMock,
@@ -81,6 +83,7 @@ const {
   registerHermesChatServerHandlersMock: vi.fn(),
   registerSamwooAuthHandlersMock: vi.fn(),
   registerSamwooWorkspaceSharingHandlersMock: vi.fn(),
+  registerSamwooConnectionHealthHandlersMock: vi.fn(),
   registerClaudeUsageHandlersMock: vi.fn(),
   registerCodexUsageHandlersMock: vi.fn(),
   registerOpenCodeUsageHandlersMock: vi.fn(),
@@ -131,6 +134,7 @@ const {
   registerCodexConfigSyncHandlersMock: vi.fn(),
   registerOnboardingHandlersMock: vi.fn(),
   registerDashboardPopoutHandlersMock: vi.fn(),
+  registerMessengerPopoutHandlersMock: vi.fn(),
   registerTerminalPreviewHandlersMock: vi.fn(),
   registerSpeechHandlersMock: vi.fn(),
   registerSkillsHandlersMock: vi.fn(),
@@ -168,6 +172,10 @@ vi.mock('./dashboard-popout', () => ({
   registerDashboardPopoutHandlers: registerDashboardPopoutHandlersMock
 }))
 
+vi.mock('./messenger-popout', () => ({
+  registerMessengerPopoutHandlers: registerMessengerPopoutHandlersMock
+}))
+
 vi.mock('./terminal-preview', () => ({
   registerTerminalPreviewHandlers: registerTerminalPreviewHandlersMock
 }))
@@ -201,6 +209,9 @@ vi.mock('./samwoo-auth', () => ({
 }))
 vi.mock('./samwoo-workspace-sharing', () => ({
   registerSamwooWorkspaceSharingHandlers: registerSamwooWorkspaceSharingHandlersMock
+}))
+vi.mock('./samwoo-connection-health', () => ({
+  registerSamwooConnectionHealthHandlers: registerSamwooConnectionHealthHandlersMock
 }))
 
 vi.mock('./claude-usage', () => ({
@@ -418,6 +429,7 @@ describe('registerCoreHandlers', () => {
     callRuntimeEnvironmentMock.mockReset()
     registerCliHandlersMock.mockReset()
     registerPreflightHandlersMock.mockReset()
+    registerSamwooConnectionHealthHandlersMock.mockReset()
     registerClaudeUsageHandlersMock.mockReset()
     registerCodexUsageHandlersMock.mockReset()
     registerOpenCodeUsageHandlersMock.mockReset()
@@ -465,6 +477,7 @@ describe('registerCoreHandlers', () => {
     registerHostedReviewHandlersMock.mockReset()
     registerExportHandlersMock.mockReset()
     registerDashboardPopoutHandlersMock.mockReset()
+    registerMessengerPopoutHandlersMock.mockReset()
     registerTerminalPreviewHandlersMock.mockReset()
     registerSpeechHandlersMock.mockReset()
     registerSkillsHandlersMock.mockReset()
@@ -549,6 +562,7 @@ describe('registerCoreHandlers', () => {
     expect(registerDeveloperPermissionHandlersMock).toHaveBeenCalled()
     expect(registerComputerUsePermissionHandlersMock).toHaveBeenCalled()
     expect(registerDashboardPopoutHandlersMock).toHaveBeenCalledWith(store, undefined)
+    expect(registerMessengerPopoutHandlersMock).toHaveBeenCalledWith(store)
     expect(registerTerminalPreviewHandlersMock).toHaveBeenCalledWith(runtime)
     expect(registerSettingsHandlersMock).toHaveBeenCalledWith(store, agentAwakeService)
     expect(registerSkillsHandlersMock).toHaveBeenCalledWith(store)
@@ -582,6 +596,7 @@ describe('registerCoreHandlers', () => {
     expect(registerHermesChatServerHandlersMock).toHaveBeenCalledWith(store)
     expect(registerSamwooAuthHandlersMock).toHaveBeenCalled()
     expect(registerSamwooWorkspaceSharingHandlersMock).toHaveBeenCalled()
+    expect(registerSamwooConnectionHealthHandlersMock).toHaveBeenCalled()
     expect(registerShellHandlersMock).toHaveBeenCalledWith(store)
     expect(registerClipboardHandlersMock).toHaveBeenCalledWith(store)
     expect(registerUpdaterHandlersMock).toHaveBeenCalled()

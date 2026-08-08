@@ -3,6 +3,7 @@ import './assets/main.css'
 import { StrictMode, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DashboardPopoutRoot } from './components/dashboard-popout/DashboardPopoutRoot'
+import MessengerPopoutRoot from './components/sidebar/MessengerPopoutRoot'
 import { RecoverableRenderErrorBoundary } from './components/error-boundaries/RecoverableRenderErrorBoundary'
 import {
   installRendererCrashDiagnostics,
@@ -20,8 +21,15 @@ import { getOrCreateRendererRoot } from './lib/react-renderer-root'
 // so it must run the same renderer bootstrap as main.tsx (crash diagnostics,
 // theme, i18n, error boundary) rather than inheriting anything from the main
 // window. It shares the preload/window.api but not the DOM or JS context.
-recordRendererCrashBreadcrumb('popout_bootstrap_started', { dev: import.meta.env.DEV })
-installRendererCrashDiagnostics('dashboard-popout')
+const popoutSearch = new URLSearchParams(window.location.search)
+const popoutSurface = popoutSearch.get('surface') === 'messenger' ? 'messenger' : 'dashboard'
+recordRendererCrashBreadcrumb('popout_bootstrap_started', {
+  dev: import.meta.env.DEV,
+  surface: popoutSurface
+})
+installRendererCrashDiagnostics(
+  popoutSurface === 'messenger' ? 'messenger-popout' : 'dashboard-popout'
+)
 
 function applyPopoutAppearance(settings: GlobalSettings | null): void {
   applyDocumentTheme(settings?.theme ?? 'system', { disableTransitions: false })
@@ -52,7 +60,8 @@ if (!rootElement) {
 
 // The main process loads popout.html with ?view=<name> so a single entry can
 // host different dashboard layouts (kanban, etc.).
-const requestedView = new URLSearchParams(window.location.search).get('view')
+const requestedView = popoutSearch.get('view')
+const requestedChannel = popoutSearch.get('channel')
 
 function PopoutSettingsSync(): null {
   const settings = useAppStore((state) => state.settings)
@@ -99,6 +108,21 @@ function PopoutSettingsSync(): null {
 
 function PopoutRoot(): React.JSX.Element {
   useTranslation()
+  if (popoutSurface === 'messenger') {
+    return (
+      <RecoverableRenderErrorBoundary
+        boundaryId="messenger-popout.root"
+        surface="messenger-popout"
+        title={translate('samwoo.profileMessages.recoverableErrorTitle', 'Messages hit an error.')}
+        description={translate(
+          'samwoo.profileMessages.recoverableErrorDescription',
+          'Messages could not finish rendering. Retry or reopen the window.'
+        )}
+      >
+        <MessengerPopoutRoot initialChannelKey={requestedChannel} />
+      </RecoverableRenderErrorBoundary>
+    )
+  }
   return (
     <RecoverableRenderErrorBoundary
       boundaryId="dashboard-popout.root"

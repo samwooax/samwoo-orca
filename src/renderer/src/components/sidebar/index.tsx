@@ -8,7 +8,6 @@ import SetupScriptPromptCard from './SetupScriptPromptCard'
 import WorktreeList from './WorktreeList'
 import SidebarToolbar from './SidebarToolbar'
 import WorkspaceKanbanDrawer from './WorkspaceKanbanDrawer'
-import ProfileMessagesDialog from './ProfileMessagesDialog'
 import SamwooConnectionStatusDot from './SamwooConnectionStatusDot'
 import { AgentDashboardDrawer } from '@/components/dashboard/AgentDashboardDrawer'
 import type { VirtualizedScrollAnchor } from '@/hooks/useVirtualizedScrollAnchor'
@@ -19,7 +18,6 @@ import { useWorkspaceBoardPanel } from './useWorkspaceBoardPanel'
 import { resolveLeftSidebarStyleVariables } from '@/lib/left-sidebar-appearance'
 import { useSystemPrefersDark } from '@/components/terminal-pane/use-system-prefers-dark'
 import { lazyWithRetry } from '@/lib/lazy-with-retry'
-import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
 
 const WorktreeMetaDialog = lazyWithRetry(() => import('./WorktreeMetaDialog'))
 const RemoveFolderDialog = lazyWithRetry(() => import('./RemoveFolderDialog'))
@@ -54,10 +52,6 @@ function Sidebar({
   const fetchAllWorktrees = useAppStore((s) => s.fetchAllWorktrees)
   const activeModal = useAppStore((s) => s.activeModal)
   const statusBarVisible = useAppStore((s) => s.statusBarVisible)
-  const messengerOpen = useSamwooMessageInboxStore((state) => state.messengerOpen)
-  const requestedChannelKey = useSamwooMessageInboxStore((state) => state.requestedChannelKey)
-  const setMessengerOpen = useSamwooMessageInboxStore((state) => state.setMessengerOpen)
-  const setTotalUnread = useSamwooMessageInboxStore((state) => state.setTotalUnread)
   const systemPrefersDark = useSystemPrefersDark()
   const leftSidebarStyle = useMemo(
     () => resolveLeftSidebarStyleVariables(settings, systemPrefersDark),
@@ -204,13 +198,6 @@ function Sidebar({
           </div>
         )}
       </div>
-
-      <ProfileMessagesDialog
-        open={messengerOpen}
-        initialChannelKey={requestedChannelKey}
-        onOpenChange={setMessengerOpen}
-        onUnreadCountChange={setTotalUnread}
-      />
 
       {/* Dialogs render outside sidebar to avoid clipping. Lazy-load them only
       for the modal that needs their flow-specific hooks and UI. */}

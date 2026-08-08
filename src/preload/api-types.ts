@@ -2593,6 +2593,36 @@ export type PreloadApi = {
     revealAgent: (args: DashboardRevealAgentArgs) => Promise<void>
     ackAgent: (paneKey: string) => Promise<void>
   }
+  messenger: {
+    openPopout: (channelKey?: string) => Promise<void>
+    closePopout: () => Promise<void>
+    getFocused: () => Promise<boolean>
+    onFocusChanged: (callback: (focused: boolean) => void) => () => void
+    onSelectChannel: (callback: (channelKey: string) => void) => () => void
+    publishSession: (
+      session: {
+        login: string
+        name: string
+        role: string | null
+        label: string | null
+        token: string
+      } | null
+    ) => Promise<void>
+    requestSession: () => Promise<void>
+    onSession: (
+      callback: (
+        session: {
+          login: string
+          name: string
+          role: string | null
+          label: string | null
+          token: string
+        } | null
+      ) => void
+    ) => () => void
+    requestLogout: () => Promise<void>
+    onLogoutRequested: (callback: () => void) => () => void
+  }
   terminalPreview: {
     connect: (
       ptyId: string,

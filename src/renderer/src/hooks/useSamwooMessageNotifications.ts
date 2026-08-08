@@ -9,14 +9,13 @@ import {
 
 const POLL_MS = 30_000
 
-function showOsNotification(title: string, body: string): void {
+function showOsNotification(title: string, body: string, channelKey: string): void {
   if (typeof Notification === 'undefined') {
     return
   }
   try {
     const notification = new Notification(title, { body, silent: false })
-    // Why: focusing the app is the safe notification-click behavior on every desktop platform.
-    notification.onclick = () => window.focus()
+    notification.onclick = () => void window.api.messenger.openPopout(channelKey)
   } catch {
     // Notification delivery must not interrupt inbox polling.
   }
@@ -57,10 +56,10 @@ export function useSamwooMessageNotifications(): void {
           )
       })
       seenRef.current = nextSeen
-      // Why: a focused open messenger already presents the same messages.
-      if (!(inbox.messengerOpen && document.hasFocus())) {
+      // Why: main receives the companion window's real focus state over IPC.
+      if (!inbox.messengerOpen) {
         for (const notification of notifications) {
-          showOsNotification(notification.title, notification.body)
+          showOsNotification(notification.title, notification.body, notification.channelKey)
         }
       }
     }

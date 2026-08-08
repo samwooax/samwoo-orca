@@ -2376,6 +2376,42 @@ const api = {
       ipcRenderer.invoke('dashboardPopout:ackAgent', { paneKey })
   },
 
+  messenger: {
+    openPopout: (channelKey?: string): Promise<void> =>
+      ipcRenderer.invoke('messenger:open', channelKey),
+    closePopout: (): Promise<void> => ipcRenderer.invoke('messenger:close'),
+    getFocused: (): Promise<boolean> => ipcRenderer.invoke('messenger:getFocused'),
+    onFocusChanged: (callback: (focused: boolean) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, focused: boolean): void =>
+        callback(focused)
+      ipcRenderer.on('messenger:focusChanged', listener)
+      return () => ipcRenderer.removeListener('messenger:focusChanged', listener)
+    },
+    onSelectChannel: (callback: (channelKey: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, channelKey: string): void =>
+        callback(channelKey)
+      ipcRenderer.on('messenger:selectChannel', listener)
+      return () => ipcRenderer.removeListener('messenger:selectChannel', listener)
+    },
+    publishSession: (session): Promise<void> =>
+      ipcRenderer.invoke('messenger:publishSession', session),
+    requestSession: (): Promise<void> => ipcRenderer.invoke('messenger:requestSession'),
+    onSession: (callback): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        session: Parameters<typeof callback>[0]
+      ): void => callback(session)
+      ipcRenderer.on('messenger:session', listener)
+      return () => ipcRenderer.removeListener('messenger:session', listener)
+    },
+    requestLogout: (): Promise<void> => ipcRenderer.invoke('messenger:requestLogout'),
+    onLogoutRequested: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on('messenger:logoutRequested', listener)
+      return () => ipcRenderer.removeListener('messenger:logoutRequested', listener)
+    }
+  },
+
   terminalPreview: {
     connect: (
       ptyId: string,
