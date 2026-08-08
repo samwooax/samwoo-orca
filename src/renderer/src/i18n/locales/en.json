@@ -867,6 +867,7 @@
         "imagePasteFailed": "Image paste failed.",
         "pastedImage": "Pasted image",
         "removeAttachment": "Remove {{value0}}",
+        "sessionAccessNotice": "When you ask the bot a question, it can read your mail and messages during this session.",
         "placeholder": "Enter a message…"
       },
       "CodexRestartChip": {

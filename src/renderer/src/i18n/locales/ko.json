@@ -826,6 +826,7 @@
         "imagePasteFailed": "이미지를 붙여넣지 못했습니다.",
         "pastedImage": "붙여넣은 이미지",
         "removeAttachment": "{{value0}} 제거",
+        "sessionAccessNotice": "봇에게 질문하면 세션 동안 내 메일·메시지 열람 권한이 봇에게 부여됩니다.",
         "placeholder": "메시지를 입력하세요…"
       },
       "CodexRestartChip": {

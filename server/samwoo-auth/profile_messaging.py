@@ -12,6 +12,7 @@ import profile_event_stream
 import workspace_sharing
 
 MESSAGE_PAGE_SIZE = 100
+SEARCH_PAGE_SIZE = 50
 _CHANNEL_KINDS = {"team", "workspace"}
 _CLIENT_MESSAGE_ID = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 _schema_database_versions: dict[str, int] = {}
@@ -78,6 +79,17 @@ def _client_message_id(body: dict) -> str | None:
     if not _CLIENT_MESSAGE_ID.fullmatch(result):
         raise ProfileMessagingError("invalid client message id")
     return result
+
+
+def _search_query(body: dict) -> str:
+    query = _text(body.get("query"), 64)
+    if len(query) < 2 or any(ord(char) < 32 for char in query):
+        raise ProfileMessagingError("invalid search query")
+    return query
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def _channel(conn: sqlite3.Connection, profile: str, body: dict) -> tuple[str, str, str | None]:
@@ -202,6 +214,37 @@ def list_messages(token: str, body: dict) -> dict:
     has_more = len(rows) > MESSAGE_PAGE_SIZE
     return {
         "messages": [_serialize_message(row, login) for row in reversed(rows[:MESSAGE_PAGE_SIZE])],
+        "hasMore": has_more,
+    }
+
+
+def search_messages(token: str, body: dict) -> dict:
+    login, profile = workspace_sharing._identity(token)
+    query = _search_query(body)
+    cursor = _cursor(body)
+    with workspace_sharing._database() as conn:
+        _schema(conn)
+        key, _, _ = _channel(conn, profile, body)
+        cursor_clause = ""
+        parameters: tuple = (
+            profile, key, f"%{_escape_like(query)}%", SEARCH_PAGE_SIZE + 1,
+        )
+        if cursor:
+            cursor_clause = " AND (message.created_at<? OR (message.created_at=? AND message.id<?))"
+            parameters = (
+                profile, key, f"%{_escape_like(query)}%",
+                cursor[0], cursor[0], cursor[1], SEARCH_PAGE_SIZE + 1,
+            )
+        # LIKE is sufficient at current channel scale; revisit FTS5 after measured growth.
+        rows = conn.execute(
+            f"""{_message_select()} WHERE message.owner_profile=? AND message.channel_key=?
+            AND message.body LIKE ? ESCAPE '\\' {cursor_clause}
+            ORDER BY message.created_at DESC,message.id DESC LIMIT ?""",
+            parameters,
+        ).fetchall()
+    has_more = len(rows) > SEARCH_PAGE_SIZE
+    return {
+        "messages": [_serialize_message(row, login) for row in reversed(rows[:SEARCH_PAGE_SIZE])],
         "hasMore": has_more,
     }
 

@@ -14,7 +14,7 @@ _ROUTES = {
     "/workspace-shares/comments/list", "/workspace-shares/comments/create",
     "/workspace-shares/comments/complete",
     "/profile-messages/channels/list", "/profile-messages/list",
-    "/profile-messages/send", "/profile-messages/read",
+    "/profile-messages/search", "/profile-messages/send", "/profile-messages/read",
     "/workspace-shares/files/list", "/workspace-shares/files/read",
     "/workspace-shares/files/write",
     "/workspace-shares/files/delete",
@@ -69,6 +69,8 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
             return 200, {"ok": True, "channels": profile_messaging.list_channels(token)}
         if path == "/profile-messages/list":
             return 200, {"ok": True, **profile_messaging.list_messages(token, body)}
+        if path == "/profile-messages/search":
+            return 200, {"ok": True, **profile_messaging.search_messages(token, body)}
         if path == "/profile-messages/send":
             return 200, {"ok": True, "message": profile_messaging.send_message(token, body)}
         if path == "/profile-messages/read":

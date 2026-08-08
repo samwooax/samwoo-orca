@@ -245,6 +245,94 @@ class ProfileMessagingTest(unittest.TestCase):
         self.assertEqual([f"message-{index:03}" for index in range(101)], ids)
         self.assertEqual(len(ids), len(set(ids)))
 
+    def test_search_is_profile_and_workspace_scoped(self):
+        share = self.create_share()
+        profile_messaging.send_message(
+            OWNER_TOKEN, {"channelKind": "team", "body": "분기별 매출 검토"}
+        )
+        profile_messaging.send_message(
+            OTHER_TOKEN, {"channelKind": "team", "body": "분기별 매출 외부 프로필"}
+        )
+        result = profile_messaging.search_messages(
+            PEER_TOKEN, {"channelKind": "team", "query": "분기별 매출"}
+        )
+        self.assertEqual(["분기별 매출 검토"], [row["body"] for row in result["messages"]])
+        with self.assertRaises(profile_messaging.ProfileMessagingError):
+            profile_messaging.search_messages(
+                OTHER_TOKEN,
+                {"channelKind": "workspace", "shareId": share["id"], "query": "매출"},
+            )
+
+    def test_search_escapes_like_wildcards(self):
+        for body in (
+            "진행률 100%", "진행률 1000", "코드 a_b", "코드 axb", "경로 A\\B", "경로 AB",
+        ):
+            profile_messaging.send_message(
+                OWNER_TOKEN, {"channelKind": "team", "body": body}
+            )
+        percent = profile_messaging.search_messages(
+            PEER_TOKEN, {"channelKind": "team", "query": "100%"}
+        )
+        underscore = profile_messaging.search_messages(
+            PEER_TOKEN, {"channelKind": "team", "query": "a_b"}
+        )
+        backslash = profile_messaging.search_messages(
+            PEER_TOKEN, {"channelKind": "team", "query": "A\\B"}
+        )
+        self.assertEqual(["진행률 100%"], [row["body"] for row in percent["messages"]])
+        self.assertEqual(["코드 a_b"], [row["body"] for row in underscore["messages"]])
+        self.assertEqual(["경로 A\\B"], [row["body"] for row in backslash["messages"]])
+
+    def test_search_route_validates_query(self):
+        self.assertTrue(
+            workspace_share_endpoints.is_workspace_share_path("/profile-messages/search")
+        )
+        for query in ("한", "x" * 65, "검색\n문자"):
+            status, payload = workspace_share_endpoints.handle_workspace_share(
+                "/profile-messages/search",
+                f"Bearer {PEER_TOKEN}",
+                {"channelKind": "team", "query": query},
+            )
+            self.assertEqual(400, status)
+            self.assertFalse(payload["ok"])
+        status, payload = workspace_share_endpoints.handle_workspace_share(
+            "/profile-messages/search",
+            f"Bearer {PEER_TOKEN}",
+            {"channelKind": "team", "query": "검색어"},
+        )
+        self.assertEqual(200, status)
+        self.assertTrue(payload["ok"])
+
+    def test_search_cursor_is_complete_and_bounded(self):
+        with workspace_sharing._database() as conn:
+            profile_messaging._schema(conn)
+            conn.executemany(
+                """INSERT INTO profile_messages
+                (id,owner_profile,channel_key,channel_kind,author_login,body,created_at)
+                VALUES (?,?,?,?,?,?,?)""",
+                [
+                    (f"search-{index:03}", "ai_center", "team", "team", "owner", "검색 대상", 10)
+                    for index in range(profile_messaging.SEARCH_PAGE_SIZE + 1)
+                ],
+            )
+        first = profile_messaging.search_messages(
+            PEER_TOKEN, {"channelKind": "team", "query": "검색 대상"}
+        )
+        self.assertEqual(profile_messaging.SEARCH_PAGE_SIZE, len(first["messages"]))
+        self.assertTrue(first["hasMore"])
+        second = profile_messaging.search_messages(
+            PEER_TOKEN,
+            {
+                "channelKind": "team",
+                "query": "검색 대상",
+                "beforeCreatedAt": first["messages"][0]["createdAt"],
+                "beforeId": first["messages"][0]["id"],
+            },
+        )
+        ids = [row["id"] for row in second["messages"] + first["messages"]]
+        self.assertEqual([f"search-{index:03}" for index in range(51)], ids)
+        self.assertEqual(len(ids), len(set(ids)))
+
     def test_read_cursor_cannot_move_backward(self):
         with workspace_sharing._database() as conn:
             profile_messaging._schema(conn)

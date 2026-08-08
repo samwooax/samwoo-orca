@@ -377,6 +377,12 @@ export function HermesTeamChatView({
                   sessionOptionsModelFirst
                 />
               </div>
+              <p className="px-2 pb-1 pt-1 text-[11px] leading-4 text-muted-foreground">
+                {translate(
+                  'auto.components.HermesTeamChatView.sessionAccessNotice',
+                  'When you ask the bot a question, it can read your mail and messages during this session.'
+                )}
+              </p>
             </div>
           </div>
         </div>

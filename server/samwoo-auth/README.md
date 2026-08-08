@@ -185,3 +185,5 @@ curl -sS -H "Authorization: Bearer $MAILTOKEN" -H 'Content-Type: application/jso
 ```
 `$MAILTOKEN` is exported into the bot's shell by the app relay; the value is
 never printed, so the model reads mail without ever seeing the credential.
+
+Deploy `samwoo-messages.SKILL.md` to `/opt/data/skills/communication/samwoo-messages/SKILL.md`, for example with `scp samwoo-messages.SKILL.md <DEPLOY_USER>@<HERMES_HOST>:/opt/data/skills/communication/samwoo-messages/SKILL.md`.
