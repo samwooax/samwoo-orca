@@ -1,4 +1,8 @@
 import { create } from 'zustand'
+import {
+  SAMWOO_HERMES_DASHBOARD_PORT,
+  SAMWOO_HERMES_SSH_HOST
+} from '../../../shared/samwoo-service-endpoints'
 
 /** SAMWOO-ORCA: state for the project-open agent picker (Claude / Hermes
  *  profiles / plain terminal). Kept in a standalone store so worktree
@@ -36,10 +40,10 @@ const IS_WINDOWS_CLIENT =
 const SSH_MUX_OPTS = IS_WINDOWS_CLIENT
   ? ''
   : ' -o ControlMaster=auto -o ControlPath=/tmp/.samwoo-orca-ssh-%r@%h-%p -o ControlPersist=10m'
-export const DEFAULT_HERMES_DASHBOARD_HOST = 'hermes@100.68.242.83'
-export const DEFAULT_HERMES_DASHBOARD_REMOTE_PORT = 4862
-export const DEFAULT_HERMES_PROFILE_LIST_COMMAND = `ssh -o StrictHostKeyChecking=accept-new${SSH_MUX_OPTS} hermes@100.68.242.83 "sh -lc 'hermes profile list'"`
-export const DEFAULT_HERMES_LAUNCH_COMMAND = `ssh -tt -o StrictHostKeyChecking=accept-new${SSH_MUX_OPTS} hermes@100.68.242.83 "sh -lc 'hermes --tui --profile {profile}'"`
+export const DEFAULT_HERMES_DASHBOARD_HOST = SAMWOO_HERMES_SSH_HOST
+export const DEFAULT_HERMES_DASHBOARD_REMOTE_PORT = SAMWOO_HERMES_DASHBOARD_PORT
+export const DEFAULT_HERMES_PROFILE_LIST_COMMAND = `ssh -o StrictHostKeyChecking=accept-new${SSH_MUX_OPTS} ${SAMWOO_HERMES_SSH_HOST} "sh -lc 'hermes profile list'"`
+export const DEFAULT_HERMES_LAUNCH_COMMAND = `ssh -tt -o StrictHostKeyChecking=accept-new${SSH_MUX_OPTS} ${SAMWOO_HERMES_SSH_HOST} "sh -lc 'hermes --tui --profile {profile}'"`
 
 const PROFILE_NAME_RE = /^[A-Za-z0-9._-]+$/
 

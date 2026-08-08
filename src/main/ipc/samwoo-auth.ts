@@ -1,5 +1,6 @@
-import { request } from 'node:http'
 import { ipcMain } from 'electron'
+import { SAMWOO_AUTH_SERVICE_URL } from '../../shared/samwoo-service-endpoints'
+import { postSamwooServiceJson } from './samwoo-service-http-client'
 
 export type SamwooLoginResult = {
   ok: boolean
@@ -13,59 +14,16 @@ export type SamwooLoginResult = {
   error?: string
 }
 
-// Why: the auth service lives on the VPS host, reachable over Tailscale. Using
-// the MagicDNS name keeps it stable across the node's IP changes.
-const DEFAULT_AUTH_URL = 'http://100.116.18.119:8823'
-
-function postLogin(
-  baseUrl: string,
-  login: string,
-  password: string
-): Promise<SamwooLoginResult> {
-  return new Promise((resolvePromise) => {
-    let url: URL
-    try {
-      url = new URL('/login', baseUrl)
-    } catch {
-      resolvePromise({ ok: false, error: 'invalid auth server url' })
-      return
-    }
-    const payload = JSON.stringify({ login, password })
-    const req = request(
-      {
-        hostname: url.hostname,
-        port: url.port || 80,
-        path: url.pathname,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload)
-        },
-        timeout: 30_000
-      },
-      (res) => {
-        let body = ''
-        res.on('data', (chunk) => {
-          body += chunk
-        })
-        res.on('end', () => {
-          try {
-            resolvePromise(JSON.parse(body) as SamwooLoginResult)
-          } catch {
-            resolvePromise({ ok: false, error: `bad response (${res.statusCode})` })
-          }
-        })
-      }
-    )
-    req.on('timeout', () => {
-      req.destroy()
-      resolvePromise({ ok: false, error: 'auth server timed out' })
-    })
-    req.on('error', (error) => {
-      resolvePromise({ ok: false, error: error.message })
-    })
-    req.write(payload)
-    req.end()
+function postLogin(login: string, password: string): Promise<SamwooLoginResult> {
+  return postSamwooServiceJson({
+    baseUrl: SAMWOO_AUTH_SERVICE_URL,
+    route: '/login',
+    body: { login, password },
+    timeoutMs: 30_000,
+    timeoutError: 'auth server timed out',
+    invalidUrlError: 'invalid auth server url',
+    maxResponseBytes: 64 * 1024,
+    responseTooLargeError: 'auth server response is too large'
   })
 }
 
@@ -75,17 +33,13 @@ function postLogin(
 export function registerSamwooAuthHandlers(): void {
   ipcMain.handle(
     'samwoo:login',
-    async (
-      _event,
-      args: { login?: string; password?: string; authUrl?: string }
-    ): Promise<SamwooLoginResult> => {
+    async (_event, args: { login?: string; password?: string }): Promise<SamwooLoginResult> => {
       const login = args?.login?.trim() ?? ''
       const password = args?.password ?? ''
       if (!login || !password) {
         return { ok: false, error: 'login and password required' }
       }
-      const baseUrl = args?.authUrl?.trim() || DEFAULT_AUTH_URL
-      return postLogin(baseUrl, login, password)
+      return postLogin(login, password)
     }
   )
 }

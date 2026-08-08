@@ -17,6 +17,7 @@ import {
   runTeamChatMessage
 } from './hermes-team-chat-runner'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
+import { SAMWOO_HERMES_SSH_HOST } from '../../shared/samwoo-service-endpoints'
 import type { TeamChatAttachment } from '../../shared/hermes-team-chat-attachments'
 import { registerHermesTeamChatAppCleanup } from './hermes-team-chat-app-cleanup'
 import { isValidTeamChatSshHost } from './hermes-team-chat-ssh-process'
@@ -152,7 +153,7 @@ async function handleTeamChatRequest(
   const host =
     typeof parsed.host === 'string' && parsed.host.trim()
       ? parsed.host.trim()
-      : 'hermes@100.68.242.83'
+      : SAMWOO_HERMES_SSH_HOST
   const cwd = typeof parsed.cwd === 'string' ? parsed.cwd.slice(0, 512) : ''
   const message = typeof parsed.message === 'string' ? parsed.message.slice(0, 96_000) : ''
   const attachments = normalizeAttachments(parsed.attachments)

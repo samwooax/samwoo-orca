@@ -1,6 +1,10 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { createServer } from 'node:net'
+import { connect, createServer } from 'node:net'
 import { ipcMain } from 'electron'
+import {
+  SAMWOO_HERMES_DASHBOARD_PORT,
+  SAMWOO_HERMES_SSH_HOST
+} from '../../shared/samwoo-service-endpoints'
 
 export type HermesTunnelResult = {
   ok: boolean
@@ -14,9 +18,6 @@ export type HermesTunnelResult = {
 // spawning a tunnel per click. Keyed by "host:remotePort".
 type Tunnel = { localPort: number; proc: ChildProcess }
 const tunnels = new Map<string, Tunnel>()
-
-const DEFAULT_HOST = 'hermes@100.68.242.83'
-const DEFAULT_REMOTE_PORT = 4862
 
 function findFreePort(): Promise<number> {
   return new Promise((resolvePort, reject) => {
@@ -38,15 +39,10 @@ function waitForLocalPort(port: number, timeoutMs: number): Promise<boolean> {
   const deadline = Date.now() + timeoutMs
   return new Promise((resolveReady) => {
     const attempt = (): void => {
-      const socket = createServer() // probe by connecting instead
-      socket.close()
-      const client = require('node:net').connect(
-        { host: '127.0.0.1', port },
-        () => {
-          client.end()
-          resolveReady(true)
-        }
-      )
+      const client = connect({ host: '127.0.0.1', port }, () => {
+        client.end()
+        resolveReady(true)
+      })
       client.on('error', () => {
         client.destroy()
         if (Date.now() > deadline) {
@@ -108,12 +104,9 @@ async function ensureTunnel(host: string, remotePort: number): Promise<HermesTun
 export function registerHermesDashboardTunnelHandlers(): void {
   ipcMain.handle(
     'hermes:ensureDashboardTunnel',
-    async (
-      _event,
-      args?: { host?: string; remotePort?: number }
-    ): Promise<HermesTunnelResult> => {
-      const host = args?.host?.trim() || DEFAULT_HOST
-      const remotePort = args?.remotePort ?? DEFAULT_REMOTE_PORT
+    async (_event, args?: { host?: string; remotePort?: number }): Promise<HermesTunnelResult> => {
+      const host = args?.host?.trim() || SAMWOO_HERMES_SSH_HOST
+      const remotePort = args?.remotePort ?? SAMWOO_HERMES_DASHBOARD_PORT
       try {
         return await ensureTunnel(host, remotePort)
       } catch (error) {
