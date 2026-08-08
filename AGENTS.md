@@ -1,4 +1,4 @@
-# Product Spec — 제품 결정·아키텍처·작업 대기열·검증 기준은 [docs/SAMWOO-SPEC.md](./docs/SAMWOO-SPEC.md)가 단일 진실이다. 작업·감사 전 반드시 읽을 것.
+# Product Spec — 제품·아키텍처·기준은 [docs/samwoo/SPEC.md](./docs/samwoo/SPEC.md), 실행 현황은 [docs/samwoo/WAVES.md](./docs/samwoo/WAVES.md)가 단일 진실이다. 문서 지도는 [docs/samwoo/README.md](./docs/samwoo/README.md). 작업·감사 전 반드시 읽을 것.
 
 # Design System
 

@@ -92,6 +92,8 @@ design-docs/
 # and the tracked reference docs linked from AGENTS.md / README.md).
 docs/**
 !docs/
+!docs/samwoo/
+!docs/samwoo/**
 !docs/assets/
 !docs/assets/**
 !docs/readme/

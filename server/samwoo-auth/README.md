@@ -9,7 +9,7 @@ This directory also contains profile-scoped workspace sharing:
 - `test_workspace_comments.py` — pagination, concurrency and comment authorization tests.
 - `test_nextcloud_workspace_storage.py` — WebDAV path and identity boundary tests.
 
-Deployment integration is documented in `docs/SAMWOO_WORKSPACE_SHARING.md`.
+Deployment integration is documented in `docs/samwoo/WORKSPACE-SHARING.md`.
 
 ## Messenger scale integration (server prerequisite first)
 
