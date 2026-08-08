@@ -94,10 +94,12 @@ Session-scoped IMAP/SMTP mail access for the team bots. Each employee accesses
 **only their own mailbox** with the credential they entered at login.
 
 ## Files
-- `mail_ext.py` — session store + IMAP(993)/SMTP(587) operations.
+- `mail_ext.py` — session store, IMAP/SMTP operations, and server-side attachment transfer.
 - `mail_endpoints.py` — glue that turns `/mail/*` requests into `mail_ext` calls.
+- `workspace_sharing.py` — shared workspace write authorization and revision tracking.
+- `nextcloud_workspace_storage.py` — direct Nextcloud WebDAV file storage.
 
-Deploy both next to `/opt/samwoo-auth/auth-server.py`.
+Deploy these modules next to `/opt/samwoo-auth/auth-server.py`.
 
 ## Security properties (why this differs from the original draft)
 The earlier plan stored the **plaintext groupware password** server-side and
@@ -166,11 +168,13 @@ operations runbook or service environment rather than this public repository.
 
 ## Deploy
 ```bash
-scp mail_ext.py mail_endpoints.py <DEPLOY_USER>@<VPS_HOST>:/opt/samwoo-auth/
+scp mail_ext.py mail_endpoints.py workspace_sharing.py <DEPLOY_USER>@<VPS_HOST>:/opt/samwoo-auth/
 ssh <DEPLOY_USER>@<VPS_HOST> 'pip3 install cryptography; \
   # apply the 3 edits above to auth-server.py, then:
   systemctl restart samwoo-auth && journalctl -u samwoo-auth -n 20 --no-pager'
 ```
+
+After copying the changed modules, restarting `samwoo-auth` is sufficient for the existing mail router to expose the attachment routes.
 
 ## Bot skill note
 `/opt/data/skills/communication/samwoo-mail/SKILL.md` should curl with the env

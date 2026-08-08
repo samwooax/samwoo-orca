@@ -407,13 +407,26 @@ def read_workspace_file(token: str, body: dict) -> dict:
         raise WorkspaceShareError(str(error)) from error
 
 
-def write_workspace_file(token: str, body: dict) -> dict:
+def require_workspace_write_access(token: str, share_id_value: object) -> tuple[str, str]:
     login, profile = _identity(token)
-    share_id = _share_id(body.get("shareId"))
+    share_id = _share_id(share_id_value)
     with _database() as conn:
         row = _nextcloud_share(conn, share_id, profile)
         if row["owner_login"] != login and row["permission"] != "contribute":
             raise WorkspaceShareError("workspace contribution is not allowed")
+    return profile, share_id
+
+
+def touch_workspace_share(profile: str, share_id: str) -> None:
+    with _database() as conn:
+        conn.execute(
+            "UPDATE workspace_shares SET updated_at=? WHERE id=? AND owner_profile=?",
+            (int(time.time() * 1000), share_id, profile),
+        )
+
+
+def write_workspace_file(token: str, body: dict) -> dict:
+    profile, share_id = require_workspace_write_access(token, body.get("shareId"))
     create_only = body.get("createOnly", False)
     if not isinstance(create_only, bool):
         raise WorkspaceShareError("invalid create-only condition")
@@ -430,21 +443,12 @@ def write_workspace_file(token: str, body: dict) -> dict:
         raise WorkspaceShareConflictError(str(error)) from error
     except nextcloud_workspace_storage.NextcloudStorageError as error:
         raise WorkspaceShareError(str(error)) from error
-    with _database() as conn:
-        conn.execute(
-            "UPDATE workspace_shares SET updated_at=? WHERE id=? AND owner_profile=?",
-            (int(time.time() * 1000), share_id, profile),
-        )
+    touch_workspace_share(profile, share_id)
     return result
 
 
 def delete_workspace_file(token: str, body: dict) -> dict:
-    login, profile = _identity(token)
-    share_id = _share_id(body.get("shareId"))
-    with _database() as conn:
-        row = _nextcloud_share(conn, share_id, profile)
-        if row["owner_login"] != login and row["permission"] != "contribute":
-            raise WorkspaceShareError("workspace contribution is not allowed")
+    profile, share_id = require_workspace_write_access(token, body.get("shareId"))
     expected_etag = _text(body.get("expectedEtag"), "expected etag", 512, True)
     try:
         result = nextcloud_workspace_storage.delete_file(
@@ -454,11 +458,7 @@ def delete_workspace_file(token: str, body: dict) -> dict:
         raise WorkspaceShareConflictError(str(error)) from error
     except nextcloud_workspace_storage.NextcloudStorageError as error:
         raise WorkspaceShareError(str(error)) from error
-    with _database() as conn:
-        conn.execute(
-            "UPDATE workspace_shares SET updated_at=? WHERE id=? AND owner_profile=?",
-            (int(time.time() * 1000), share_id, profile),
-        )
+    touch_workspace_share(profile, share_id)
     return result
 
 

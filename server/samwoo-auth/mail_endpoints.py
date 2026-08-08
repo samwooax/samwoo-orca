@@ -9,7 +9,13 @@ from __future__ import annotations
 
 import mail_ext
 
-_ROUTES = {"/mail/list", "/mail/read", "/mail/send"}
+_ROUTES = {
+    "/mail/list",
+    "/mail/read",
+    "/mail/send",
+    "/mail/attachments/list",
+    "/mail/attachments/save-to-workspace",
+}
 
 
 def is_mail_path(path: str) -> bool:
@@ -50,6 +56,23 @@ def handle_mail(path: str, auth_header: str | None, body: dict) -> tuple[int, di
                 cc=body.get("cc"),
             )
             return 200, result
+        if path == "/mail/attachments/list":
+            attachments = mail_ext.mail_attachments_list(
+                token,
+                uid=str(body.get("uid", "")),
+                mailbox=body.get("mailbox", "INBOX"),
+            )
+            return 200, {"ok": True, "attachments": attachments}
+        if path == "/mail/attachments/save-to-workspace":
+            result = mail_ext.mail_attachment_save_to_workspace(
+                token,
+                uid=str(body.get("uid", "")),
+                index=body.get("index"),
+                share_id=str(body.get("shareId", "")),
+                target_path=body.get("targetPath"),
+                mailbox=body.get("mailbox", "INBOX"),
+            )
+            return 200, {"ok": True, "file": result}
         return 404, {"ok": False, "error": "not found"}
     except mail_ext.MailError as e:
         # 401 for auth/session problems, 400 for the rest — no internals leaked.

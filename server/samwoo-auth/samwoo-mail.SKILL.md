@@ -39,6 +39,30 @@ test -n "$MAILTOKEN" && curl -sS -m 30 -X POST http://100.116.18.119:8823/mail/r
   -d '{"uid":"<uid>"}'
 ```
 
+응답의 `attachments`에는 첨부의 번호(`index`)·파일명·크기·형식만 들어 있다.
+
+### 첨부 목록 확인
+
+첨부 바이너리를 내려받지 않고 메타데이터만 확인한다.
+
+```sh
+test -n "$MAILTOKEN" && curl -sS -m 30 -X POST http://100.116.18.119:8823/mail/attachments/list \
+  -H "Authorization: Bearer $MAILTOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"<uid>"}'
+```
+
+### 첨부를 워크스페이스에 저장
+
+대상 워크스페이스와 저장 파일명을 사용자에게 먼저 확인한 뒤 호출한다. `targetPath`를 생략하면 `mail/<원본 파일명>`에 저장된다.
+
+```sh
+test -n "$MAILTOKEN" && curl -sS -m 60 -X POST http://100.116.18.119:8823/mail/attachments/save-to-workspace \
+  -H "Authorization: Bearer $MAILTOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"<uid>","index":0,"shareId":"<워크스페이스 ID>","targetPath":"mail/<파일명>"}'
+```
+
 ### 메일 발송
 
 발송 전에 받는 사람·제목·본문을 사용자에게 보여주고 명시적인 확인을 받는다.
@@ -57,3 +81,15 @@ test -n "$MAILTOKEN" && curl -sS -m 30 -X POST http://100.116.18.119:8823/mail/s
 - HTTP 404이면 메일 API가 서버에 배포되지 않은 상태라고 안내한다.
 - 개인정보·민감 내용은 사용자가 명시적으로 요청한 범위에서만 다룬다.
 - 메일은 사용자 확인 없이 발송하지 않는다.
+- 첨부 내용이 필요해도 바이너리를 직접 다운로드하거나 봇 컨텍스트로 읽지 않는다. 서버 직행 저장 API로 워크스페이스에 저장한 뒤 저장 사실만 안내한다.
+- 첨부 저장 전 대상 워크스페이스와 파일명을 사용자에게 확인한다.
+- 저장 완료 후 파일명·크기·워크스페이스명을 함께 보고한다.
+
+## 첨부 저장 예시
+
+사용자: “삼우전자 견적서 메일 첨부를 부품 리스트에 올려줘.”
+
+1. 받은편지함에서 해당 메일을 찾고 첨부 목록의 파일명·크기를 확인한다.
+2. “`삼우전자 견적서.pdf`를 `부품 리스트` 워크스페이스의 `mail/삼우전자 견적서.pdf`로 저장할까요?”라고 확인한다.
+3. 사용자가 승인하면 `save-to-workspace`를 호출한다.
+4. “`삼우전자 견적서.pdf`(파일 크기)를 `부품 리스트` 워크스페이스에 저장했습니다.”라고 보고한다.
