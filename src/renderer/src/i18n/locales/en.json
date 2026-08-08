@@ -14963,7 +14963,15 @@
       "reply": "Reply",
       "placeholder": "Write a message…",
       "send": "Send",
-      "webUnavailable": "Profile messaging is unavailable in the web client."
+      "webUnavailable": "Profile messaging is unavailable in the web client.",
+      "newMessages": "New messages",
+      "newMessagesInMoreChannels": "New messages in {{count}} more conversations"
+    },
+    "connection": {
+      "online": "Connected to the SAMWOO server.",
+      "onlineWithLatency": "Connected to the SAMWOO server ({{ms}}ms).",
+      "offline": "Cannot reach the SAMWOO server. Check that Tailscale is connected, then retry.",
+      "checking": "Checking the SAMWOO server connection…"
     }
   }
 }

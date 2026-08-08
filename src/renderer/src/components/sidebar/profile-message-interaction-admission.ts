@@ -21,3 +21,11 @@ export function shouldMarkProfileMessagesRead(args: {
 }): boolean {
   return args.isAtBottom && args.documentHasFocus && args.messageId !== args.lastMarkedMessageId
 }
+
+export function shouldPollProfileMessages(args: {
+  documentHidden: boolean
+  elapsedMs: number
+  backgroundRefreshMs: number
+}): boolean {
+  return !args.documentHidden || args.elapsedMs >= args.backgroundRefreshMs
+}

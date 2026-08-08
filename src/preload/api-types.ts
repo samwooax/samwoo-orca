@@ -785,7 +785,7 @@ export type PreflightApi = {
   ) => Promise<{ ok: boolean; closed: boolean }>
   onHermesTeamChatProgress: (callback: (event: TeamChatProgressEvent) => void) => () => void
   /** SAMWOO-ORCA: verify a groupware login and return the mapped team-bot role. */
-  samwooLogin: (args: { login: string; password: string; authUrl?: string }) => Promise<{
+  samwooLogin: (args: { login: string; password: string }) => Promise<{
     ok: boolean
     login?: string
     role?: string | null
@@ -822,6 +822,11 @@ export type PreflightApi = {
     sendMessage: (args: SendSamwooProfileMessageArgs) => Promise<SamwooProfileMessagingResult>
     markRead: (args: MarkSamwooProfileMessagesReadArgs) => Promise<SamwooProfileMessagingResult>
   }
+  samwooConnectionHealth: () => Promise<{
+    ok: boolean
+    latencyMs?: number
+    error?: string
+  }>
   refreshAgents: (args?: PreflightRuntimeContext) => Promise<RefreshAgentsResult>
   detectRemoteAgents: (args: { connectionId: string }) => Promise<string[]>
   detectRemoteWindowsTerminalCapabilities: (args: { connectionId: string }) => Promise<{

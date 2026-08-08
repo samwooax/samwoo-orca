@@ -13,6 +13,7 @@ import {
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { isSamwooSessionError } from '@/lib/samwoo-session-validation'
+import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
 import type {
   SamwooProfileMessage,
   SamwooProfileMessageChannel
@@ -23,6 +24,7 @@ import {
   shouldApplyProfileMessageResponse,
   shouldMarkProfileMessagesRead
 } from './profile-message-interaction-admission'
+import { useProfileMessagePolling } from './use-profile-message-polling'
 
 type Props = {
   open: boolean
@@ -179,14 +181,18 @@ export default function ProfileMessagesDialog({
     ]
   )
 
+  useProfileMessagePolling({
+    enabled: true,
+    refresh: refreshChannels,
+    showInitialProgress: open,
+    foregroundRefreshMs: open ? OPEN_REFRESH_MS : CLOSED_REFRESH_MS,
+    backgroundRefreshMs: CLOSED_REFRESH_MS
+  })
+
   useEffect(() => {
-    void refreshChannels(open)
-    const interval = window.setInterval(
-      () => void refreshChannels(false),
-      open ? OPEN_REFRESH_MS : CLOSED_REFRESH_MS
-    )
-    return () => window.clearInterval(interval)
-  }, [open, refreshChannels])
+    useSamwooMessageInboxStore.getState().setMessengerOpen(open)
+    return () => useSamwooMessageInboxStore.getState().setMessengerOpen(false)
+  }, [open])
 
   useEffect(() => {
     if (!open || !selectedChannelKey || !selectedChannelKind) {
@@ -195,10 +201,15 @@ export default function ProfileMessagesDialog({
     setMessages([])
     setReplyTo(null)
     stickToBottomRef.current = true
-    void refreshMessages(true)
-    const interval = window.setInterval(() => void refreshMessages(false), OPEN_REFRESH_MS)
-    return () => window.clearInterval(interval)
-  }, [open, refreshMessages, selectedChannelKey, selectedChannelKind])
+  }, [open, selectedChannelKey, selectedChannelKind])
+
+  useProfileMessagePolling({
+    enabled: Boolean(open && selectedChannelKey && selectedChannelKind),
+    refresh: refreshMessages,
+    showInitialProgress: true,
+    foregroundRefreshMs: OPEN_REFRESH_MS,
+    backgroundRefreshMs: CLOSED_REFRESH_MS
+  })
 
   useEffect(() => {
     if (!open) {

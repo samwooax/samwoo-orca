@@ -2186,7 +2186,6 @@ const api = {
     samwooLogin: (args: {
       login: string
       password: string
-      authUrl?: string
     }): Promise<{
       ok: boolean
       login?: string
@@ -2219,6 +2218,11 @@ const api = {
       sendMessage: (args) => ipcRenderer.invoke('samwooProfileMessages:sendMessage', args),
       markRead: (args) => ipcRenderer.invoke('samwooProfileMessages:markRead', args)
     },
+    samwooConnectionHealth: (): Promise<{
+      ok: boolean
+      latencyMs?: number
+      error?: string
+    }> => ipcRenderer.invoke('samwoo:connectionHealth'),
     refreshAgents: (args?: PreflightRuntimeContext): Promise<RefreshAgentsResult> =>
       ipcRenderer.invoke('preflight:refreshAgents', args),
     detectRemoteAgents: (args: { connectionId: string }): Promise<string[]> =>

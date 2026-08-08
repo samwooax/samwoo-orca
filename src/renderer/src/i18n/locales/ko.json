@@ -14768,7 +14768,15 @@
       "reply": "답장",
       "placeholder": "메시지 작성…",
       "send": "보내기",
-      "webUnavailable": "웹 클라이언트에서는 프로필 메시지를 사용할 수 없습니다."
+      "webUnavailable": "웹 클라이언트에서는 프로필 메시지를 사용할 수 없습니다.",
+      "newMessages": "새 메시지",
+      "newMessagesInMoreChannels": "외 {{count}}개 대화에 새 메시지"
+    },
+    "connection": {
+      "online": "SAMWOO 서버에 연결됨",
+      "onlineWithLatency": "SAMWOO 서버에 연결됨 ({{ms}}ms)",
+      "offline": "SAMWOO 서버에 연결할 수 없습니다. Tailscale 연결을 확인한 뒤 다시 시도하세요.",
+      "checking": "SAMWOO 서버 연결 확인 중…"
     }
   }
 }

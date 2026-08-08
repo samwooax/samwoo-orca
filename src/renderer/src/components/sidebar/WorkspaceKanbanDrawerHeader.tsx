@@ -6,6 +6,7 @@ import type { WorkspaceStatusDefinition } from '../../../../shared/types'
 import SidebarFilter from './SidebarFilter'
 import WorkspaceKanbanSearchField from './WorkspaceKanbanSearchField'
 import WorkspaceKanbanSettingsMenu from './WorkspaceKanbanSettingsMenu'
+import SamwooConnectionStatusDot from './SamwooConnectionStatusDot'
 import { translate } from '@/i18n/i18n'
 
 type WorkspaceKanbanDrawerHeaderProps = {
@@ -124,6 +125,7 @@ export default function WorkspaceKanbanDrawerHeader({
             ) : null}
           </Button>
         ) : null}
+        <SamwooConnectionStatusDot />
         <Button
           variant="ghost"
           size="icon-xs"

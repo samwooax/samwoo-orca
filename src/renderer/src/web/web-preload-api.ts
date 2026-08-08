@@ -2963,6 +2963,14 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
         )
       })
     },
+    samwooConnectionHealth: () =>
+      Promise.resolve({
+        ok: false,
+        error: translate(
+          'samwoo.profileMessages.webUnavailable',
+          'Profile messaging is unavailable in the web client.'
+        )
+      }),
     refreshAgents: () =>
       requireActiveEnvironmentOrNull()
         ? callRuntimeResult('preflight.refreshAgents')

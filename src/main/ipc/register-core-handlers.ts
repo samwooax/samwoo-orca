@@ -7,6 +7,7 @@ import { registerHermesDashboardTunnelHandlers } from './hermes-dashboard-tunnel
 import { registerHermesChatServerHandlers } from './hermes-chat-server'
 import { registerSamwooAuthHandlers } from './samwoo-auth'
 import { registerSamwooWorkspaceSharingHandlers } from './samwoo-workspace-sharing'
+import { registerSamwooConnectionHealthHandlers } from './samwoo-connection-health'
 import type { Store } from '../persistence'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { StatsCollector } from '../stats/collector'
@@ -151,6 +152,7 @@ export function registerCoreHandlers(
   registerHermesChatServerHandlers(store)
   registerSamwooAuthHandlers()
   registerSamwooWorkspaceSharingHandlers()
+  registerSamwooConnectionHealthHandlers()
   registerClaudeUsageHandlers(claudeUsage)
   registerCodexUsageHandlers(codexUsage)
   registerOpenCodeUsageHandlers(openCodeUsage)
