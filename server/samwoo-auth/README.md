@@ -11,6 +11,83 @@ This directory also contains profile-scoped workspace sharing:
 
 Deployment integration is documented in `docs/SAMWOO_WORKSPACE_SHARING.md`.
 
+## Messenger scale integration (server prerequisite first)
+
+### 0. Confirm a threaded HTTP server before enabling SSE
+
+SSE keeps one request open per client. A single-threaded `HTTPServer` would let
+one `/events` connection block every login, message, and workspace request.
+Check the private runtime file before deploying:
+
+```bash
+python3 --version  # must be 3.8+
+python3 - <<'PY'
+import sqlite3
+print(sqlite3.sqlite_version)  # must be 3.25+
+PY
+grep -nE 'ThreadingHTTPServer|ThreadingMixIn|HTTPServer' /opt/samwoo-auth/auth-server.py
+```
+
+The server constructor must use `ThreadingHTTPServer`, or a server class whose
+MRO includes `ThreadingMixIn`. If it currently uses `HTTPServer`, change it
+before adding the `/events` route:
+
+```python
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+server = ThreadingHTTPServer((host, port), Handler)
+server.serve_forever()
+```
+
+For a custom server class, the equivalent standard-library form is:
+
+```python
+from http.server import HTTPServer
+from socketserver import ThreadingMixIn
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+```
+
+### SSE integration edits for `auth-server.py`
+
+Deploy `profile_event_stream.py` beside the existing workspace modules, then
+apply these additions without changing any existing POST route:
+
+```python
+# 1. imports
+import profile_event_stream
+```
+
+```python
+# 2. at the start of do_GET
+if profile_event_stream.is_event_stream_path(self.path):
+    profile_event_stream.handle_event_stream(self)
+    return
+```
+
+```bash
+# 3. verify send/read hooks are present in the deployed messaging module
+grep -n 'profile_event_stream.publish' /opt/samwoo-auth/profile_messaging.py
+```
+
+`send_message` publishes `message` only after its database commit, and
+`mark_read` publishes `read` after its monotonic read-cursor transaction. The
+existing `/profile-messages/*` and `/workspace-shares/*` polling routes remain
+unchanged for older applications.
+
+### Database backup
+
+`backup-workspace-db.sh` uses SQLite's online backup command, keeps daily files
+for 14 days, and exits nonzero on failure. Example cron entry:
+
+```cron
+0 3 * * * /opt/samwoo-auth/backup-workspace-db.sh <BACKUP_DIR>
+```
+
+Restore by stopping `samwoo-auth`, copying one backup over the configured
+workspace database path, setting mode `0600`, and restarting the service.
+
 ## Mail extension (secure variant)
 
 Session-scoped IMAP/SMTP mail access for the team bots. Each employee accesses

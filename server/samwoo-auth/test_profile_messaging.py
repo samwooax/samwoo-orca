@@ -1,10 +1,15 @@
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
+import queue
+import sqlite3
 import tempfile
+import threading
 import unittest
 from unittest import mock
 
 import profile_messaging
+import profile_event_stream
 import workspace_share_endpoints
 import workspace_sharing
 
@@ -119,6 +124,87 @@ class ProfileMessagingTest(unittest.TestCase):
         self.assertEqual("owner", reply["replyToAuthor"])
         self.assertEqual("팀 메시지", reply["replyToPreview"])
 
+    def test_client_message_id_is_idempotent_under_concurrent_retries(self):
+        body = {
+            "channelKind": "team",
+            "body": "한 번만 저장",
+            "clientMessageId": "client-message-0001",
+        }
+        barrier = threading.Barrier(2)
+
+        def send():
+            barrier.wait()
+            return profile_messaging.send_message(OWNER_TOKEN, body)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            messages = list(executor.map(lambda _index: send(), range(2)))
+        self.assertEqual(messages[0]["id"], messages[1]["id"])
+        self.assertNotIn("clientMessageId", messages[0])
+        with workspace_sharing._database() as conn:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM profile_messages WHERE client_message_id=?",
+                (body["clientMessageId"],),
+            ).fetchone()[0]
+        self.assertEqual(1, count)
+
+    def test_message_and_read_events_publish_after_success(self):
+        subscription = profile_event_stream.subscribe("ai_center", "observer")
+        self.addCleanup(subscription.close)
+        while True:
+            try:
+                subscription.get_nowait()
+            except queue.Empty:
+                break
+        sent = profile_messaging.send_message(
+            OWNER_TOKEN,
+            {
+                "channelKind": "team",
+                "body": "이벤트 확인",
+                "clientMessageId": "client-message-event-1",
+            },
+        )
+        message_event = subscription.get(timeout=1)
+        self.assertEqual(("message", sent["id"]), (
+            message_event["type"], message_event["message"]["id"]
+        ))
+        profile_messaging.mark_read(
+            PEER_TOKEN, {"channelKind": "team", "messageId": sent["id"]}
+        )
+        read_event = subscription.get(timeout=1)
+        self.assertEqual(
+            {"type": "read", "channelKey": "team", "login": "peer"}, read_event
+        )
+
+    def test_concurrent_mark_read_keeps_latest_cursor(self):
+        with workspace_sharing._database() as conn:
+            profile_messaging._schema(conn)
+            conn.executemany(
+                """INSERT INTO profile_messages
+                (id,owner_profile,channel_key,channel_kind,author_login,body,created_at)
+                VALUES (?,?,?,?,?,?,?)""",
+                [
+                    ("read-first", "ai_center", "team", "team", "owner", "first", 1),
+                    ("read-second", "ai_center", "team", "team", "owner", "second", 2),
+                ],
+            )
+        barrier = threading.Barrier(8)
+
+        def mark(index):
+            barrier.wait()
+            message_id = "read-second" if index % 2 else "read-first"
+            profile_messaging.mark_read(
+                PEER_TOKEN, {"channelKind": "team", "messageId": message_id}
+            )
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            list(executor.map(mark, range(8)))
+        with workspace_sharing._database() as conn:
+            cursor = conn.execute(
+                """SELECT last_read_created_at,last_read_id FROM profile_message_reads
+                WHERE owner_profile='ai_center' AND login='peer' AND channel_key='team'"""
+            ).fetchone()
+        self.assertEqual((2, "read-second"), tuple(cursor))
+
     def test_routes_validate_sessions_and_message_size(self):
         status, payload = workspace_share_endpoints.handle_workspace_share(
             "/profile-messages/send",
@@ -201,6 +287,36 @@ class ProfileMessagingTest(unittest.TestCase):
             )
         page = profile_messaging.list_messages(PEER_TOKEN, {"channelKind": "team"})
         self.assertLess(len(json.dumps(page).encode("utf-8")), 8 * 1024 * 1024)
+
+    def test_client_message_id_migration_preserves_existing_rows(self):
+        legacy_id = "legacy-message"
+        connection = sqlite3.connect(workspace_sharing.DB_PATH)
+        connection.execute(
+            """CREATE TABLE profile_messages (
+            id TEXT PRIMARY KEY, owner_profile TEXT NOT NULL, channel_key TEXT NOT NULL,
+            channel_kind TEXT NOT NULL, share_id TEXT, author_login TEXT NOT NULL,
+            body TEXT NOT NULL, reply_to_id TEXT, created_at INTEGER NOT NULL
+            )"""
+        )
+        connection.execute(
+            """INSERT INTO profile_messages
+            (id,owner_profile,channel_key,channel_kind,author_login,body,created_at)
+            VALUES (?,?,?,?,?,?,?)""",
+            (legacy_id, "ai_center", "team", "team", "owner", "보존", 1),
+        )
+        connection.commit()
+        connection.close()
+
+        with workspace_sharing._database() as conn:
+            profile_messaging._schema(conn)
+            row = conn.execute(
+                "SELECT body,client_message_id FROM profile_messages WHERE id=?", (legacy_id,)
+            ).fetchone()
+            index = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='index' AND name='profile_messages_client_id_idx'"
+            ).fetchone()
+        self.assertEqual(("보존", None), tuple(row))
+        self.assertIsNotNone(index)
 
 
 if __name__ == "__main__":

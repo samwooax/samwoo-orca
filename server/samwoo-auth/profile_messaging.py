@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import os
+import re
 import sqlite3
 import time
 import uuid
 
+import profile_event_stream
 import workspace_sharing
 
 MESSAGE_PAGE_SIZE = 100
 _CHANNEL_KINDS = {"team", "workspace"}
+_CLIENT_MESSAGE_ID = re.compile(r"^[A-Za-z0-9-]{8,64}$")
+_schema_database_versions: dict[str, int] = {}
 
 
 class ProfileMessagingError(Exception):
@@ -17,23 +22,43 @@ class ProfileMessagingError(Exception):
 
 
 def _schema(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS profile_messages (
-        id TEXT PRIMARY KEY, owner_profile TEXT NOT NULL, channel_key TEXT NOT NULL,
-        channel_kind TEXT NOT NULL, share_id TEXT, author_login TEXT NOT NULL,
-        body TEXT NOT NULL, reply_to_id TEXT, created_at INTEGER NOT NULL
-        )"""
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS profile_messages_channel_idx ON profile_messages(owner_profile, channel_key, created_at, id)"
-    )
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS profile_message_reads (
-        owner_profile TEXT NOT NULL, login TEXT NOT NULL, channel_key TEXT NOT NULL,
-        last_read_created_at INTEGER NOT NULL, last_read_id TEXT NOT NULL,
-        PRIMARY KEY(owner_profile, login, channel_key)
-        )"""
-    )
+    database_key = os.path.abspath(workspace_sharing.DB_PATH)
+    with workspace_sharing._schema_lock:
+        schema_version = conn.execute("PRAGMA schema_version").fetchone()[0]
+        if _schema_database_versions.get(database_key) == schema_version:
+            return
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS profile_messages (
+            id TEXT PRIMARY KEY, owner_profile TEXT NOT NULL, channel_key TEXT NOT NULL,
+            channel_kind TEXT NOT NULL, share_id TEXT, author_login TEXT NOT NULL,
+            body TEXT NOT NULL, reply_to_id TEXT, created_at INTEGER NOT NULL,
+            client_message_id TEXT
+            )"""
+        )
+        columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(profile_messages)").fetchall()
+        }
+        if "client_message_id" not in columns:
+            conn.execute("ALTER TABLE profile_messages ADD COLUMN client_message_id TEXT")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS profile_messages_channel_idx ON profile_messages(owner_profile, channel_key, created_at, id)"
+        )
+        conn.execute(
+            """CREATE UNIQUE INDEX IF NOT EXISTS profile_messages_client_id_idx
+            ON profile_messages(owner_profile,channel_key,author_login,client_message_id)
+            WHERE client_message_id IS NOT NULL"""
+        )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS profile_message_reads (
+            owner_profile TEXT NOT NULL, login TEXT NOT NULL, channel_key TEXT NOT NULL,
+            last_read_created_at INTEGER NOT NULL, last_read_id TEXT NOT NULL,
+            PRIMARY KEY(owner_profile, login, channel_key)
+            )"""
+        )
+        conn.commit()
+        _schema_database_versions[database_key] = conn.execute(
+            "PRAGMA schema_version"
+        ).fetchone()[0]
 
 
 def _text(value: object, maximum: int) -> str:
@@ -42,6 +67,16 @@ def _text(value: object, maximum: int) -> str:
         raise ProfileMessagingError("invalid message")
     if any(ord(char) < 32 and char not in "\n\t" for char in result):
         raise ProfileMessagingError("invalid message")
+    return result
+
+
+def _client_message_id(body: dict) -> str | None:
+    value = body.get("clientMessageId")
+    if value is None:
+        return None
+    result = str(value)
+    if not _CLIENT_MESSAGE_ID.fullmatch(result):
+        raise ProfileMessagingError("invalid client message id")
     return result
 
 
@@ -96,7 +131,7 @@ def _message_select() -> str:
 
 def list_channels(token: str) -> list[dict]:
     login, profile = workspace_sharing._identity(token)
-    with workspace_sharing._lock, workspace_sharing._database() as conn:
+    with workspace_sharing._database() as conn:
         _schema(conn)
         shares = conn.execute(
             """SELECT id,display_name FROM workspace_shares
@@ -151,7 +186,7 @@ def list_channels(token: str) -> list[dict]:
 def list_messages(token: str, body: dict) -> dict:
     login, profile = workspace_sharing._identity(token)
     cursor = _cursor(body)
-    with workspace_sharing._lock, workspace_sharing._database() as conn:
+    with workspace_sharing._database() as conn:
         _schema(conn)
         key, _, _ = _channel(conn, profile, body)
         cursor_clause = ""
@@ -174,13 +209,22 @@ def list_messages(token: str, body: dict) -> dict:
 def send_message(token: str, body: dict) -> dict:
     login, profile = workspace_sharing._identity(token)
     message_body = _text(body.get("body"), 4000)
+    client_message_id = _client_message_id(body)
     reply_to_id = str(body.get("replyToId") or "").strip() or None
     if reply_to_id and len(reply_to_id) > 64:
         raise ProfileMessagingError("invalid reply")
     now = int(time.time() * 1000)
-    with workspace_sharing._lock, workspace_sharing._database() as conn:
+    created = False
+    with workspace_sharing._database() as conn:
         _schema(conn)
         key, kind, share_id = _channel(conn, profile, body)
+        if client_message_id:
+            existing = conn.execute(
+                f"{_message_select()} WHERE message.owner_profile=? AND message.channel_key=? AND message.author_login=? AND message.client_message_id=?",
+                (profile, key, login, client_message_id),
+            ).fetchone()
+            if existing:
+                return _serialize_message(existing, login)
         if reply_to_id:
             reply = conn.execute(
                 "SELECT 1 FROM profile_messages WHERE id=? AND owner_profile=? AND channel_key=?",
@@ -189,16 +233,34 @@ def send_message(token: str, body: dict) -> dict:
             if not reply:
                 raise ProfileMessagingError("reply message not found")
         message_id = str(uuid.uuid4())
-        conn.execute(
-            """INSERT INTO profile_messages
-            (id,owner_profile,channel_key,channel_kind,share_id,author_login,body,reply_to_id,created_at)
-            VALUES (?,?,?,?,?,?,?,?,?)""",
-            (message_id, profile, key, kind, share_id, login, message_body, reply_to_id, now),
-        )
+        try:
+            conn.execute(
+                """INSERT INTO profile_messages
+                (id,owner_profile,channel_key,channel_kind,share_id,author_login,body,
+                 reply_to_id,created_at,client_message_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (message_id, profile, key, kind, share_id, login, message_body,
+                 reply_to_id, now, client_message_id),
+            )
+            created = True
+        except sqlite3.IntegrityError:
+            if not client_message_id:
+                raise
+            row = conn.execute(
+                f"{_message_select()} WHERE message.owner_profile=? AND message.channel_key=? AND message.author_login=? AND message.client_message_id=?",
+                (profile, key, login, client_message_id),
+            ).fetchone()
+            if row is None:
+                raise
         row = conn.execute(
             f"{_message_select()} WHERE message.id=?", (message_id,)
-        ).fetchone()
-    return _serialize_message(row, login)
+        ).fetchone() if created else row
+        result = _serialize_message(row, login)
+    if created:
+        profile_event_stream.publish(
+            profile, {"type": "message", "channelKey": key, "message": result}
+        )
+    return result
 
 
 def mark_read(token: str, body: dict) -> None:
@@ -206,7 +268,7 @@ def mark_read(token: str, body: dict) -> None:
     message_id = str(body.get("messageId") or "")
     if not message_id or len(message_id) > 64:
         raise ProfileMessagingError("invalid message id")
-    with workspace_sharing._lock, workspace_sharing._database() as conn:
+    with workspace_sharing._database() as conn:
         _schema(conn)
         key, _, _ = _channel(conn, profile, body)
         row = conn.execute(
@@ -226,3 +288,6 @@ def mark_read(token: str, body: dict) -> None:
                 AND excluded.last_read_id>profile_message_reads.last_read_id)""",
             (profile, login, key, row["created_at"], row["id"]),
         )
+    profile_event_stream.publish(
+        profile, {"type": "read", "channelKey": key, "login": login}
+    )
