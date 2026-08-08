@@ -102,11 +102,11 @@ describe('SAMWOO workspace file sync', () => {
       entries: []
     }))
     vi.mocked(postSamwooWorkspaceShare)
-      .mockResolvedValueOnce({
+      .mockImplementationOnce(async () => ({
         ok: true,
         file: { path: 'a.txt', contentBase64: '', etag: 'etag-a', size: 5 }
-      })
-      .mockResolvedValueOnce({ ok: false, error: 'temporary failure' })
+      }))
+      .mockImplementationOnce(async () => ({ ok: false, error: 'temporary failure' }))
 
     await expect(
       pushSamwooWorkspaceFiles({ token: TOKEN, shareId: SHARE_ID, sourcePath })
@@ -236,7 +236,7 @@ describe('SAMWOO workspace file sync', () => {
     })
     await pullSamwooWorkspaceFiles({ token: TOKEN, shareId: SHARE_ID, destinationPath })
     vi.mocked(postSamwooWorkspaceShare).mockReset()
-    vi.mocked(postSamwooWorkspaceShare).mockResolvedValue({ ok: true, entries: [] })
+    vi.mocked(postSamwooWorkspaceShare).mockImplementation(async () => ({ ok: true, entries: [] }))
 
     const preview = await previewSamwooWorkspaceFiles({
       token: TOKEN,
@@ -344,10 +344,10 @@ describe('SAMWOO workspace file sync', () => {
   })
 
   it('rejects a server file name that escapes the destination', async () => {
-    vi.mocked(postSamwooWorkspaceShare).mockResolvedValue({
+    vi.mocked(postSamwooWorkspaceShare).mockImplementation(async () => ({
       ok: true,
       entries: [{ name: '../escape.txt', kind: 'file', size: 1, etag: 'etag' }]
-    })
+    }))
 
     await expect(
       pullSamwooWorkspaceFiles({
