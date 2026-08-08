@@ -34,10 +34,18 @@ describe('SAMWOO profile messaging IPC', () => {
         channelKind: 'workspace',
         shareId: 'share-id',
         body: '확인',
+        clientMessageId: 'client-message-0001',
         profile: 'sales'
       }
     )
 
+    expect(postSamwooWorkspaceShare).toHaveBeenCalledWith(
+      '/profile-messages/send',
+      TOKEN,
+      expect.objectContaining({
+        clientMessageId: 'client-message-0001'
+      })
+    )
     expect(postSamwooWorkspaceShare).toHaveBeenCalledWith(
       '/profile-messages/send',
       TOKEN,

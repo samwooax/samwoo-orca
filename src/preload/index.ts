@@ -2238,6 +2238,28 @@ const api = {
     }> => ipcRenderer.invoke('preflight:detectRemoteWindowsTerminalCapabilities', args)
   },
 
+  samwooEventStream: {
+    start: (token: string): Promise<void> => ipcRenderer.invoke('samwoo:eventStream:start', token),
+    stop: (): Promise<void> => ipcRenderer.invoke('samwoo:eventStream:stop'),
+    getState: () => ipcRenderer.invoke('samwoo:eventStream:getState'),
+    onEvent: (callback): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        payload: Parameters<typeof callback>[0]
+      ): void => callback(payload)
+      ipcRenderer.on('samwoo:eventStream:event', listener)
+      return () => ipcRenderer.removeListener('samwoo:eventStream:event', listener)
+    },
+    onStatus: (callback): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        status: Parameters<typeof callback>[0]
+      ): void => callback(status)
+      ipcRenderer.on('samwoo:eventStream:status', listener)
+      return () => ipcRenderer.removeListener('samwoo:eventStream:status', listener)
+    }
+  },
+
   notifications: {
     dispatch: (args: Record<string, unknown>): Promise<NotificationDispatchResult> =>
       ipcRenderer.invoke('notifications:dispatch', args),

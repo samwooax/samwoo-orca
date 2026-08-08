@@ -48,6 +48,9 @@ import type {
 import type {
   ListSamwooProfileMessagesArgs,
   MarkSamwooProfileMessagesReadArgs,
+  SamwooEventStreamState,
+  SamwooEventStreamStatus,
+  SamwooProfileEvent,
   SamwooProfileMessagingResult,
   SendSamwooProfileMessageArgs
 } from '../shared/samwoo-profile-messaging'
@@ -2563,6 +2566,13 @@ export type PreloadApi = {
     }) => Promise<void>
   }
   preflight: PreflightApi
+  samwooEventStream: {
+    start: (token: string) => Promise<void>
+    stop: () => Promise<void>
+    getState: () => Promise<SamwooEventStreamState>
+    onEvent: (callback: (event: SamwooProfileEvent) => void) => () => void
+    onStatus: (callback: (status: SamwooEventStreamStatus) => void) => () => void
+  }
   notifications: {
     dispatch: (args: NotificationDispatchRequest) => Promise<NotificationDispatchResult>
     dismiss: (ids: string[]) => Promise<NotificationDismissResult>

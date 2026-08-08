@@ -8,7 +8,7 @@ import type { SamwooProfileMessageChannel } from '../../../../shared/samwoo-prof
 type Props = {
   channels: SamwooProfileMessageChannel[]
   selectedKey?: string
-  onlineLogins?: readonly string[]
+  onlineLogins?: ReadonlySet<string>
   onSelect: (channel: SamwooProfileMessageChannel) => void
 }
 
@@ -61,7 +61,7 @@ export default function ProfileMessengerChannelList({
           {onlineLogins ? (
             <span className="text-xs text-status-success">
               {translate('samwoo.profileMessages.onlineCount', 'Online {{count}}', {
-                count: onlineLogins.length
+                count: onlineLogins.size
               })}
             </span>
           ) : null}
@@ -89,7 +89,6 @@ export default function ProfileMessengerChannelList({
             channel.kind === 'team'
               ? translate('samwoo.profileMessages.teamChat', 'Team chat')
               : channel.label
-          const online = Boolean(onlineLogins?.some((login) => login === channel.lastMessageAuthor))
           return (
             <button
               key={channel.key}
@@ -98,11 +97,8 @@ export default function ProfileMessengerChannelList({
               className="mb-1 grid w-full grid-cols-[32px_minmax(0,1fr)_auto] gap-x-2 rounded-md px-2 py-2 text-left hover:bg-accent data-[current=true]:bg-accent"
               onClick={() => onSelect(channel)}
             >
-              <span className="relative row-span-2 flex size-8 items-center justify-center rounded-lg bg-muted text-xs font-semibold">
+              <span className="row-span-2 flex size-8 items-center justify-center rounded-lg bg-muted text-xs font-semibold">
                 {channel.kind === 'team' ? <Users className="size-4" /> : channelInitial(channel)}
-                {online ? (
-                  <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-background bg-status-success" />
-                ) : null}
               </span>
               <span className="truncate text-sm font-medium">{label}</span>
               <span className="text-[11px] text-muted-foreground">

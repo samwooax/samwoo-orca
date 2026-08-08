@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
+import { samwooMessageSendQueue } from '@/lib/samwoo-message-send-queue'
+import { samwooMessagePollingCadence } from '@/lib/samwoo-message-polling-cadence'
 import { isSamwooSessionError } from '@/lib/samwoo-session-validation'
 import type {
   SamwooProfileMessage,
@@ -19,9 +21,7 @@ import {
   shouldMarkProfileMessagesRead
 } from './profile-message-interaction-admission'
 import { useProfileMessagePolling } from './use-profile-message-polling'
-
-const OPEN_REFRESH_MS = 3_000
-const BACKGROUND_REFRESH_MS = 30_000
+import { useProfileMessageLiveUpdates } from './use-profile-message-live-updates'
 
 export default function ProfileMessengerWindow({
   initialChannelKey
@@ -29,9 +29,8 @@ export default function ProfileMessengerWindow({
   initialChannelKey?: string | null
 }): React.JSX.Element {
   const auth = useSamwooAuthStore((state) => state.auth)
-  const onlineLogins = useSamwooMessageInboxStore(
-    (state) => (state as typeof state & { onlineLogins?: readonly string[] }).onlineLogins
-  )
+  const eventStreamStatus = useSamwooMessageInboxStore((state) => state.eventStreamStatus)
+  const onlineLogins = useSamwooMessageInboxStore((state) => state.onlineLogins)
   const [channels, setChannels] = useState<SamwooProfileMessageChannel[]>([])
   const [selectedKey, setSelectedKey] = useState(initialChannelKey ?? 'team')
   const [messages, setMessages] = useState<SamwooProfileMessage[]>([])
@@ -40,7 +39,6 @@ export default function ProfileMessengerWindow({
   const [loading, setLoading] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasOlder, setHasOlder] = useState(false)
-  const [sending, setSending] = useState(false)
   const requestSequence = useRef(0)
   const activeChannelKeyRef = useRef(initialChannelKey ?? 'team')
   const lastMarkedMessageByChannelRef = useRef(new Map<string, string>())
@@ -50,6 +48,8 @@ export default function ProfileMessengerWindow({
     () => channels.find((channel) => channel.key === selectedKey) ?? channels[0],
     [channels, selectedKey]
   )
+  const visibleOnlineLogins = eventStreamStatus === 'connected' ? onlineLogins : undefined
+  const pollingCadence = samwooMessagePollingCadence(eventStreamStatus)
 
   const handleError = useCallback((error: string | undefined, fallback: string): void => {
     if (isSamwooSessionError(error)) {
@@ -168,15 +168,25 @@ export default function ProfileMessengerWindow({
     enabled: Boolean(auth?.token),
     refresh: refreshChannels,
     showInitialProgress: true,
-    foregroundRefreshMs: OPEN_REFRESH_MS,
-    backgroundRefreshMs: BACKGROUND_REFRESH_MS
+    foregroundRefreshMs: pollingCadence.openForegroundMs,
+    backgroundRefreshMs: pollingCadence.openBackgroundMs
   })
   useProfileMessagePolling({
     enabled: Boolean(auth?.token && selectedChannel),
     refresh: refreshMessages,
     showInitialProgress: true,
-    foregroundRefreshMs: OPEN_REFRESH_MS,
-    backgroundRefreshMs: BACKGROUND_REFRESH_MS
+    foregroundRefreshMs: pollingCadence.openForegroundMs,
+    backgroundRefreshMs: pollingCadence.openBackgroundMs
+  })
+
+  useProfileMessageLiveUpdates({
+    ownLogin: auth?.login,
+    activeChannelKeyRef,
+    selectedChannelKey: selectedChannel?.key,
+    setMessages,
+    handleSessionError: handleError,
+    refreshChannels,
+    refreshMessages
   })
 
   useEffect(() => window.api.messenger.onSelectChannel(selectChannel), [selectChannel])
@@ -218,35 +228,39 @@ export default function ProfileMessengerWindow({
     setHasOlder(Boolean(result.hasMore))
   }
 
-  const sendMessage = async (): Promise<void> => {
+  const sendMessage = (): void => {
     const body = draft.trim()
-    if (!auth?.token || !selectedChannel || !body || sending) {
+    if (!auth?.token || !auth.login || !selectedChannel || !body) {
       return
     }
-    const requestedChannelKey = selectedChannel.key
-    setSending(true)
-    const result = await window.api.preflight.samwooProfileMessages.sendMessage({
-      token: auth.token,
-      channelKind: selectedChannel.kind,
-      shareId: selectedChannel.shareId ?? undefined,
-      body,
-      replyToId: replyTo?.id
-    })
-    setSending(false)
-    if (!shouldApplyProfileMessageResponse(requestedChannelKey, activeChannelKeyRef.current)) {
-      return
-    }
-    if (!result.ok || !result.message) {
-      handleError(
-        result.error,
-        translate('samwoo.profileMessages.sendFailed', 'Could not send the message.')
-      )
-      return
-    }
-    setMessages((current) => mergeProfileMessages(current, [result.message!]))
+    const clientMessageId = crypto.randomUUID()
+    samwooMessageSendQueue.enqueue(
+      {
+        token: auth.token,
+        channelKind: selectedChannel.kind,
+        shareId: selectedChannel.shareId ?? undefined,
+        body,
+        replyToId: replyTo?.id,
+        clientMessageId
+      },
+      {
+        id: `pending:${clientMessageId}`,
+        channelKey: selectedChannel.key,
+        channelKind: selectedChannel.kind,
+        shareId: selectedChannel.shareId,
+        authorLogin: auth.login,
+        body,
+        replyToId: replyTo?.id,
+        replyToAuthor: replyTo?.authorLogin,
+        replyToPreview: replyTo?.body.slice(0, 160),
+        createdAt: Date.now(),
+        isAuthor: true,
+        clientMessageId,
+        deliveryState: 'pending'
+      }
+    )
     setDraft('')
     setReplyTo(null)
-    void refreshChannels(false)
   }
 
   if (!auth?.token) {
@@ -262,7 +276,7 @@ export default function ProfileMessengerWindow({
       <ProfileMessengerChannelList
         channels={channels}
         selectedKey={selectedChannel?.key}
-        onlineLogins={onlineLogins}
+        onlineLogins={visibleOnlineLogins}
         onSelect={(channel) => selectChannel(channel.key)}
       />
       <section className="flex min-h-0 min-w-0 flex-col">
@@ -280,10 +294,10 @@ export default function ProfileMessengerWindow({
                 ? translate('samwoo.profileMessages.teamChat', 'Team chat')
                 : selectedChannel?.label}
             </h2>
-            {onlineLogins ? (
+            {visibleOnlineLogins ? (
               <p className="text-xs text-status-success">
                 {translate('samwoo.profileMessages.onlineCount', 'Online {{count}}', {
-                  count: onlineLogins.length
+                  count: visibleOnlineLogins.size
                 })}
               </p>
             ) : null}
@@ -316,16 +330,21 @@ export default function ProfileMessengerWindow({
               <Loader2 className="animate-spin" />
             </div>
           ) : (
-            <ProfileMessageTimeline messages={messages} onReply={setReplyTo} />
+            <ProfileMessageTimeline
+              messages={messages}
+              onlineLogins={visibleOnlineLogins}
+              onReply={setReplyTo}
+              onRetry={(clientMessageId) => samwooMessageSendQueue.retry(clientMessageId)}
+            />
           )}
         </div>
         <ProfileMessageComposer
           draft={draft}
           replyTo={replyTo}
-          sending={sending}
+          sending={false}
           onDraftChange={setDraft}
           onCancelReply={() => setReplyTo(null)}
-          onSend={() => void sendMessage()}
+          onSend={sendMessage}
         />
       </section>
     </main>

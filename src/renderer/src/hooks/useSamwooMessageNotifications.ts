@@ -6,8 +6,7 @@ import {
   decideSamwooMessageNotifications,
   type SamwooChannelSeenState
 } from '@/lib/samwoo-message-notification-decision'
-
-const POLL_MS = 30_000
+import { samwooMessagePollingCadence } from '@/lib/samwoo-message-polling-cadence'
 
 function showOsNotification(title: string, body: string, channelKey: string): void {
   if (typeof Notification === 'undefined') {
@@ -24,17 +23,23 @@ function showOsNotification(title: string, body: string, channelKey: string): vo
 export function useSamwooMessageNotifications(): void {
   const token = useSamwooAuthStore((state) => state.auth?.token)
   const ownLogin = useSamwooAuthStore((state) => state.auth?.login)
+  const eventStreamStatus = useSamwooMessageInboxStore((state) => state.eventStreamStatus)
   const seenRef = useRef<SamwooChannelSeenState | null>(null)
 
   useEffect(() => {
     // Why: switching accounts must restart the silent first poll.
     seenRef.current = null
+  }, [ownLogin, token])
+
+  useEffect(() => {
     if (!token || !ownLogin) {
       useSamwooMessageInboxStore.getState().setTotalUnread(0)
       return
     }
     let disposed = false
-    const poll = async (): Promise<void> => {
+    let polling = false
+    let pollAgain = false
+    const pollOnce = async (): Promise<void> => {
       const result = await window.api.preflight.samwooProfileMessages.listChannels(token)
       if (disposed || !result.ok) {
         return
@@ -63,11 +68,30 @@ export function useSamwooMessageNotifications(): void {
         }
       }
     }
+    const poll = async (): Promise<void> => {
+      if (polling) {
+        pollAgain = true
+        return
+      }
+      polling = true
+      do {
+        pollAgain = false
+        await pollOnce()
+      } while (pollAgain && !disposed)
+      polling = false
+    }
+    const offEvent = window.api.samwooEventStream.onEvent((event) => {
+      if (event.type === 'message' || (event.type === 'read' && event.login === ownLogin)) {
+        void poll()
+      }
+    })
     void poll()
-    const interval = window.setInterval(() => void poll(), POLL_MS)
+    const pollMs = samwooMessagePollingCadence(eventStreamStatus).inboxMs
+    const interval = window.setInterval(() => void poll(), pollMs)
     return () => {
       disposed = true
       window.clearInterval(interval)
+      offEvent()
     }
-  }, [ownLogin, token])
+  }, [eventStreamStatus, ownLogin, token])
 }

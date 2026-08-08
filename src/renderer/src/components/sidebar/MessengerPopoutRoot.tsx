@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useSamwooAuthStore, type SamwooAuth } from '@/lib/samwoo-auth-store'
+import { useSamwooEventStream } from '@/hooks/useSamwooEventStream'
 import ProfileMessengerWindow from './ProfileMessengerWindow'
 
 export default function MessengerPopoutRoot({
@@ -8,6 +9,7 @@ export default function MessengerPopoutRoot({
 }: {
   initialChannelKey?: string | null
 }): React.JSX.Element {
+  useSamwooEventStream(false)
   const [sessionReady, setSessionReady] = useState(false)
 
   useEffect(() => {

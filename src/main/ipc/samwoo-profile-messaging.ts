@@ -54,7 +54,8 @@ export function registerSamwooProfileMessagingHandlers(): void {
               channelKind: args.channelKind,
               shareId: args.shareId,
               body: args.body,
-              replyToId: args.replyToId
+              replyToId: args.replyToId,
+              clientMessageId: args.clientMessageId
             }
           )
         : loginRequired()

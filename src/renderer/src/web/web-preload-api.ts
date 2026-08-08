@@ -809,6 +809,13 @@ function createWebPreloadApi(): Partial<PreloadApi> {
     },
     aiVault: createAiVaultApi(),
     preflight: createPreflightApi(),
+    samwooEventStream: {
+      start: async () => {},
+      stop: async () => {},
+      getState: async () => ({ status: 'disconnected', onlineLogins: [] }),
+      onEvent: () => () => {},
+      onStatus: () => () => {}
+    },
     notifications: createNotificationsApi(),
     rateLimits: createRateLimitsApi(),
     minimaxCredentials: createMiniMaxCredentialsApi(),

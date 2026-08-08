@@ -97,6 +97,7 @@ import { useAutoAckViewedAgent } from './hooks/useAutoAckViewedAgent'
 import { useDashboardPopoutBridge } from './components/dashboard/useDashboardPopoutBridge'
 import { useUnreadDockBadge } from './hooks/useUnreadDockBadge'
 import { useSamwooMessageNotifications } from './hooks/useSamwooMessageNotifications'
+import { useSamwooEventStream } from './hooks/useSamwooEventStream'
 import { useMessengerPopoutBridge } from './hooks/useMessengerPopoutBridge'
 import {
   resolvePrimarySelectionMiddleClickPaste,
@@ -441,6 +442,7 @@ function shouldMountUpdateCardForStatus(status: UpdateStatus): boolean {
 
 function App(): React.JSX.Element {
   const clearUnreadDockBadge = useUnreadDockBadge()
+  useSamwooEventStream(true)
   useSamwooMessageNotifications()
   useMessengerPopoutBridge()
   useRadixBodyPointerEventsRecovery()
