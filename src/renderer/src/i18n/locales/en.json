@@ -14863,6 +14863,23 @@
       "submit": "Sign in",
       "missingSession": "Login succeeded, but no session was created. Sign in again."
     },
+    "workspaceHub": {
+      "title": "Workspaces",
+      "viewList": "List",
+      "viewBoard": "Board",
+      "viewMode": "View mode",
+      "openChannel": "Open channel",
+      "messagesNav": "Messages",
+      "summary": "{{profile}} profile · {{count}} shared",
+      "newChangesCount": "{{count}} new",
+      "openDetails": "Open details",
+      "moreActions": "More actions",
+      "editName": "Edit shared name",
+      "editAlias": "Edit local alias",
+      "closeDetails": "Close details",
+      "details": "Workspace details",
+      "detailsDescription": "Edit, sync, comment on, or revoke this shared workspace."
+    },
     "workspaceSharing": {
       "permissionView": "List only",
       "permissionDownload": "Local copy",
@@ -14890,6 +14907,12 @@
       "project": "Project to share",
       "localProjectPlaceholder": "Select a local project",
       "permission": "Permission",
+      "newShare": "New share",
+      "columnName": "Name",
+      "columnStatus": "Status",
+      "columnPermission": "Permission",
+      "columnUpdated": "Last updated",
+      "shortDescription": "Visible only to members of this Hermes profile.",
       "share": "Share with profile",
       "list": "Shared list",
       "refresh": "Refresh",
@@ -14971,7 +14994,10 @@
       "online": "Connected to the SAMWOO server.",
       "onlineWithLatency": "Connected to the SAMWOO server ({{ms}}ms).",
       "offline": "Cannot reach the SAMWOO server. Check that Tailscale is connected, then retry.",
-      "checking": "Checking the SAMWOO server connection…"
+      "checking": "Checking the SAMWOO server connection…",
+      "onlineShort": "SAMWOO server connected",
+      "offlineShort": "SAMWOO server offline",
+      "checkingShort": "Checking SAMWOO server"
     }
   }
 }

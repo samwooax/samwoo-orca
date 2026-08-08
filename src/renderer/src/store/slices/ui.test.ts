@@ -1949,6 +1949,16 @@ describe('createUISlice settings navigation', () => {
     expect(store.getState().settingsNavigationTarget).toBeNull()
   })
 
+  it('opens the workspace hub without changing the persisted active view', () => {
+    const store = createUIStore()
+
+    store.getState().openWorkspaceHubPage()
+    expect(store.getState()).toMatchObject({ activeView: 'terminal', workspaceHubOpen: true })
+
+    store.getState().setActiveView('mobile')
+    expect(store.getState()).toMatchObject({ activeView: 'mobile', workspaceHubOpen: false })
+  })
+
   it('prefetches the restored default task source when provider settings drifted', () => {
     const store = createUIStore()
     const prefetchWorkItems = vi.fn()

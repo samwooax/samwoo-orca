@@ -8,7 +8,8 @@ type ConnectionStatus = 'checking' | 'online' | 'offline'
 const POLL_MS = 30_000
 
 export default function SamwooConnectionStatusDot(): React.JSX.Element | null {
-  const signedIn = useSamwooAuthStore((state) => Boolean(state.auth))
+  const auth = useSamwooAuthStore((state) => state.auth)
+  const signedIn = Boolean(auth)
   const [status, setStatus] = useState<ConnectionStatus>('checking')
   const [latencyMs, setLatencyMs] = useState<number | null>(null)
 
@@ -52,12 +53,18 @@ export default function SamwooConnectionStatusDot(): React.JSX.Element | null {
             'Cannot reach the SAMWOO server. Check that Tailscale is connected, then retry.'
           )
         : translate('samwoo.connection.checking', 'Checking the SAMWOO server connection…')
+  const shortLabel =
+    status === 'online'
+      ? translate('samwoo.connection.onlineShort', 'SAMWOO server connected')
+      : status === 'offline'
+        ? translate('samwoo.connection.offlineShort', 'SAMWOO server offline')
+        : translate('samwoo.connection.checkingShort', 'Checking SAMWOO server')
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span
-          className="inline-flex size-6 items-center justify-center"
+        <div
+          className="flex min-w-0 items-center gap-2 border-t border-worktree-sidebar-border px-3 py-2 text-xs text-worktree-sidebar-foreground/60"
           role="status"
           aria-live="polite"
           aria-label={label}
@@ -66,7 +73,11 @@ export default function SamwooConnectionStatusDot(): React.JSX.Element | null {
             data-status={status}
             className="size-2 rounded-full bg-muted-foreground/50 data-[status=offline]:bg-destructive data-[status=online]:bg-status-success"
           />
-        </span>
+          <span className="min-w-0 truncate">
+            {shortLabel}
+            {auth?.login ? ` · ${auth.login}` : ''}
+          </span>
+        </div>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

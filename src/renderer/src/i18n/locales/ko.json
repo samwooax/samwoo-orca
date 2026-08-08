@@ -14668,6 +14668,23 @@
       "submit": "로그인",
       "missingSession": "로그인에 성공했지만 세션이 생성되지 않았습니다. 다시 로그인하세요."
     },
+    "workspaceHub": {
+      "title": "워크스페이스",
+      "viewList": "목록",
+      "viewBoard": "보드",
+      "viewMode": "보기 방식",
+      "openChannel": "채널 열기",
+      "messagesNav": "메시지",
+      "summary": "{{profile}} 프로필 · 공유 {{count}}개",
+      "newChangesCount": "새 변경 {{count}}개",
+      "openDetails": "상세 열기",
+      "moreActions": "추가 작업",
+      "editName": "공유 이름 편집",
+      "editAlias": "로컬 별칭 편집",
+      "closeDetails": "상세 닫기",
+      "details": "워크스페이스 상세",
+      "detailsDescription": "공유 워크스페이스를 편집·동기화·코멘트하거나 공유를 해제합니다."
+    },
     "workspaceSharing": {
       "permissionView": "목록만",
       "permissionDownload": "로컬 사본",
@@ -14695,6 +14712,12 @@
       "project": "공유할 프로젝트",
       "localProjectPlaceholder": "로컬 프로젝트 선택",
       "permission": "권한",
+      "newShare": "새 공유",
+      "columnName": "이름",
+      "columnStatus": "상태",
+      "columnPermission": "권한",
+      "columnUpdated": "마지막 업데이트",
+      "shortDescription": "이 Hermes 프로필의 구성원에게만 표시됩니다.",
       "share": "프로필에 공유",
       "list": "공유 목록",
       "refresh": "새로 고침",
@@ -14776,7 +14799,10 @@
       "online": "SAMWOO 서버에 연결됨",
       "onlineWithLatency": "SAMWOO 서버에 연결됨 ({{ms}}ms)",
       "offline": "SAMWOO 서버에 연결할 수 없습니다. Tailscale 연결을 확인한 뒤 다시 시도하세요.",
-      "checking": "SAMWOO 서버 연결 확인 중…"
+      "checking": "SAMWOO 서버 연결 확인 중…",
+      "onlineShort": "SAMWOO 서버 연결됨",
+      "offlineShort": "SAMWOO 서버 오프라인",
+      "checkingShort": "SAMWOO 서버 확인 중"
     }
   }
 }

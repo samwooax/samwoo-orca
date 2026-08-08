@@ -1,12 +1,11 @@
 import React from 'react'
-import { MessageCircle, Users, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import type { WorkspaceStatusDefinition } from '../../../../shared/types'
 import SidebarFilter from './SidebarFilter'
 import WorkspaceKanbanSearchField from './WorkspaceKanbanSearchField'
 import WorkspaceKanbanSettingsMenu from './WorkspaceKanbanSettingsMenu'
-import SamwooConnectionStatusDot from './SamwooConnectionStatusDot'
 import { translate } from '@/i18n/i18n'
 
 type WorkspaceKanbanDrawerHeaderProps = {
@@ -28,10 +27,6 @@ type WorkspaceKanbanDrawerHeaderProps = {
   onRemoveStatus: (statusId: string) => void
   onAddStatus: () => void
   onFilterMenuOpenChange: (open: boolean) => void
-  onOpenSharedWorkspaces: () => void
-  sharedWorkspaceChangeCount?: number
-  onOpenMessages?: () => void
-  unreadMessageCount?: number
   onClose: () => void
 }
 
@@ -54,10 +49,6 @@ export default function WorkspaceKanbanDrawerHeader({
   onRemoveStatus,
   onAddStatus,
   onFilterMenuOpenChange,
-  onOpenSharedWorkspaces,
-  sharedWorkspaceChangeCount = 0,
-  onOpenMessages,
-  unreadMessageCount = 0,
   onClose
 }: WorkspaceKanbanDrawerHeaderProps): React.JSX.Element {
   return (
@@ -103,48 +94,6 @@ export default function WorkspaceKanbanDrawerHeader({
       </SheetHeader>
 
       <div className="absolute right-3 top-2.5 flex items-center gap-1">
-        {onOpenMessages ? (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="relative"
-            aria-label={
-              unreadMessageCount
-                ? translate('samwoo.profileMessages.unreadButton', 'Messages, {{count}} unread', {
-                    count: unreadMessageCount
-                  })
-                : translate('samwoo.profileMessages.title', 'Messages')
-            }
-            onClick={onOpenMessages}
-          >
-            <MessageCircle className="size-3.5" />
-            {unreadMessageCount ? (
-              <span className="absolute -right-0.5 -top-0.5 flex min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] leading-3.5 text-primary-foreground">
-                {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
-              </span>
-            ) : null}
-          </Button>
-        ) : null}
-        <SamwooConnectionStatusDot />
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className="relative"
-          aria-label={
-            sharedWorkspaceChangeCount
-              ? translate(
-                  'samwoo.workspaceSharing.newChangesButton',
-                  'Team shared workspaces, new changes'
-                )
-              : translate('samwoo.workspaceSharing.title', 'Team shared workspaces')
-          }
-          onClick={onOpenSharedWorkspaces}
-        >
-          <Users className="size-3.5" />
-          {sharedWorkspaceChangeCount ? (
-            <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-primary" />
-          ) : null}
-        </Button>
         <SidebarFilter
           preserveWorkspaceBoardOpen
           tooltipSide="top"

@@ -333,6 +333,7 @@ const WorktreeCreationPanel = lazy(
   () => import('./components/worktree-creation/WorktreeCreationPanel')
 )
 const TaskPage = lazy(() => import('./components/TaskPage'))
+const WorkspaceHubPage = lazy(() => import('./components/workspace-hub/WorkspaceHubPage'))
 const AutomationsPage = lazy(() => import('./components/automations/AutomationsPage'))
 const ActivityPrototypePage = lazy(() => import('./components/activity/ActivityPrototypePage'))
 const Settings = lazy(() => import('./components/settings/Settings'))
@@ -500,6 +501,7 @@ function App(): React.JSX.Element {
   )
 
   const activeView = useAppStore((s) => s.activeView)
+  const workspaceHubOpen = useAppStore((s) => s.workspaceHubOpen)
   const activeModal = useAppStore((s) => s.activeModal)
   const featureTipsSeenIds = useAppStore((s) => s.featureTipsSeenIds)
   const featureInteractions = useAppStore((s) => s.featureInteractions)
@@ -554,15 +556,23 @@ function App(): React.JSX.Element {
     backgroundTerminalMountRequested ||
     hasMountedTerminalWorkbenchRef.current
   // Why: visible worktree creation owns its faux tab strip start to finish; keep the previous workspace mounted for retention without real chrome.
-  const creationLayoutActive = shouldShowWorktreeCreationSurface({
-    activeView,
-    activePendingCreationId,
-    hasActivePendingCreation: activePendingCreationExists
-  })
+  const creationLayoutActive =
+    !workspaceHubOpen &&
+    shouldShowWorktreeCreationSurface({
+      activeView,
+      activePendingCreationId,
+      hasActivePendingCreation: activePendingCreationExists
+    })
   const workspaceChromeActive =
-    activeView === 'terminal' && activeWorktreeId !== null && !creationLayoutActive
+    !workspaceHubOpen &&
+    activeView === 'terminal' &&
+    activeWorktreeId !== null &&
+    !creationLayoutActive
   const terminalWorkbenchVisible =
-    activeView === 'terminal' && activeWorktreeId !== null && !creationLayoutActive
+    !workspaceHubOpen &&
+    activeView === 'terminal' &&
+    activeWorktreeId !== null &&
+    !creationLayoutActive
   // Why: once the floating workspace owns tabs, keep it mounted while closed so hidden terminal/browser/editor panes retain local state.
   const shouldMountFloatingTerminalPanel =
     floatingTerminalEnabled && (floatingTerminalOpen || floatingVisibleTabCount > 0)
@@ -2385,23 +2395,31 @@ function App(): React.JSX.Element {
                           ) : null}
                           <Suspense fallback={null}>
                             <RecoverableRenderErrorBoundary
-                              boundaryId={`page.${activeView}`}
+                              boundaryId={`page.${workspaceHubOpen ? 'workspace-hub' : activeView}`}
                               surface="page"
-                              resetKey={activeView}
+                              resetKey={workspaceHubOpen ? 'workspace-hub' : activeView}
                               title={translate('auto.App.b7a714db1e', 'This page hit an error.')}
                               description={translate(
                                 'auto.App.03a14f6b5b',
                                 'Retry the page or navigate to another Orca surface.'
                               )}
                             >
-                              {activeView === 'settings' ? <Settings /> : null}
-                              {activeView === 'skills' ? <SkillsPage /> : null}
-                              {activeView === 'tasks' ? <TaskPage /> : null}
-                              {activeView === 'automations' ? <AutomationsPage /> : null}
-                              {activeView === 'activity' ? <ActivityPrototypePage /> : null}
-                              {activeView === 'space' ? <WorkspaceSpacePage /> : null}
-                              {activeView === 'mobile' ? <MobilePage /> : null}
-                              {activeView === 'terminal' &&
+                              {workspaceHubOpen ? <WorkspaceHubPage /> : null}
+                              {!workspaceHubOpen && activeView === 'settings' ? <Settings /> : null}
+                              {!workspaceHubOpen && activeView === 'skills' ? <SkillsPage /> : null}
+                              {!workspaceHubOpen && activeView === 'tasks' ? <TaskPage /> : null}
+                              {!workspaceHubOpen && activeView === 'automations' ? (
+                                <AutomationsPage />
+                              ) : null}
+                              {!workspaceHubOpen && activeView === 'activity' ? (
+                                <ActivityPrototypePage />
+                              ) : null}
+                              {!workspaceHubOpen && activeView === 'space' ? (
+                                <WorkspaceSpacePage />
+                              ) : null}
+                              {!workspaceHubOpen && activeView === 'mobile' ? <MobilePage /> : null}
+                              {!workspaceHubOpen &&
+                              activeView === 'terminal' &&
                               creationLayoutActive &&
                               activePendingCreationId ? (
                                 <WorktreeCreationPanel
@@ -2411,7 +2429,8 @@ function App(): React.JSX.Element {
                                   }
                                 />
                               ) : null}
-                              {activeView === 'terminal' &&
+                              {!workspaceHubOpen &&
+                              activeView === 'terminal' &&
                               !activeWorktreeId &&
                               !creationLayoutActive ? (
                                 <Landing />

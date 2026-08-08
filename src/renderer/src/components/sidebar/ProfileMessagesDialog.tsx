@@ -30,6 +30,7 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onUnreadCountChange: (count: number) => void
+  initialChannelKey?: string | null
 }
 
 const OPEN_REFRESH_MS = 3_000
@@ -38,7 +39,8 @@ const CLOSED_REFRESH_MS = 30_000
 export default function ProfileMessagesDialog({
   open,
   onOpenChange,
-  onUnreadCountChange
+  onUnreadCountChange,
+  initialChannelKey
 }: Props): React.JSX.Element {
   const auth = useSamwooAuthStore((state) => state.auth)
   const logout = useSamwooAuthStore((state) => state.logout)
@@ -193,6 +195,15 @@ export default function ProfileMessagesDialog({
     useSamwooMessageInboxStore.getState().setMessengerOpen(open)
     return () => useSamwooMessageInboxStore.getState().setMessengerOpen(false)
   }, [open])
+
+  useEffect(() => {
+    if (!open || !initialChannelKey) {
+      return
+    }
+    activeChannelKeyRef.current = initialChannelKey
+    requestSequence.current += 1
+    setSelectedKey(initialChannelKey)
+  }, [initialChannelKey, open])
 
   useEffect(() => {
     if (!open || !selectedChannelKey || !selectedChannelKind) {

@@ -73,7 +73,6 @@ function renderHeader(
     onRemoveStatus: vi.fn(),
     onAddStatus: vi.fn(),
     onFilterMenuOpenChange: vi.fn(),
-    onOpenSharedWorkspaces: vi.fn(),
     onClose,
     ...overrides
   })
@@ -92,39 +91,6 @@ describe('WorkspaceKanbanDrawerHeader', () => {
     closeButton?.props.onClick?.()
 
     expect(onClose).toHaveBeenCalledOnce()
-  })
-
-  it('opens the profile-scoped workspace sharing board from the header', () => {
-    const onOpenSharedWorkspaces = vi.fn()
-    const button = findElement(
-      renderHeader(vi.fn(), { onOpenSharedWorkspaces }),
-      (props) => props['aria-label'] === 'Team shared workspaces'
-    )
-
-    button?.props.onClick?.()
-
-    expect(onOpenSharedWorkspaces).toHaveBeenCalledOnce()
-  })
-
-  it('announces newly changed shared workspaces', () => {
-    const button = findElement(
-      renderHeader(vi.fn(), { sharedWorkspaceChangeCount: 1 }),
-      (props) => props['aria-label'] === 'Team shared workspaces, new changes'
-    )
-
-    expect(button).not.toBeNull()
-  })
-
-  it('opens profile messages and announces unread messages', () => {
-    const onOpenMessages = vi.fn()
-    const button = findElement(
-      renderHeader(vi.fn(), { onOpenMessages, unreadMessageCount: 3 }),
-      (props) => props['aria-label'] === 'Messages, 3 unread'
-    )
-
-    button?.props.onClick?.()
-
-    expect(onOpenMessages).toHaveBeenCalledOnce()
   })
 
   it('renders the search field as a sibling of the sheet title, not inside it', () => {

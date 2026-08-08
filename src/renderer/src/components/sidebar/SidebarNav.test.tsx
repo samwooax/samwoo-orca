@@ -5,13 +5,14 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { getDefaultSettings } from '../../../../shared/constants'
-import type { GlobalSettings, Repo } from '../../../../shared/types'
+import type { GlobalSettings } from '../../../../shared/types'
 import { i18n } from '../../i18n/i18n'
 import { PSEUDO_LOCALIZATION_LOCALE } from '../../i18n/pseudo-localization'
+import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
 
 const mocks = vi.hoisted(() => ({
   state: {} as Record<string, unknown>,
-  openTaskPage: vi.fn(),
+  openWorkspaceHubPage: vi.fn(),
   openAutomationsPage: vi.fn(),
   openActivityPage: vi.fn(),
   openMobilePage: vi.fn(),
@@ -27,13 +28,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/store', () => ({
   useAppStore: (selector: (state: Record<string, unknown>) => unknown) => selector(mocks.state)
-}))
-
-vi.mock('@/store/selectors', () => ({
-  useRepoMap: () =>
-    new Map(
-      ((mocks.state.repos as Repo[] | undefined) ?? []).map((repo) => [repo.id, repo] as const)
-    )
 }))
 
 vi.mock('@/components/activity/useActivityUnreadCount', () => ({
@@ -89,40 +83,14 @@ import SidebarNav, {
   shouldShowSetupGuideEntry
 } from './SidebarNav'
 
-function gitRepo(): Repo {
-  return {
-    id: 'repo-1',
-    path: '/tmp/repo-1',
-    displayName: 'repo-1',
-    badgeColor: 'gray',
-    addedAt: 1,
-    kind: 'git'
-  }
-}
-
-function folderRepo(): Repo {
-  return {
-    id: 'folder-1',
-    path: '/tmp/folder-1',
-    displayName: 'folder-1',
-    badgeColor: 'gray',
-    addedAt: 1,
-    kind: 'folder'
-  }
-}
-
 function setSidebarState({
-  settings = getDefaultSettings('/tmp'),
-  repos = [gitRepo()]
-}: {
-  settings?: GlobalSettings
-  repos?: Repo[]
-} = {}): void {
+  settings = getDefaultSettings('/tmp')
+}: { settings?: GlobalSettings } = {}): void {
   mocks.state = {
     settings,
-    repos,
     activeView: 'worktrees',
-    openTaskPage: mocks.openTaskPage,
+    workspaceHubOpen: false,
+    openWorkspaceHubPage: mocks.openWorkspaceHubPage,
     openAutomationsPage: mocks.openAutomationsPage,
     openActivityPage: mocks.openActivityPage,
     openMobilePage: mocks.openMobilePage,
@@ -134,8 +102,6 @@ function setSidebarState({
     linearStatus: { connected: false },
     linearStatusChecked: true,
     checkLinearConnection: mocks.checkLinearConnection,
-    prefetchWorkItems: vi.fn(),
-    activeRepoId: null,
     persistedUIReady: true,
     activeModal: null,
     setupGuideSidebarDismissed: true,
@@ -208,6 +174,7 @@ describe('SidebarNav', () => {
     await i18n.changeLanguage('en')
     mocks.hasPairedMobileDevice = false
     mocks.agentBucketCounts = { attention: 0, working: 0, done: 0, idle: 0 }
+    useSamwooMessageInboxStore.setState({ totalUnread: 0, messengerOpen: false })
     setSidebarState()
   })
 
@@ -401,48 +368,25 @@ describe('SidebarNav', () => {
     expect(searchButton?.querySelector('kbd')).toBeNull()
   })
 
-  it('hides task source shortcuts until the Tasks row is hovered or focused', async () => {
+  it('renders Workspaces and Messages instead of the Tasks entry', async () => {
     const container = await renderSidebarNav()
 
-    const tasksButton = getButtonByText(container, 'Tasks')
-    const shortcuts = tasksButton.querySelector('[aria-label="Open GitHub tasks"]')?.parentElement
-
-    expect(shortcuts?.className).toContain('hidden')
-    expect(shortcuts?.className).toContain('group-hover:flex')
-    expect(shortcuts?.className).toContain('group-focus-within:flex')
+    expect(queryButtonByText(container, 'Tasks')).toBeNull()
+    await clickButton(getButtonByText(container, 'Workspaces'))
+    expect(mocks.openWorkspaceHubPage).toHaveBeenCalledOnce()
+    expect(queryButtonByText(container, 'Messages')).not.toBeNull()
   })
 
-  it('hides available Tasks from its sidebar context menu', async () => {
+  it('shows the workspace active state and caps the message badge', async () => {
+    mocks.state.workspaceHubOpen = true
+    useSamwooMessageInboxStore.setState({ totalUnread: 120 })
     const container = await renderSidebarNav()
 
-    const tasksButton = getButtonByText(container, 'Tasks')
-    expect(tasksButton.getAttribute('aria-disabled')).toBe('false')
-
-    const tasksMenu = tasksButton.closest('[data-testid="context-menu"]')
-    expect(tasksMenu).not.toBeNull()
-    await clickButton(getHideButton(tasksMenu as HTMLElement))
-
-    expect(mocks.updateSettings).toHaveBeenCalledWith({ showTasksButton: false })
-  })
-
-  it('keeps unavailable Tasks context-menu-capable while left click remains inert', async () => {
-    setSidebarState({ repos: [folderRepo()] })
-    const container = await renderSidebarNav()
-
-    const tasksButton = getButtonByText(container, 'Tasks')
-    expect(tasksButton.getAttribute('aria-disabled')).toBe('true')
-    expect(tasksButton.disabled).toBe(false)
-    expect(tasksButton.querySelectorAll('[role="button"]')).toHaveLength(0)
-    expect(tasksButton.querySelector('[aria-label="Open GitHub tasks"]')).toBeNull()
-
-    await clickButton(tasksButton)
-    expect(mocks.openTaskPage).not.toHaveBeenCalled()
-
-    const tasksMenu = tasksButton.closest('[data-testid="context-menu"]')
-    expect(tasksMenu).not.toBeNull()
-    await clickButton(getHideButton(tasksMenu as HTMLElement))
-
-    expect(mocks.updateSettings).toHaveBeenCalledWith({ showTasksButton: false })
+    expect(getButtonByText(container, 'Workspaces').getAttribute('aria-current')).toBe('page')
+    const messages = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Messages')
+    )
+    expect(messages?.textContent).toContain('99+')
   })
 
   it('shows the setup guide entry only after readiness, before completion, and before explicit hide', () => {

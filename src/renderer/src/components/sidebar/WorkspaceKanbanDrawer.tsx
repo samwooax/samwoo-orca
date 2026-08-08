@@ -16,8 +16,6 @@ import WorkspaceKanbanAreaSelectionOverlay from './WorkspaceKanbanAreaSelectionO
 import WorkspaceKanbanDrawerHeader from './WorkspaceKanbanDrawerHeader'
 import WorkspaceKanbanLaneGrid from './WorkspaceKanbanLaneGrid'
 import WorkspaceKanbanPinDropTarget from './WorkspaceKanbanPinDropTarget'
-import SharedWorkspaceBoardDialog from './SharedWorkspaceBoardDialog'
-import ProfileMessagesDialog from './ProfileMessagesDialog'
 import {
   getWorkspaceStatus,
   hasWorkspaceDragData,
@@ -175,10 +173,6 @@ export default function WorkspaceKanbanDrawer({
   const [dragOverStatus, setDragOverStatus] = useState<WorkspaceStatus | null>(null)
   const [pinDragOver, setPinDragOver] = useState(false)
   const [renderCards, setRenderCards] = useState(false)
-  const [sharedWorkspacesOpen, setSharedWorkspacesOpen] = useState(false)
-  const [sharedWorkspaceChangeCount, setSharedWorkspaceChangeCount] = useState(0)
-  const [profileMessagesOpen, setProfileMessagesOpen] = useState(false)
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   const { canCreateWorktree, createWorktreeForStatus } = useWorkspaceKanbanCreateWorktree()
   const visibleWorktreeIdSet = useVisibleWorkspaceKanbanWorktreeIds({
     allWorktrees,
@@ -915,21 +909,7 @@ export default function WorkspaceKanbanDrawer({
           onRemoveStatus={handleRemoveStatus}
           onAddStatus={handleAddStatus}
           onFilterMenuOpenChange={onMenuOpenChange}
-          onOpenSharedWorkspaces={() => setSharedWorkspacesOpen(true)}
-          sharedWorkspaceChangeCount={sharedWorkspaceChangeCount}
-          onOpenMessages={() => setProfileMessagesOpen(true)}
-          unreadMessageCount={unreadMessageCount}
           onClose={handleHeaderClose}
-        />
-        <ProfileMessagesDialog
-          open={profileMessagesOpen}
-          onOpenChange={setProfileMessagesOpen}
-          onUnreadCountChange={setUnreadMessageCount}
-        />
-        <SharedWorkspaceBoardDialog
-          open={sharedWorkspacesOpen}
-          onOpenChange={setSharedWorkspacesOpen}
-          onNewChangesCountChange={setSharedWorkspaceChangeCount}
         />
         <div
           ref={boardRef}

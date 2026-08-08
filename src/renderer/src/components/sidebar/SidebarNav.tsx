@@ -3,7 +3,9 @@ import {
   Bell,
   CalendarClock,
   EyeOff,
+  Kanban,
   LayoutDashboard,
+  MessageCircle,
   MessageCircleQuestion,
   Search,
   Smartphone
@@ -22,9 +24,9 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SetupGuideSidebarEntry } from './SetupGuideSidebarEntry'
-import { SidebarTaskNavButton } from './SidebarTaskNavButton'
 import { HideSidebarMenu } from './sidebar-nav-controls'
 import { translate } from '@/i18n/i18n'
+import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
 
 export { getSetupGuideSidebarEntryReady, shouldShowSetupGuideEntry } from './SetupGuideSidebarEntry'
 
@@ -154,11 +156,13 @@ const SidebarNav = React.memo(function SidebarNav() {
   useTranslation()
   const worktreePaletteShortcutCombos = useShortcutKeyComboDetails('worktree.palette')
   const openAutomationsPage = useAppStore((s) => s.openAutomationsPage)
+  const openWorkspaceHubPage = useAppStore((s) => s.openWorkspaceHubPage)
   const openActivityPage = useAppStore((s) => s.openActivityPage)
   const openMobilePage = useAppStore((s) => s.openMobilePage)
   const openModal = useAppStore((s) => s.openModal)
   const updateSettings = useAppStore((s) => s.updateSettings)
   const activeView = useAppStore((s) => s.activeView)
+  const workspaceHubActive = useAppStore((s) => s.workspaceHubOpen)
   const showAgentsButton = useAppStore((s) => shouldShowAgentsButton(s.settings))
   const showAgentDashboardButton = useAppStore((s) => shouldShowAgentDashboardButton(s.settings))
   const showAutomationsButton = useAppStore((s) => shouldShowAutomationsButton(s.settings))
@@ -166,6 +170,8 @@ const SidebarNav = React.memo(function SidebarNav() {
   const automationsActive = activeView === 'automations'
   const activityActive = activeView === 'activity'
   const mobileActive = activeView === 'mobile'
+  const totalUnread = useSamwooMessageInboxStore((state) => state.totalUnread)
+  const openMessenger = useSamwooMessageInboxStore((state) => state.openMessenger)
   const activityUnreadCount = useActivityUnreadCount(showAgentsButton, 'sidebar-badge')
   const mobileOnboardingBadge = useMobileSidebarOnboardingBadge(showMobileButton)
   const hideAutomationsButton = React.useCallback(() => {
@@ -180,8 +186,40 @@ const SidebarNav = React.memo(function SidebarNav() {
       className="flex flex-col gap-0.5 px-2 pt-2 pb-1"
       data-contextual-tour-target="sidebar-navigation"
     >
+      <button
+        type="button"
+        onClick={openWorkspaceHubPage}
+        aria-current={workspaceHubActive ? 'page' : undefined}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium tracking-tight transition-colors',
+          workspaceHubActive
+            ? 'bg-worktree-sidebar-accent text-worktree-sidebar-accent-foreground'
+            : 'text-worktree-sidebar-foreground/60 hover:bg-worktree-sidebar-foreground/8'
+        )}
+      >
+        <Kanban
+          className={cn(
+            'size-4 shrink-0',
+            !workspaceHubActive && 'text-worktree-sidebar-foreground/30'
+          )}
+          strokeWidth={workspaceHubActive ? 2.25 : 1.75}
+        />
+        <span className="flex-1">{translate('samwoo.workspaceHub.title', 'Workspaces')}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => openMessenger()}
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium tracking-tight text-worktree-sidebar-foreground/60 transition-colors hover:bg-worktree-sidebar-foreground/8"
+      >
+        <MessageCircle className="size-4 shrink-0 text-worktree-sidebar-foreground/30" />
+        <span className="flex-1">{translate('samwoo.workspaceHub.messagesNav', 'Messages')}</span>
+        {totalUnread > 0 ? (
+          <span className="rounded-full bg-primary px-1.5 py-px text-[10px] font-semibold text-primary-foreground">
+            {totalUnread > 99 ? '99+' : totalUnread}
+          </span>
+        ) : null}
+      </button>
       <SetupGuideSidebarEntry />
-      <SidebarTaskNavButton />
       {showAutomationsButton ? (
         <ContextMenu>
           <ContextMenuTrigger asChild>

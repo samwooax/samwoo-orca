@@ -665,7 +665,10 @@ export type UISlice = {
     | 'automations'
     | 'space'
     | 'skills'
+  workspaceHubOpen: boolean
   setActiveView: (view: UISlice['activeView']) => void
+  openWorkspaceHubPage: () => void
+  closeWorkspaceHubPage: () => void
   taskPageData: {
     preselectedRepoId?: string
     prefilledName?: string
@@ -1233,7 +1236,10 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
   previousViewBeforeSpace: 'terminal',
   previousViewBeforeSkills: 'terminal',
   previousViewBeforeMobile: 'terminal',
-  setActiveView: (view) => set({ activeView: view }),
+  workspaceHubOpen: false,
+  setActiveView: (view) => set({ activeView: view, workspaceHubOpen: false }),
+  openWorkspaceHubPage: () => set({ workspaceHubOpen: true }),
+  closeWorkspaceHubPage: () => set({ workspaceHubOpen: false }),
   taskPageData: {},
   taskResumeState: undefined,
   githubTaskDrawerWorkItem: null,
@@ -1304,6 +1310,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     }
     set((state) => ({
       activeView: 'tasks',
+      workspaceHubOpen: false,
       previousViewBeforeTasks:
         state.activeView === 'tasks' ? state.previousViewBeforeTasks : state.activeView,
       taskPageData: data
@@ -1420,6 +1427,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     }
     set((state) => ({
       activeView: 'activity',
+      workspaceHubOpen: false,
       previousViewBeforeActivity:
         state.activeView === 'activity' ? state.previousViewBeforeActivity : state.activeView
     }))
@@ -1437,6 +1445,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     get().recordViewVisit('automations')
     set((state) => ({
       activeView: 'automations',
+      workspaceHubOpen: false,
       previousViewBeforeAutomations:
         state.activeView === 'automations' ? state.previousViewBeforeAutomations : state.activeView
     }))
@@ -1460,6 +1469,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     get().recordFeatureInteraction?.('workspace-cleanup')
     set((state) => ({
       activeView: 'space',
+      workspaceHubOpen: false,
       previousViewBeforeSpace:
         state.activeView === 'space' ? state.previousViewBeforeSpace : state.activeView
     }))
@@ -1471,6 +1481,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
   openSkillsPage: () =>
     set((state) => ({
       activeView: 'skills',
+      workspaceHubOpen: false,
       previousViewBeforeSkills:
         state.activeView === 'skills' ? state.previousViewBeforeSkills : state.activeView
     })),
@@ -1481,6 +1492,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
   openMobilePage: () =>
     set((state) => ({
       activeView: 'mobile',
+      workspaceHubOpen: false,
       previousViewBeforeMobile:
         state.activeView === 'mobile' ? state.previousViewBeforeMobile : state.activeView
     })),
@@ -1495,6 +1507,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     get().setSettingsSearchQuery('')
     set((state) => ({
       activeView: 'settings',
+      workspaceHubOpen: false,
       // Why: preserve the originating view so Settings back returns there (e.g. in-progress draft), not always terminal.
       previousViewBeforeSettings:
         state.activeView === 'settings' ? state.previousViewBeforeSettings : state.activeView
