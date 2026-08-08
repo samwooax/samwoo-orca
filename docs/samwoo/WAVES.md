@@ -13,9 +13,9 @@
 | W2 | 구조 — 허브 페이지·메신저 팝아웃 창·UI | ✅ 완료 | f5d9455e9, 41c17119e, 7560f368c, 33669d21e |
 | W3a | 실시간 서버 — WAL·SSE·멱등·백업 | ✅ 완료 (배포 대기) | cda008945 |
 | **W3b** | **실시간 클라이언트 — SSE 수신·전송 큐·프레즌스** | ✅ **구현 완료 (배포·실측 대기)** | c87cdf8d4 |
-| W3c | VPS 배포·실측 (담당: 사용자+Claude, 코덱스 아님) | 대기 | — |
+| W3c | VPS 배포·실측 (W4b 모듈 포함 통합 배포, 담당: 사용자+Claude) | 대기 | — |
 | W4a | 봇 메일 첨부 파이프라인 (서버) | ✅ 완료 (배포 대기) | 478aa31dc |
-| W4b | 봇 대화 맥락·검색 API + 스킬 배포 | 대기 | — |
+| W4b | 봇 대화 맥락·검색 API + 스킬 배포 | ✅ 구현 완료 (통합 배포 대기) | 7289d7769 |
 | W5 | 예약 자동화 — 위임 토큰·크론 등록 스킬 | 설계 대기 (W4b 후 Claude가 지시서 작성) | — |
 | W6 | 허브 2단계 — /profile/members·담당자·마감일·작업 항목 | 설계 대기 | — |
 
@@ -28,12 +28,13 @@
 - 검증: focused Vitest 18개, TypeScript, oxlint·React 규칙, max-lines, i18n 게이트 통과. 운영 `/events` 배포 후 1초 내 수신·2계정 프레즌스 실측은 W3c로 이월
 
 ### W3c — VPS 배포·실측 (코덱스 범위 아님)
-- 체크리스트: `_claude-proposals/deploy/W3c-vps-deploy-checklist.md` (ThreadingHTTPServer 0순위, 모듈 반영, /events 확인, 백업 cron, 타임아웃 재실측, 실계정 첨부·2계정 실측)
+- 체크리스트: `_claude-proposals/deploy/W3c-vps-deploy-checklist.md` (ThreadingHTTPServer 0순위, W3a·W4a·W4b 모듈과 Hermes 스킬 통합 반영, /events 확인, 백업 cron, 타임아웃 재실측, 실계정 첨부·메시지 요약·2계정 실측)
 
-### W4b — 봇 대화 맥락·검색
+### W4b — 봇 대화 맥락·검색 (구현 완료, 통합 배포 대기)
 - 지시서: `_claude-proposals/waves/W4b-hermes-message-context.md`
-- 서버 파일 겹침 주의: W3c 배포 후 진행 권장
-- Hermes 호스트 스킬 배포(mail·messages) 포함
+- 구현: 프로필 격리·LIKE 리터럴 이스케이프·안정적 커서를 적용한 `/profile-messages/search`, 온디맨드 조회 전용 `samwoo-messages` 스킬, 팀 채팅 세션 접근 안내
+- 검증: 검색 경계 테스트를 포함한 Python 서버 테스트 65개, TypeScript, oxlint, i18n, max-lines 게이트 통과
+- 배포: 서버 모듈과 Hermes 호스트의 mail·messages 스킬을 W3c에서 한 번에 반영하고 실계정 요약·타 프로필 차단을 확인한다.
 
 ### W5 — 예약 자동화 (지시서 미작성)
 - 선행 설계: 예약 작업용 위임 토큰 (범위 제한: 메일 읽기+지정 워크스페이스 쓰기+메신저 전송, 폐기 가능, 장수명)
