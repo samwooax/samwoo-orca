@@ -181,11 +181,6 @@ export default function ProfileMessengerWindow({
 
   useEffect(() => window.api.messenger.onSelectChannel(selectChannel), [selectChannel])
   useEffect(() => {
-    if (initialChannelKey) {
-      selectChannel(initialChannelKey)
-    }
-  }, [initialChannelKey, selectChannel])
-  useEffect(() => {
     if (stickToBottomRef.current) {
       messageViewportRef.current?.scrollTo({
         top: messageViewportRef.current.scrollHeight,
