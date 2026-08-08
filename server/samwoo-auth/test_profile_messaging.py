@@ -52,6 +52,30 @@ class ProfileMessagingTest(unittest.TestCase):
         )
         self.assertEqual(0, profile_messaging.list_channels(PEER_TOKEN)[0]["unreadCount"])
 
+    def test_channel_catalog_aggregates_latest_messages_and_unread_counts(self):
+        share = self.create_share()
+        profile_messaging.send_message(
+            OWNER_TOKEN, {"channelKind": "team", "body": "팀 최신 메시지"}
+        )
+        profile_messaging.send_message(
+            OWNER_TOKEN,
+            {
+                "channelKind": "workspace",
+                "shareId": share["id"],
+                "body": "워크스페이스 최신 메시지",
+            },
+        )
+
+        channels = {
+            channel["key"]: channel
+            for channel in profile_messaging.list_channels(PEER_TOKEN)
+        }
+        self.assertEqual(1, channels["team"]["unreadCount"])
+        self.assertEqual("팀 최신 메시지", channels["team"]["lastMessagePreview"])
+        workspace = channels[f"workspace:{share['id']}"]
+        self.assertEqual(1, workspace["unreadCount"])
+        self.assertEqual("워크스페이스 최신 메시지", workspace["lastMessagePreview"])
+
     def test_workspace_channel_requires_active_share_in_same_profile(self):
         share = self.create_share()
         message = profile_messaging.send_message(

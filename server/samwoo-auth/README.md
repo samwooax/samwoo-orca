@@ -84,12 +84,13 @@ if mail_endpoints.is_mail_path(self.path):
 ## Config (env, optional)
 `SAMWOO_IMAP_HOST` `SAMWOO_IMAP_PORT` `SAMWOO_SMTP_HOST` `SAMWOO_SMTP_PORT`
 `SAMWOO_MAIL_TTL` (sec, default 28800) `SAMWOO_MAIL_MAX_RCPT` `SAMWOO_MAIL_MAX_BODY`.
-Defaults target `play.samwooeleco.com` 993/587.
+Mail host and port defaults are deployment-specific. Keep production values in the private
+operations runbook or service environment rather than this public repository.
 
 ## Deploy
 ```bash
-scp mail_ext.py mail_endpoints.py root@187.127.120.88:/opt/samwoo-auth/
-ssh root@187.127.120.88 'pip3 install cryptography; \
+scp mail_ext.py mail_endpoints.py <DEPLOY_USER>@<VPS_HOST>:/opt/samwoo-auth/
+ssh <DEPLOY_USER>@<VPS_HOST> 'pip3 install cryptography; \
   # apply the 3 edits above to auth-server.py, then:
   systemctl restart samwoo-auth && journalctl -u samwoo-auth -n 20 --no-pager'
 ```
@@ -99,7 +100,7 @@ ssh root@187.127.120.88 'pip3 install cryptography; \
 token, e.g.:
 ```
 curl -sS -H "Authorization: Bearer $MAILTOKEN" -H 'Content-Type: application/json' \
-  -d '{"limit":10}' http://100.116.18.119:8823/mail/list
+  -d '{"limit":10}' http://<TAILNET_AUTH_HOST>:8823/mail/list
 ```
 `$MAILTOKEN` is exported into the bot's shell by the app relay; the value is
 never printed, so the model reads mail without ever seeing the credential.

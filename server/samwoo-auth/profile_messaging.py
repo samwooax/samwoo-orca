@@ -109,27 +109,39 @@ def list_channels(token: str) -> list[dict]:
             (f"workspace:{row['id']}", "workspace", row["id"], row["display_name"])
             for row in shares
         )
+        latest_rows = conn.execute(
+            """SELECT channel_key,author_login,body,created_at FROM (
+            SELECT channel_key,author_login,body,created_at,id,
+            ROW_NUMBER() OVER (
+                PARTITION BY channel_key ORDER BY created_at DESC,id DESC
+            ) AS message_rank
+            FROM profile_messages WHERE owner_profile=?
+            ) WHERE message_rank=1""",
+            (profile,),
+        ).fetchall()
+        latest_by_channel = {row["channel_key"]: row for row in latest_rows}
+        unread_rows = conn.execute(
+            """SELECT message.channel_key,COUNT(*) AS unread_count
+            FROM profile_messages message
+            LEFT JOIN profile_message_reads read
+            ON read.owner_profile=message.owner_profile AND read.login=?
+            AND read.channel_key=message.channel_key
+            WHERE message.owner_profile=? AND message.author_login!=?
+            AND (read.channel_key IS NULL OR message.created_at>read.last_read_created_at
+            OR (message.created_at=read.last_read_created_at AND message.id>read.last_read_id))
+            GROUP BY message.channel_key""",
+            (login, profile, login),
+        ).fetchall()
+        unread_by_channel = {
+            row["channel_key"]: row["unread_count"] for row in unread_rows
+        }
         channels = []
         for key, kind, share_id, label in definitions:
-            last = conn.execute(
-                """SELECT author_login,body,created_at,id FROM profile_messages
-                WHERE owner_profile=? AND channel_key=? ORDER BY created_at DESC,id DESC LIMIT 1""",
-                (profile, key),
-            ).fetchone()
-            read = conn.execute(
-                """SELECT last_read_created_at,last_read_id FROM profile_message_reads
-                WHERE owner_profile=? AND login=? AND channel_key=?""",
-                (profile, login, key),
-            ).fetchone()
-            read_at, read_id = (read["last_read_created_at"], read["last_read_id"]) if read else (0, "")
-            unread = conn.execute(
-                """SELECT COUNT(*) FROM profile_messages WHERE owner_profile=? AND channel_key=?
-                AND author_login!=? AND (created_at>? OR (created_at=? AND id>?))""",
-                (profile, key, login, read_at, read_at, read_id),
-            ).fetchone()[0]
+            last = latest_by_channel.get(key)
             channels.append({
                 "key": key, "kind": kind, "shareId": share_id, "label": label,
-                "unreadCount": unread, "lastMessageAt": last["created_at"] if last else None,
+                "unreadCount": unread_by_channel.get(key, 0),
+                "lastMessageAt": last["created_at"] if last else None,
                 "lastMessagePreview": last["body"][:160] if last else None,
                 "lastMessageAuthor": last["author_login"] if last else None,
             })

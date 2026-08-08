@@ -40,20 +40,20 @@ gh workflow run build-samwoo-windows.yml
 ```
 [직원 PC (Win/Mac)]  SAMWOO-ORCA 앱 + 로컬 채팅서버(loopback:47821) + 로컬 파일 브리지
         │  (Tailscale WireGuard 암호화)
-[Tailscale 테일넷: samwooax 계정]
+[Tailscale 테일넷: <TAILNET_ACCOUNT>]
         │
-[Hostinger VPS  187.127.120.88 / tailnet: server-host 100.116.18.119]
-   ├─ Hermes 팀봇 컨테이너  hermes-new-container = 100.68.242.83  (hr,cs,finance,oliver,planning,sales)
-   ├─ Hermes 메인 컨테이너  hermes-container = 100.84.94.42       (dh,hk,ih...)
+[Hostinger VPS  <VPS_PUBLIC_HOST> / tailnet: <TAILNET_AUTH_HOST>]
+   ├─ Hermes 팀봇 컨테이너  <TAILNET_HERMES_HOST>  (hr,cs,finance,oliver,planning,sales)
+   ├─ Hermes 메인 컨테이너  <TAILNET_MAIN_HERMES_HOST>  (dh,hk,ih...)
    ├─ Auth 서비스           :8823  (SMTP 로그인검증 + 직무매핑)
    └─ NextCloud             (배포 파일 호스팅)
         │
-[그룹웨어 다우오피스/TIMS  play.samwooeleco.com]  SMTP 587 / IMAP 993
+[그룹웨어 메일 서버 <GROUPWARE_MAIL_HOST>]  SMTP / IMAP
 ```
 
-**⚠️ 테일넷 주의**: 회사 노트북들은 원래 `samwoo.axtf` 테일넷에 있었음. 우리 서버는 `samwooax` 테일넷.
-로그인/봇 연결이 되려면 **노트북이 samwooax 테일넷에 있어야 함**. (install.ps1이 samwooax 키로 합류시킴)
-앱은 MagicDNS 이름 대신 **테일스케일 IP 직접 사용**(Windows에서 이름해석 실패 때문): auth=100.116.18.119, 봇=100.68.242.83.
+**⚠️ 테일넷 주의**: 회사 노트북과 서비스 서버가 서로 다른 테일넷에 있으면 연결되지 않습니다.
+로그인/봇 연결이 되려면 **노트북과 서비스 서버가 같은 조직 테일넷에 있어야 합니다**. 실제 계정과 설치 키는 비공개 운영 문서에서 관리합니다.
+앱은 MagicDNS 이름 대신 **배포 시 지정한 Tailscale IP를 직접 사용**합니다. 관리형 Windows에서 이름 해석 실패가 있었기 때문이며, 실제 주소는 비공개 운영 문서에서 관리합니다.
 
 ---
 
@@ -75,7 +75,7 @@ gh workflow run build-samwoo-windows.yml
 
 ---
 
-## 4. 서버 측 구성 (VPS: `ssh root@187.127.120.88`)
+## 4. 서버 측 구성 (실제 접속 정보는 비공개 운영 문서 참고)
 
 ### Auth 서비스
 - 위치: `/opt/samwoo-auth/auth-server.py` (systemd: `samwoo-auth`, `:8823`, 0.0.0.0 바인딩)
@@ -84,7 +84,7 @@ gh workflow run build-samwoo-windows.yml
 - 하는 일: SMTP(587)로 로그인 검증만 → 직무 반환. 비번 저장 안 함.
 
 ### 봇 접속 (팀봇 컨테이너)
-- `ssh hermes@100.68.242.83` (Tailscale SSH, 키 불필요)
+- `ssh <HERMES_USER>@<TAILNET_HERMES_HOST>` (Tailscale SSH)
 - 프로필: `/opt/data/profiles/<role>/` — SOUL.md(성격), skills/
 - 공유 스킬: `/opt/data/skills/<category>/<skill>/SKILL.md`
 
@@ -93,14 +93,14 @@ gh workflow run build-samwoo-windows.yml
 - 앱은 현재 선택 프로젝트 안에서 list/read/write만 실행하고 삭제는 허용하지 않음.
 
 ### NextCloud (배포 호스팅)
-- URL: `https://nextcloud-ebml.srv1808091.hstgr.cloud`, 계정: samwoo_ax
+- URL·계정·컨테이너 이름은 비공개 운영 문서에서 관리합니다.
 - 배포 폴더: `SAMWOO-ORCA설치/` (install.bat, install.ps1, samwoo-orca-windows-setup.exe, README.txt)
 - 파일 갱신법(컨테이너 내부 복사 + 스캔):
   ```bash
   # VPS에서:
-  docker cp <파일> nextcloud-ebml-nextcloud-1:/tmp/x
-  docker exec nextcloud-ebml-nextcloud-1 sh -c 'cp /tmp/x /var/www/html/data/samwoo_ax/files/*ORCA*/<파일명> && chown www-data:www-data /var/www/html/data/samwoo_ax/files/*ORCA*/<파일명>'
-  docker exec -u www-data nextcloud-ebml-nextcloud-1 php occ files:scan samwoo_ax
+  docker cp <파일> <NEXTCLOUD_CONTAINER>:/tmp/x
+  docker exec <NEXTCLOUD_CONTAINER> sh -c 'cp /tmp/x <NEXTCLOUD_DATA_PATH>/<파일명> && chown www-data:www-data <NEXTCLOUD_DATA_PATH>/<파일명>'
+  docker exec -u www-data <NEXTCLOUD_CONTAINER> php occ files:scan <NEXTCLOUD_ACCOUNT>
   ```
 
 ---
@@ -167,10 +167,8 @@ cd ~/samwoo-orca && git stash pop   # WIP 복원 (5개 파일: token 추가)
 
 ## 8. 계정/접근 요약
 
-- **VPS**: `ssh root@187.127.120.88` (포트22). 봇: `ssh hermes@100.68.242.83`.
-- **Tailscale**: samwooax 계정. pre-auth 키는 `deploy/install.ps1` 안(gitignore됨). 만료 2026-10-20.
-- **NextCloud**: samwoo_ax / `https://nextcloud-ebml.srv1808091.hstgr.cloud`
-- **그룹웨어**: 다우오피스, `play.samwooeleco.com` (SMTP 587 / IMAP 993).
+- **VPS/봇**: 실제 사용자명·호스트·접근 정책은 비공개 운영 문서에서 관리합니다.
+- **Tailscale/NextCloud/그룹웨어**: 계정, 호스트, 설치 키와 만료일은 비공개 운영 문서에서 관리합니다.
 - **GitHub**: samwooax/samwoo-orca (비공개), Release: v1.4.147-samwoo.
 
 ## 9. 리포 소유권 이전 완료
