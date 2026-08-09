@@ -24,7 +24,7 @@
 | W9 | v1.4.184 긴급 대체 릴리스 — 팝아웃 크래시 수정·W6b | ✅ 완료 | 3a2594771, 30e8ef9b8, 086c4a4fd, 5701ac030, run 31310610748 |
 | W10 | v1.4.185 one-click·전체 사용자 Windows 설치 | ✅ 완료 | 01b99d44c, f9b1e8396, f1c2353d5, run 31312994734 |
 | W11 | 로그인 식별자 정규화·릴리스 UI 정리 | ✅ v1.4.186·VPS 반영 완료, GUI 실측 대기 | 0262f692d, 5fc6b6224, edff354cf, run 31318757576 |
-| W12 | 예약 지시 — 인앱 스케줄러·우측 사이드탭 | ✅ 구현·게이트 완료, v1.4.187 빌드 대기 | 12ffde36d |
+| W12 | 예약 지시 — 인앱 스케줄러·우측 사이드탭 | ✅ v1.4.187 공개 완료·GUI 실측 대기 | 12ffde36d, 5eb6dd155, run 31341733681 |
 
 ## 웨이브 상세
 
@@ -101,14 +101,14 @@
 - 운영 확인: `v1.4.186` 서버 모듈 재배포·서비스 재시작, 기존 DB 7개 영역 무손실 마이그레이션, 합성 인증 세션 API와 `role-map.csv` 18명 로드를 완료했다.
 - 남은 단계: 앱 업데이트 후 재로그인, 2계정 메신저·프레즌스·워크스페이스 GUI 실측.
 
-### W12 — 예약 지시 (구현·게이트 완료, 다음 릴리스 대기)
+### W12 — 예약 지시 (v1.4.187 공개 완료·GUI 실측 대기)
 
 - 범위: 자연어 지시를 시각·요일로 등록해 앱 실행 중 팀 봇에게 자동 전송. 우측 사이드바 `예약` 탭에서 등록·중지·삭제·지금 실행.
 - 서버 변경 없음. 기존 세션 토큰과 기존 `sendHermesTeamChat` 경로를 그대로 쓴다.
 - 신규: `src/shared/samwoo-schedule.ts`(발생 시각 계산·판정), `samwoo-schedule-store.ts`(localStorage), `samwoo-schedule-runner.ts`(30초 틱·중복 실행 방지), `SamwooSchedulePanel.tsx`, `samwoo-schedule-day-picker.tsx`, `useSamwooScheduleRunner.ts`.
 - 부수 수정: 프로젝트 루트가 없는 턴은 로컬 명령 승인 모달을 띄우지 않고 거절 결과를 반환한다(`hermes-local-project-tool-loop.ts`).
 - 검증: W12 핵심 6개 테스트 파일 41개, RPC·라우팅 포함 focused 8파일 87개, TypeScript 3종, 전체 oxlint·React 규칙, max-lines·신뢰성·스킬 번들·i18n 게이트와 Python 서버 87개가 통과했다. ko/en 33키를 추가했다.
-- 완료 커밋: `12ffde36d`. 패키지 버전 `1.4.187`에 포함해 Windows 빌드·공개한다.
+- 릴리스: `5eb6dd155`에서 버전 `1.4.187`을 반영했다. Actions run `31341733681`의 통합 검사·내부 서명 NSIS·자산 검증을 통과했고 공개 `latest.yml`의 버전·크기·SHA-512 일치를 확인했다.
 - 남은 단계: 실제 앱의 예약 등록·재시작 catch-up·지금 실행 GUI 실측.
 
 ## 폐기·보류
