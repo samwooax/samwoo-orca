@@ -38,6 +38,15 @@ describe('Windows one-click launch contract', () => {
     expect(installer).toContain('if ($installedGit -notmatch "^git version ")')
   })
 
+  it('finds both per-machine and legacy per-user SAMWOO installs', () => {
+    expect(installer).toContain('Join-Path $env:ProgramFiles "SAMWOO-ORCA\\SAMWOO-ORCA.exe"')
+    expect(installer).toContain(
+      'Join-Path $env:LOCALAPPDATA "Programs\\SAMWOO-ORCA\\SAMWOO-ORCA.exe"'
+    )
+    expect(installer).toContain('function Find-SamwooInstalledApp')
+    expect(installer.match(/\$installedApp = Find-SamwooInstalledApp/g)).toHaveLength(2)
+  })
+
   it('closes the launcher on success and pauses only when installation fails', () => {
     expect(launcher).toContain('set "install_exit=%ERRORLEVEL%"')
     expect(launcher).toContain('if not "%install_exit%"=="0" pause')

@@ -22,6 +22,14 @@ $PACKAGE_SHA256 = @{
   "uv-x86_64-pc-windows-msvc.zip" = "68200e25de594df92387186bbfb9d9df606ec1d87efaa0ae0c7f690970e53db6"
   "uv-aarch64-pc-windows-msvc.zip" = "60c12dc34a8ff0269d7744a3a94506fa8f140618a82194b7bf7834fa789a765b"
 }
+$PACKAGE_URLS = @{
+  "Git-2.55.0.3-64-bit.exe" = "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.3/Git-2.55.0.3-64-bit.exe"
+  "Git-2.55.0.3-arm64.exe" = "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.3/Git-2.55.0.3-arm64.exe"
+  "python-3.14.6-amd64.exe" = "https://www.python.org/ftp/python/3.14.6/python-3.14.6-amd64.exe"
+  "python-3.14.6-arm64.exe" = "https://www.python.org/ftp/python/3.14.6/python-3.14.6-arm64.exe"
+  "uv-x86_64-pc-windows-msvc.zip" = "https://github.com/astral-sh/uv/releases/download/0.12.0/uv-x86_64-pc-windows-msvc.zip"
+  "uv-aarch64-pc-windows-msvc.zip" = "https://github.com/astral-sh/uv/releases/download/0.12.0/uv-aarch64-pc-windows-msvc.zip"
+}
 
 $ErrorActionPreference = "Continue"
 $ProgressPreference = "SilentlyContinue"
@@ -68,8 +76,18 @@ function Get-WindowsArchitecture {
   }
   return "amd64"
 }
-function Assert-FileSha256($path) {
-  $name = Split-Path $path -Leaf
+function Find-SamwooInstalledApp {
+  $candidates = @(
+    (Join-Path $env:ProgramFiles "SAMWOO-ORCA\SAMWOO-ORCA.exe"),
+    (Join-Path $env:LOCALAPPDATA "Programs\SAMWOO-ORCA\SAMWOO-ORCA.exe")
+  )
+  if (${env:ProgramFiles(x86)}) {
+    $candidates += Join-Path ${env:ProgramFiles(x86)} "SAMWOO-ORCA\SAMWOO-ORCA.exe"
+  }
+  return $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+function Assert-FileSha256($path, $packageName = $null) {
+  $name = if ($packageName) { $packageName } else { Split-Path $path -Leaf }
   $expected = $PACKAGE_SHA256[$name]
   if (-not $expected) {
     throw "SHA256 기준값이 없습니다: $name"
@@ -77,6 +95,46 @@ function Assert-FileSha256($path) {
   $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
   if ($actual -ne $expected) {
     throw "파일 SHA256 불일치: $name"
+  }
+}
+function Get-VerifiedPackage($name) {
+  $bundledPath = Join-Path $here $name
+  if (Test-Path $bundledPath) {
+    Assert-FileSha256 $bundledPath
+    return $bundledPath
+  }
+
+  $packageUrl = $PACKAGE_URLS[$name]
+  if (-not $packageUrl) {
+    throw "다운로드 주소가 없습니다: $name"
+  }
+  $cacheDirectory = Join-Path $env:TEMP "samwoo-orca-install-packages"
+  $cachedPath = Join-Path $cacheDirectory $name
+  New-Item -ItemType Directory -Force -Path $cacheDirectory | Out-Null
+  if (Test-Path $cachedPath) {
+    try {
+      Assert-FileSha256 $cachedPath
+      return $cachedPath
+    } catch {
+      Remove-Item -LiteralPath $cachedPath -Force
+    }
+  }
+
+  $partialPath = "$cachedPath.download"
+  if (Test-Path $partialPath) {
+    Remove-Item -LiteralPath $partialPath -Force
+  }
+  Write-Host "    설치 파일 다운로드: $name" -ForegroundColor DarkCyan
+  try {
+    Invoke-WebRequest -UseBasicParsing -Uri $packageUrl -OutFile $partialPath
+    Assert-FileSha256 $partialPath $name
+    Move-Item -LiteralPath $partialPath -Destination $cachedPath -Force
+    return $cachedPath
+  } catch {
+    if (Test-Path $partialPath) {
+      Remove-Item -LiteralPath $partialPath -Force
+    }
+    throw
   }
 }
 function Assert-SamwooInstallerSignature($path) {
@@ -230,9 +288,9 @@ if (-not $AdminPhase) {
     if ($process.ExitCode -ne 0) {
       throw "설치 프로그램 종료 코드: $($process.ExitCode)"
     }
-    $installedApp = Join-Path $env:LOCALAPPDATA "Programs\SAMWOO-ORCA\SAMWOO-ORCA.exe"
-    if (-not (Test-Path $installedApp)) {
-      throw "설치 완료 후 실행 파일을 찾을 수 없습니다: $installedApp"
+    $installedApp = Find-SamwooInstalledApp
+    if (-not $installedApp) {
+      throw "설치 완료 후 SAMWOO-ORCA 실행 파일을 찾을 수 없습니다"
     }
     Ok "앱 설치"
   } catch {
@@ -257,11 +315,7 @@ if (-not $AdminPhase) {
       } else {
         "Git-$GIT_INSTALLER_VERSION-64-bit.exe"
       }
-      $gitInstaller = Join-Path $here $gitInstallerName
-      if (-not (Test-Path $gitInstaller)) {
-        throw "Git 설치 파일이 없습니다: $gitInstallerName"
-      }
-      Assert-FileSha256 $gitInstaller
+      $gitInstaller = Get-VerifiedPackage $gitInstallerName
       $gitProcess = Start-Process -FilePath $gitInstaller -ArgumentList @(
         "/VERYSILENT",
         "/NORESTART",
@@ -310,11 +364,6 @@ if (-not $AdminPhase) {
 
   Step "Python $PYTHON_VERSION 설치..."
   try {
-    $pythonInstaller = Join-Path $here "python-$PYTHON_VERSION-$architecture.exe"
-    if (-not (Test-Path $pythonInstaller)) {
-      throw "Python 설치 파일이 없습니다: $(Split-Path $pythonInstaller -Leaf)"
-    }
-    Assert-FileSha256 $pythonInstaller
     $pythonInstallDir = if ($architecture -eq "arm64") {
       Join-Path $env:LOCALAPPDATA "Programs\Python\Python314-arm64"
     } else {
@@ -327,6 +376,8 @@ if (-not $AdminPhase) {
       ""
     }
     if ($installedVersion -ne "Python $PYTHON_VERSION") {
+      $pythonInstallerName = "python-$PYTHON_VERSION-$architecture.exe"
+      $pythonInstaller = Get-VerifiedPackage $pythonInstallerName
       $pythonArgs = @(
         "/quiet",
         "InstallAllUsers=0",
@@ -360,11 +411,7 @@ if (-not $AdminPhase) {
     } else {
       "uv-x86_64-pc-windows-msvc.zip"
     }
-    $uvArchive = Join-Path $here $uvArchiveName
-    if (-not (Test-Path $uvArchive)) {
-      throw "uv 설치 파일이 없습니다: $uvArchiveName"
-    }
-    Assert-FileSha256 $uvArchive
+    $uvArchive = Get-VerifiedPackage $uvArchiveName
     $uvDir = Join-Path $env:LOCALAPPDATA "Programs\uv"
     $uvTemp = Join-Path $env:TEMP "samwoo-uv-$UV_VERSION-$architecture"
     if (Test-Path $uvTemp) {
@@ -444,7 +491,10 @@ if (-not $AdminPhase) {
   }
   Step "SAMWOO-ORCA 실행..."
   try {
-    $installedApp = Join-Path $env:LOCALAPPDATA "Programs\SAMWOO-ORCA\SAMWOO-ORCA.exe"
+    $installedApp = Find-SamwooInstalledApp
+    if (-not $installedApp) {
+      throw "SAMWOO-ORCA 실행 파일을 찾을 수 없습니다"
+    }
     Start-Process -FilePath $installedApp
     Write-Host "    [OK] SAMWOO-ORCA를 실행했습니다." -ForegroundColor Green
   } catch {

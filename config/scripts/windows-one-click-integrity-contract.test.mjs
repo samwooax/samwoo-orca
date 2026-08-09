@@ -18,9 +18,20 @@ describe('Windows one-click package integrity', () => {
       expect(installer).toMatch(new RegExp(`"${name}" = "[a-f0-9]{64}"`))
     }
     expect(installer).toContain('Get-FileHash -LiteralPath $path -Algorithm SHA256')
-    expect(installer).toContain('Assert-FileSha256 $gitInstaller')
-    expect(installer).toContain('Assert-FileSha256 $pythonInstaller')
-    expect(installer).toContain('Assert-FileSha256 $uvArchive')
+    expect(installer).toContain('Assert-FileSha256 $bundledPath')
+    expect(installer).toContain('Assert-FileSha256 $cachedPath')
+    expect(installer).toContain('Assert-FileSha256 $partialPath $name')
+  })
+
+  it('downloads missing Git, Python and uv packages from pinned official URLs', async () => {
+    const installer = await readFile(installerPath, 'utf8')
+    expect(installer).toContain('https://github.com/git-for-windows/git/releases/download/')
+    expect(installer).toContain('https://www.python.org/ftp/python/')
+    expect(installer).toContain('https://github.com/astral-sh/uv/releases/download/')
+    expect(installer).toContain('Invoke-WebRequest -UseBasicParsing -Uri $packageUrl')
+    expect(installer).toContain('$gitInstaller = Get-VerifiedPackage $gitInstallerName')
+    expect(installer).toContain('$pythonInstaller = Get-VerifiedPackage $pythonInstallerName')
+    expect(installer).toContain('$uvArchive = Get-VerifiedPackage $uvArchiveName')
   })
 
   it('requires the SAMWOO app installer to carry the expected signer', async () => {

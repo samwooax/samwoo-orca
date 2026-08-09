@@ -23,29 +23,27 @@ describe('SAMWOO electron-builder identity', () => {
       },
       nsis: {
         artifactName: 'samwoo-orca-windows-setup.${ext}',
-        oneClick: false,
-        allowToChangeInstallationDirectory: true,
-        runAfterFinish: false,
+        oneClick: true,
+        perMachine: true,
+        runAfterFinish: true,
         shortcutName: '${productName}',
         uninstallDisplayName: '${productName}'
       }
     })
+    expect(electronBuilderConfig.nsis).not.toHaveProperty('allowToChangeInstallationDirectory')
   })
 
-  it('shows update progress while preserving automatic relaunch', async () => {
+  it('keeps update cleanup guarded while the one-click installer owns relaunch', async () => {
     const include = await readFile(
       resolve(import.meta.dirname, '../nsis/daemon-host-uninstall.nsh'),
       'utf8'
     )
 
+    expect(include).toContain('!ifndef ONE_CLICK')
     expect(include).toContain('!macro customFinishPage')
-    expect(include).toContain('!define MUI_PAGE_CUSTOMFUNCTION_PRE SamwooFinishPagePre')
-    expect(include).toMatch(
-      /!macro customFinishPage[\s\S]*Function SamwooFinishPagePre[\s\S]*!macroend/
-    )
-    expect(include).toContain('${if} ${isUpdated}')
-    expect(include).toContain('${andIfNot} ${Silent}')
-    expect(include).toContain('${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "--updated"')
-    expect(include).not.toContain('!insertmacro StartApp')
+    expect(include).toContain('!macro customInstall')
+    expect(include).toMatch(/!ifndef ONE_CLICK[\s\S]*!macro customInstall[\s\S]*!endif/)
+    expect(include).toContain('${ifNot} ${isUpdated}')
+    expect(include).toContain('RMDir /r "$LOCALAPPDATA\\SAMWOO-ORCA\\daemon-host"')
   })
 })

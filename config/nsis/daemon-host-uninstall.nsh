@@ -24,26 +24,27 @@
     FunctionEnd
   !macroend
 
-  ; Updates use the native progress page, then close and relaunch without requiring a Finish click.
-  !macro customFinishPage
-    ; Why: LogicLib is available only when electron-builder expands this page macro.
-    Function SamwooFinishPagePre
+  ; Why: one-click has native progress/relaunch; these assisted-only hooks would launch twice.
+  !ifndef ONE_CLICK
+    !macro customFinishPage
+      Function SamwooFinishPagePre
+        ${if} ${isUpdated}
+          Abort
+        ${endIf}
+      FunctionEnd
+
+      !define MUI_PAGE_CUSTOMFUNCTION_PRE SamwooFinishPagePre
+      !insertmacro MUI_PAGE_FINISH
+    !macroend
+
+    !macro customInstall
       ${if} ${isUpdated}
-        Abort
+      ${andIfNot} ${Silent}
+        HideWindow
+        ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "--updated"
       ${endIf}
-    FunctionEnd
-
-    !define MUI_PAGE_CUSTOMFUNCTION_PRE SamwooFinishPagePre
-    !insertmacro MUI_PAGE_FINISH
-  !macroend
-
-  !macro customInstall
-    ${if} ${isUpdated}
-    ${andIfNot} ${Silent}
-      HideWindow
-      ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "--updated"
-    ${endIf}
-  !macroend
+    !macroend
+  !endif
 !endif
 
 !macro customUnInstall
