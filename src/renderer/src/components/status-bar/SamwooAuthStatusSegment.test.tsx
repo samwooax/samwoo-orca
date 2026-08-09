@@ -52,8 +52,8 @@ describe('SamwooAuthStatusSegment', () => {
 
   it('clears the saved session and returns the app to its login gate', async () => {
     const auth = {
-      login: 'kdhoon',
-      name: '김동훈',
+      login: 'hong01',
+      name: '홍길동',
       role: 'ai_center',
       label: 'AI Center',
       token: 'expired-session-token-long-enough'
@@ -62,7 +62,7 @@ describe('SamwooAuthStatusSegment', () => {
     await renderSegment()
 
     const button = container?.querySelector('button')
-    expect(button?.textContent).toContain('김동훈')
+    expect(button?.textContent).toContain('홍길동')
     expect(localStorage.getItem('samwoo.auth')).toContain('expired-session-token-long-enough')
 
     await act(async () => button?.click())

@@ -42,8 +42,8 @@ describe('SamwooLoginGate', () => {
 
   it('covers every app dialog after the session is cleared', async () => {
     const auth = {
-      login: 'kdhoon',
-      name: '김동훈',
+      login: 'hong01',
+      name: '홍길동',
       role: 'ai_center',
       label: 'AI Center',
       token: 'session-token-long-enough'

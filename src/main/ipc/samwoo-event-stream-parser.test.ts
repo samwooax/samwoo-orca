@@ -5,13 +5,13 @@ describe('SAMWOO event stream parser', () => {
   it('parses UTF-8 events across chunks and ignores heartbeats', () => {
     const onEvent = vi.fn()
     const parser = new SamwooEventStreamParser(onEvent)
-    const payload = Buffer.from('data: {"type":"presence","online":["김동훈"]}\n\n: ping\n\n')
+    const payload = Buffer.from('data: {"type":"presence","online":["홍길동"]}\n\n: ping\n\n')
 
     parser.push(payload.subarray(0, 41))
     parser.push(payload.subarray(41))
 
     expect(onEvent).toHaveBeenCalledOnce()
-    expect(onEvent).toHaveBeenCalledWith({ type: 'presence', online: ['김동훈'] })
+    expect(onEvent).toHaveBeenCalledWith({ type: 'presence', online: ['홍길동'] })
   })
 
   it('ignores malformed and unknown events without poisoning the next event', () => {

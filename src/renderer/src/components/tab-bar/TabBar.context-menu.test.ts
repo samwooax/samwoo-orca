@@ -525,8 +525,8 @@ describe('TabBar context menu wiring', () => {
     const { useSamwooAuthStore } = await import('@/lib/samwoo-auth-store')
     useSamwooAuthStore.setState({
       auth: {
-        login: 'dhoon21',
-        name: '김동훈',
+        login: 'hong01',
+        name: '홍길동',
         role: 'ai_center',
         label: 'AI 센터',
         token: 'session-token-long-enough'
