@@ -101,6 +101,7 @@ jobs:
         run: |
           pnpm exec vitest run --config config/vitest.config.ts `
             src/main/ipc/register-core-handlers.test.ts `
+            src/main/ipc/messenger-popout.test.ts `
             src/main/ipc/hermes-team-chat-runner.test.ts `
             src/main/ipc/hermes-team-chat-image-transfer.test.ts `
             src/main/ipc/hermes-team-chat-acp-client.test.ts `
@@ -116,6 +117,11 @@ jobs:
             src/main/ipc/hermes-team-chat-page.test.ts `
             src/main/ipc/samwoo-workspace-file-sync.test.ts `
             src/main/ipc/samwoo-profile-messaging.test.ts `
+            src/main/ipc/samwoo-profile-members.test.ts `
+            src/main/ipc/samwoo-event-stream-client.test.ts `
+            src/main/ipc/samwoo-event-stream-parser.test.ts `
+            src/main/ipc/samwoo-service-http-client.test.ts `
+            src/main/window/messenger-popout-window.test.ts `
             src/main/updater-install-flags.test.ts `
             src/renderer/src/components/hermes-team-chat/HermesTeamChatModelControls.test.tsx `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-composer-options.test.ts `
@@ -128,13 +134,22 @@ jobs:
             src/renderer/src/components/SamwooLoginGate.test.tsx `
             src/renderer/src/components/sidebar/create-shared-workspace-with-upload.test.ts `
             src/renderer/src/components/sidebar/ProfileMessageRow.test.ts `
+            src/renderer/src/components/sidebar/SamwooConnectionStatusDot.test.tsx `
+            src/renderer/src/components/sidebar/profile-message-grouping.test.ts `
             src/renderer/src/components/sidebar/profile-message-interaction-admission.test.ts `
+            src/renderer/src/components/sidebar/use-profile-message-live-updates.test.ts `
             src/renderer/src/components/sidebar/SharedWorkspaceComments.refresh-order.test.tsx `
             src/renderer/src/components/sidebar/shared-workspace-board-status.test.ts `
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawer.task-status-sync.test.tsx `
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawerHeader.test.tsx `
+            src/renderer/src/components/workspace-hub/WorkspaceHubViews.test.tsx `
             src/renderer/src/components/status-bar/SamwooAuthStatusSegment.test.tsx `
             src/renderer/src/lib/samwoo-auth-store.test.ts `
+            src/renderer/src/lib/profile-member-display.test.ts `
+            src/renderer/src/lib/samwoo-message-inbox-store.test.ts `
+            src/renderer/src/lib/samwoo-message-notification-decision.test.ts `
+            src/renderer/src/lib/samwoo-message-polling-cadence.test.ts `
+            src/renderer/src/lib/samwoo-message-send-queue.test.ts `
             src/renderer/src/lib/samwoo-session-validation.test.ts `
             src/renderer/src/lib/shared-workspace-alias-store.test.ts `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `

@@ -12,6 +12,7 @@ const {
   registerSamwooAuthHandlersMock,
   registerSamwooWorkspaceSharingHandlersMock,
   registerSamwooConnectionHealthHandlersMock,
+  registerSamwooEventStreamHandlersMock,
   registerClaudeUsageHandlersMock,
   registerCodexUsageHandlersMock,
   registerOpenCodeUsageHandlersMock,
@@ -84,6 +85,7 @@ const {
   registerSamwooAuthHandlersMock: vi.fn(),
   registerSamwooWorkspaceSharingHandlersMock: vi.fn(),
   registerSamwooConnectionHealthHandlersMock: vi.fn(),
+  registerSamwooEventStreamHandlersMock: vi.fn(),
   registerClaudeUsageHandlersMock: vi.fn(),
   registerCodexUsageHandlersMock: vi.fn(),
   registerOpenCodeUsageHandlersMock: vi.fn(),
@@ -209,6 +211,10 @@ vi.mock('./samwoo-auth', () => ({
 }))
 vi.mock('./samwoo-workspace-sharing', () => ({
   registerSamwooWorkspaceSharingHandlers: registerSamwooWorkspaceSharingHandlersMock
+}))
+
+vi.mock('./samwoo-event-stream', () => ({
+  registerSamwooEventStreamHandlers: registerSamwooEventStreamHandlersMock
 }))
 vi.mock('./samwoo-connection-health', () => ({
   registerSamwooConnectionHealthHandlers: registerSamwooConnectionHealthHandlersMock
@@ -430,6 +436,7 @@ describe('registerCoreHandlers', () => {
     registerCliHandlersMock.mockReset()
     registerPreflightHandlersMock.mockReset()
     registerSamwooConnectionHealthHandlersMock.mockReset()
+    registerSamwooEventStreamHandlersMock.mockReset()
     registerClaudeUsageHandlersMock.mockReset()
     registerCodexUsageHandlersMock.mockReset()
     registerOpenCodeUsageHandlersMock.mockReset()
@@ -597,6 +604,7 @@ describe('registerCoreHandlers', () => {
     expect(registerSamwooAuthHandlersMock).toHaveBeenCalled()
     expect(registerSamwooWorkspaceSharingHandlersMock).toHaveBeenCalled()
     expect(registerSamwooConnectionHealthHandlersMock).toHaveBeenCalled()
+    expect(registerSamwooEventStreamHandlersMock).toHaveBeenCalled()
     expect(registerShellHandlersMock).toHaveBeenCalledWith(store)
     expect(registerClipboardHandlersMock).toHaveBeenCalledWith(store)
     expect(registerUpdaterHandlersMock).toHaveBeenCalled()
