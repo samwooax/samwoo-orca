@@ -22,6 +22,7 @@
 | W7 | 빌드 준비 — 핵심 테스트 배선·CI 범위·버전 | ✅ 완료 | 27fb634d4, v1.4.183 준비 |
 | W8 | Windows 빌드·검증·공개 | ✅ 완료 | v1.4.183, run 31304436692 |
 | W9 | v1.4.184 긴급 대체 릴리스 — 팝아웃 크래시 수정·W6b | ✅ 완료 | 3a2594771, 30e8ef9b8, 086c4a4fd, 5701ac030, run 31310610748 |
+| W10 | v1.4.185 one-click·전체 사용자 Windows 설치 | ✅ 완료 | 01b99d44c, f9b1e8396, f1c2353d5, run 31312994734 |
 
 ## 웨이브 상세
 
@@ -76,6 +77,14 @@
 - draft 자산 3종을 확인하고 `latest.yml` 버전 `1.4.184`, EXE 실제 SHA-512 일치, 내부 코드서명 설정·서명 자산 검증 단계 성공을 확인했다.
 - `v1.4.184`를 공개 최신 릴리스로 전환하고 공개 업데이트 피드가 `1.4.184`를 반환함을 확인했다. 대체된 `v1.4.183`은 draft로 전환했다.
 - VPS 배포·2계정 실측은 W3c 범위로 남아 있으며 이번 Windows 릴리스에 포함된 서버 기능이 운영 반영됐음을 뜻하지 않는다.
+
+### W10 — v1.4.185 one-click·전체 사용자 Windows 설치 (완료)
+- Windows NSIS를 마법사 없는 one-click·전체 사용자 설치로 전환하고 설치 완료 후 자동 실행을 활성화했다. assisted 전용 NSIS 헤더·완료 훅은 one-click에서 제외하고 실제 제거 시에만 daemon host를 정리하는 `${isUpdated}` 가드는 유지했다.
+- 사내 설치 키트는 Git·Python·uv 오프라인 파일이 없을 때 고정 공식 URL에서 자동 다운로드해 SHA-256을 검증하며, 신규 per-machine 경로와 기존 per-user 경로를 모두 확인한다.
+- 최초 run `31312564030`은 assisted 전용 `$MultiUser.InstallModePage.CurrentUser` 참조로 NSIS 컴파일에 실패했다. `f1c2353d5`에서 define·header를 함께 assisted 범위로 옮기고 위치 회귀 테스트를 추가했다.
+- Actions run `31312994734`에서 통합 검사, 앱 빌드, one-click/perMachine NSIS 컴파일·내부 서명, 자산 검증과 draft 업로드를 통과했다.
+- 자산 3종, `latest.yml` 버전 `1.4.185`, EXE 실제 SHA-512 일치와 `isAdminRightsRequired: true`를 확인한 뒤 공개했다. 공개 최신 피드의 `1.4.185` 반환을 확인했고 `v1.4.184`는 공개 상태를 유지했다.
+- 전체 사용자 설치·업데이트는 Windows 정책상 UAC 승인을 요구할 수 있으므로 UAC 없는 완전 무인으로 표현하지 않는다. 실제 Windows 10 신규 설치와 1.4.184→1.4.185 업데이트 UI 실측은 사용자 확인이 필요하다.
 
 ## 폐기·보류
 - 완료·폐기 지시서는 전부 `_claude-proposals/archive/`에 있음 — 참조 금지 (이력 보존용)
