@@ -2,7 +2,7 @@ import React from 'react'
 import {
   Bell,
   CalendarClock,
-  Copy as ScreenSharing,
+  Copy,
   EyeOff,
   LayoutDashboard,
   MessageCircle,
@@ -201,7 +201,7 @@ const SidebarNav = React.memo(function SidebarNav() {
             : 'text-worktree-sidebar-foreground/60 hover:bg-worktree-sidebar-foreground/8'
         )}
       >
-        <ScreenSharing
+        <Copy
           className={cn(
             'size-4 shrink-0',
             !workspaceHubActive && 'text-worktree-sidebar-foreground/30'

@@ -4274,9 +4274,6 @@
   "auto.components.sidebar.RemoveFolderDialog.e62415c3d0": {
     "ko": "다음 항목만 제거합니다"
   },
-  "auto.components.sidebar.ScrollToCurrentWorkspaceToolbarButton.23989bb663": {
-    "ko": "활성 워크스페이스로 이동"
-  },
   "auto.components.sidebar.SetupScriptPromptCardViews.bb879db364": {
     "ko": "이 repo는 공유를 무시합니다"
   },
