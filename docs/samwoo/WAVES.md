@@ -24,7 +24,7 @@
 | W9 | v1.4.184 긴급 대체 릴리스 — 팝아웃 크래시 수정·W6b | ✅ 완료 | 3a2594771, 30e8ef9b8, 086c4a4fd, 5701ac030, run 31310610748 |
 | W10 | v1.4.185 one-click·전체 사용자 Windows 설치 | ✅ 완료 | 01b99d44c, f9b1e8396, f1c2353d5, run 31312994734 |
 | W11 | 로그인 식별자 정규화·릴리스 UI 정리 | ✅ v1.4.186·VPS 반영 완료, GUI 실측 대기 | 0262f692d, 5fc6b6224, edff354cf, run 31318757576 |
-| W12 | 예약 지시 — 인앱 스케줄러·우측 사이드탭 | ✅ 구현·게이트 완료, 다음 릴리스 대기 | 12ffde36d |
+| W12 | 예약 지시 — 인앱 스케줄러·우측 사이드탭 | ✅ 구현·게이트 완료, v1.4.187 빌드 대기 | 12ffde36d |
 
 ## 웨이브 상세
 
@@ -108,7 +108,7 @@
 - 신규: `src/shared/samwoo-schedule.ts`(발생 시각 계산·판정), `samwoo-schedule-store.ts`(localStorage), `samwoo-schedule-runner.ts`(30초 틱·중복 실행 방지), `SamwooSchedulePanel.tsx`, `samwoo-schedule-day-picker.tsx`, `useSamwooScheduleRunner.ts`.
 - 부수 수정: 프로젝트 루트가 없는 턴은 로컬 명령 승인 모달을 띄우지 않고 거절 결과를 반환한다(`hermes-local-project-tool-loop.ts`).
 - 검증: W12 핵심 6개 테스트 파일 41개, RPC·라우팅 포함 focused 8파일 87개, TypeScript 3종, 전체 oxlint·React 규칙, max-lines·신뢰성·스킬 번들·i18n 게이트와 Python 서버 87개가 통과했다. ko/en 33키를 추가했다.
-- 완료 커밋: `12ffde36d`. 버전은 `1.4.186`으로 유지했으며 W12는 다음 릴리스에 포함한다.
+- 완료 커밋: `12ffde36d`. 패키지 버전 `1.4.187`에 포함해 Windows 빌드·공개한다.
 - 남은 단계: 실제 앱의 예약 등록·재시작 catch-up·지금 실행 GUI 실측.
 
 ## 폐기·보류
