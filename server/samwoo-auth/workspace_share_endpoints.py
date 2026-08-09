@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import mail_ext
+import profile_display_names
 import profile_messaging
 import workspace_sharing
 
@@ -15,6 +16,7 @@ _ROUTES = {
     "/workspace-shares/comments/complete",
     "/profile-messages/channels/list", "/profile-messages/list",
     "/profile-messages/search", "/profile-messages/send", "/profile-messages/read",
+    "/profile-members/list",
     "/workspace-shares/files/list", "/workspace-shares/files/read",
     "/workspace-shares/files/write",
     "/workspace-shares/files/delete",
@@ -76,6 +78,12 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
         if path == "/profile-messages/read":
             profile_messaging.mark_read(token, body)
             return 200, {"ok": True}
+        if path == "/profile-members/list":
+            _, profile = workspace_sharing._identity(token)
+            return 200, {
+                "ok": True,
+                "members": profile_display_names.profile_members(profile),
+            }
         return 404, {"ok": False, "error": "not found"}
     except workspace_sharing.WorkspaceShareConflictError as error:
         return 409, {"ok": False, "errorCode": "file_conflict", "error": str(error)}

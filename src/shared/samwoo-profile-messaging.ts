@@ -9,6 +9,7 @@ export type SamwooProfileMessageChannel = {
   lastMessageAt?: number | null
   lastMessagePreview?: string | null
   lastMessageAuthor?: string | null
+  lastMessageAuthorDisplayName?: string | null
 }
 
 export type SamwooProfileMessage = {
@@ -17,9 +18,11 @@ export type SamwooProfileMessage = {
   channelKind: SamwooProfileMessageChannelKind
   shareId?: string | null
   authorLogin: string
+  authorDisplayName?: string | null
   body: string
   replyToId?: string | null
   replyToAuthor?: string | null
+  replyToAuthorDisplayName?: string | null
   replyToPreview?: string | null
   createdAt: number
   isAuthor: boolean

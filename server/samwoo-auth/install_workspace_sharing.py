@@ -16,6 +16,7 @@ RAW_ROOT = "https://raw.githubusercontent.com/samwooax/samwoo-orca/main/server/s
 MODULES = (
     "nextcloud_workspace_storage.py",
     "profile_event_stream.py",
+    "profile_display_names.py",
     "profile_messaging.py",
     "workspace_sharing.py",
     "workspace_share_endpoints.py",

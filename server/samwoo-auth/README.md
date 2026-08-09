@@ -9,6 +9,23 @@ This directory also contains profile-scoped workspace sharing:
 - `test_workspace_comments.py` — pagination, concurrency and comment authorization tests.
 - `test_nextcloud_workspace_storage.py` — WebDAV path and identity boundary tests.
 
+## Messenger display-name directory
+
+`profile_display_names.py` is used only by profile messenger responses and the
+same-profile member list. It does not rename Hermes profiles, team bots, or
+agents. The loader combines runtime-only CSV files without committing employee
+data to this public repository:
+
+- `SAMWOO_DISPLAY_NAMES_CSV` (default `/opt/samwoo-auth/user-display-names.csv`):
+  `login,display_name`; preferred per-login display name.
+- `SAMWOO_ROLE_MAP_CSV` (default `/opt/samwoo-auth/role-map.csv`):
+  `login,name,role`; `name` is the fallback messenger label and `role` scopes
+  the member to a profile.
+
+Both files accept an optional header and UTF-8 BOM. Invalid rows are skipped,
+changes reload by mtime without restarting the service, and missing names
+degrade to login display. Keep the production CSV files outside source control.
+
 Deployment integration is documented in `docs/samwoo/WORKSPACE-SHARING.md`.
 
 ## Messenger scale integration (server prerequisite first)

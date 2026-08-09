@@ -49,6 +49,13 @@ describe('decideSamwooMessageNotifications', () => {
     ])
   })
 
+  it('uses the server display name without changing own-login comparison', () => {
+    const result = decide(new Map([['team', 1_000]]), [
+      channel({ lastMessageAt: 2_000, lastMessageAuthorDisplayName: '홍길동' })
+    ])
+    expect(result.notifications[0]?.body).toBe('홍길동: hello')
+  })
+
   it('does not notify for own messages, read channels, or unchanged channels', () => {
     const seen: SamwooChannelSeenState = new Map([['team', 1_000]])
     expect(

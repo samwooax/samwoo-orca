@@ -1,0 +1,23 @@
+import { describe, expect, it } from 'vitest'
+import { profileMemberDisplayName, profileMemberInitial } from './profile-member-display'
+
+describe('profile member display', () => {
+  const members = new Map([
+    ['alpha', '멤버 이름'],
+    ['beta', 'Beta Member']
+  ])
+
+  it('prefers a response display name over the member directory', () => {
+    expect(profileMemberDisplayName('alpha', '응답 이름', members)).toBe('응답 이름')
+  })
+
+  it('falls back through the member directory to login', () => {
+    expect(profileMemberDisplayName('alpha', null, members)).toBe('멤버 이름')
+    expect(profileMemberDisplayName('unknown', undefined, members)).toBe('unknown')
+  })
+
+  it('uses the first Unicode character of the resolved name', () => {
+    expect(profileMemberInitial('alpha', null, members)).toBe('멤')
+    expect(profileMemberInitial('beta', null, members)).toBe('B')
+  })
+})

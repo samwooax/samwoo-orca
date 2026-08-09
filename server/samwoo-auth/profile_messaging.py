@@ -8,6 +8,7 @@ import sqlite3
 import time
 import uuid
 
+import profile_display_names
 import profile_event_stream
 import workspace_sharing
 
@@ -124,7 +125,7 @@ def _cursor(body: dict) -> tuple[int, str] | None:
 
 
 def _serialize_message(row: sqlite3.Row, login: str) -> dict:
-    return {
+    result = {
         "id": row["id"], "channelKey": row["channel_key"],
         "channelKind": row["channel_kind"], "shareId": row["share_id"],
         "authorLogin": row["author_login"], "body": row["body"],
@@ -132,6 +133,9 @@ def _serialize_message(row: sqlite3.Row, login: str) -> dict:
         "replyToPreview": row["reply_preview"], "createdAt": row["created_at"],
         "isAuthor": row["author_login"] == login,
     }
+    result["authorDisplayName"] = profile_display_names.display_name(row["author_login"])
+    result["replyToAuthorDisplayName"] = profile_display_names.display_name(row["reply_author"])
+    return result
 
 
 def _message_select() -> str:
@@ -191,6 +195,10 @@ def list_channels(token: str) -> list[dict]:
                 "lastMessageAt": last["created_at"] if last else None,
                 "lastMessagePreview": last["body"][:160] if last else None,
                 "lastMessageAuthor": last["author_login"] if last else None,
+                "lastMessageAuthorDisplayName": (
+                    profile_display_names.display_name(last["author_login"])
+                    if last else None
+                ),
             })
     return channels
 

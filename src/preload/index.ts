@@ -2218,6 +2218,9 @@ const api = {
       sendMessage: (args) => ipcRenderer.invoke('samwooProfileMessages:sendMessage', args),
       markRead: (args) => ipcRenderer.invoke('samwooProfileMessages:markRead', args)
     },
+    samwooProfileMembers: {
+      list: (token) => ipcRenderer.invoke('samwooProfileMembers:list', token)
+    },
     samwooConnectionHealth: (): Promise<{
       ok: boolean
       latencyMs?: number

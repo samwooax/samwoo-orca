@@ -2,22 +2,30 @@ import React from 'react'
 import { Clock3, Loader2, Reply, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { translate } from '@/i18n/i18n'
+import { profileMemberDisplayName, profileMemberInitial } from '@/lib/profile-member-display'
 import type { SamwooProfileMessage } from '../../../../shared/samwoo-profile-messaging'
 
 export default function ProfileMessageRow({
   message,
   startsGroup,
   online,
+  memberNames,
   onReply,
   onRetry
 }: {
   message: SamwooProfileMessage
   startsGroup: boolean
   online: boolean
+  memberNames: ReadonlyMap<string, string>
   onReply: (message: SamwooProfileMessage) => void
   onRetry: (clientMessageId: string) => void
 }): React.JSX.Element {
   const time = formatMessageTime(message.createdAt)
+  const authorName = profileMemberDisplayName(
+    message.authorLogin,
+    message.authorDisplayName,
+    memberNames
+  )
   return (
     <div
       className={`group flex gap-2 ${message.isAuthor ? 'justify-end' : 'justify-start'} ${startsGroup ? 'mt-4' : 'mt-1'}`}
@@ -26,7 +34,7 @@ export default function ProfileMessageRow({
         <div className="w-[30px] shrink-0">
           {startsGroup ? (
             <span className="relative flex size-[30px] items-center justify-center rounded-full bg-muted text-xs font-semibold">
-              {message.authorLogin.slice(0, 1).toLocaleUpperCase()}
+              {profileMemberInitial(message.authorLogin, message.authorDisplayName, memberNames)}
               {online ? (
                 <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-background bg-status-success" />
               ) : null}
@@ -37,7 +45,7 @@ export default function ProfileMessageRow({
       <div className="max-w-[78%]">
         {!message.isAuthor && startsGroup ? (
           <div className="mb-1 flex items-center gap-2">
-            <span className="text-xs font-medium">{message.authorLogin}</span>
+            <span className="text-xs font-medium">{authorName}</span>
             {online ? <span className="size-2 rounded-full bg-status-success" /> : null}
             <span className="text-[11px] text-muted-foreground">{time}</span>
           </div>
@@ -60,7 +68,13 @@ export default function ProfileMessageRow({
           >
             {message.replyToId ? (
               <div className="mb-2 border-l-2 border-current/30 pl-2 text-xs opacity-75">
-                <span className="font-medium">{message.replyToAuthor}</span>
+                <span className="font-medium">
+                  {profileMemberDisplayName(
+                    message.replyToAuthor ?? '',
+                    message.replyToAuthorDisplayName,
+                    memberNames
+                  )}
+                </span>
                 <p className="truncate">{message.replyToPreview}</p>
               </div>
             ) : null}

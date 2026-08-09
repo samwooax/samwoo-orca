@@ -7,6 +7,7 @@ import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
 import { samwooMessageSendQueue } from '@/lib/samwoo-message-send-queue'
 import { samwooMessagePollingCadence } from '@/lib/samwoo-message-polling-cadence'
+import { useSamwooProfileMemberStore } from '@/lib/samwoo-profile-member-store'
 import { isSamwooSessionError } from '@/lib/samwoo-session-validation'
 import type {
   SamwooProfileMessage,
@@ -15,6 +16,7 @@ import type {
 import ProfileMessageComposer from './ProfileMessageComposer'
 import ProfileMessageTimeline from './ProfileMessageTimeline'
 import ProfileMessengerChannelList from './ProfileMessengerChannelList'
+import ProfileOnlineMembers from './ProfileOnlineMembers'
 import { mergeProfileMessages } from './ProfileMessageRow'
 import {
   shouldApplyProfileMessageResponse,
@@ -31,6 +33,9 @@ export default function ProfileMessengerWindow({
   const auth = useSamwooAuthStore((state) => state.auth)
   const eventStreamStatus = useSamwooMessageInboxStore((state) => state.eventStreamStatus)
   const onlineLogins = useSamwooMessageInboxStore((state) => state.onlineLogins)
+  const memberNames = useSamwooProfileMemberStore((state) => state.names)
+  const loadMembers = useSamwooProfileMemberStore((state) => state.load)
+  const clearMembers = useSamwooProfileMemberStore((state) => state.clear)
   const [channels, setChannels] = useState<SamwooProfileMessageChannel[]>([])
   const [selectedKey, setSelectedKey] = useState(initialChannelKey ?? 'team')
   const [messages, setMessages] = useState<SamwooProfileMessage[]>([])
@@ -50,6 +55,14 @@ export default function ProfileMessengerWindow({
   )
   const visibleOnlineLogins = eventStreamStatus === 'connected' ? onlineLogins : undefined
   const pollingCadence = samwooMessagePollingCadence(eventStreamStatus)
+
+  useEffect(() => {
+    if (auth?.token && auth.login) {
+      void loadMembers(auth.token, auth.login)
+    } else {
+      clearMembers()
+    }
+  }, [auth?.login, auth?.token, clearMembers, loadMembers])
 
   const handleError = useCallback((error: string | undefined, fallback: string): void => {
     if (isSamwooSessionError(error)) {
@@ -249,9 +262,11 @@ export default function ProfileMessengerWindow({
         channelKind: selectedChannel.kind,
         shareId: selectedChannel.shareId,
         authorLogin: auth.login,
+        authorDisplayName: memberNames.get(auth.login.toLocaleLowerCase()),
         body,
         replyToId: replyTo?.id,
         replyToAuthor: replyTo?.authorLogin,
+        replyToAuthorDisplayName: replyTo?.authorDisplayName,
         replyToPreview: replyTo?.body.slice(0, 160),
         createdAt: Date.now(),
         isAuthor: true,
@@ -277,6 +292,7 @@ export default function ProfileMessengerWindow({
         channels={channels}
         selectedKey={selectedChannel?.key}
         onlineLogins={visibleOnlineLogins}
+        memberNames={memberNames}
         onSelect={(channel) => selectChannel(channel.key)}
       />
       <section className="flex min-h-0 min-w-0 flex-col">
@@ -295,11 +311,10 @@ export default function ProfileMessengerWindow({
                 : selectedChannel?.label}
             </h2>
             {visibleOnlineLogins ? (
-              <p className="text-xs text-status-success">
-                {translate('samwoo.profileMessages.onlineCount', 'Online {{count}}', {
-                  count: visibleOnlineLogins.size
-                })}
-              </p>
+              <ProfileOnlineMembers
+                onlineLogins={visibleOnlineLogins}
+                memberNames={memberNames}
+              />
             ) : null}
           </div>
         </header>
@@ -333,6 +348,7 @@ export default function ProfileMessengerWindow({
             <ProfileMessageTimeline
               messages={messages}
               onlineLogins={visibleOnlineLogins}
+              memberNames={memberNames}
               onReply={setReplyTo}
               onRetry={(clientMessageId) => samwooMessageSendQueue.retry(clientMessageId)}
             />
@@ -342,6 +358,7 @@ export default function ProfileMessengerWindow({
           draft={draft}
           replyTo={replyTo}
           sending={false}
+          memberNames={memberNames}
           onDraftChange={setDraft}
           onCancelReply={() => setReplyTo(null)}
           onSend={sendMessage}

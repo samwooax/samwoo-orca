@@ -3,6 +3,7 @@ import { ArrowUp, Loader2, Reply, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { translate } from '@/i18n/i18n'
+import { profileMemberDisplayName } from '@/lib/profile-member-display'
 import type { SamwooProfileMessage } from '../../../../shared/samwoo-profile-messaging'
 import { shouldSubmitProfileMessageKey } from './profile-message-interaction-admission'
 
@@ -10,6 +11,7 @@ type Props = {
   draft: string
   replyTo: SamwooProfileMessage | null
   sending: boolean
+  memberNames: ReadonlyMap<string, string>
   onDraftChange: (draft: string) => void
   onCancelReply: () => void
   onSend: () => void
@@ -19,6 +21,7 @@ export default function ProfileMessageComposer({
   draft,
   replyTo,
   sending,
+  memberNames,
   onDraftChange,
   onCancelReply,
   onSend
@@ -30,7 +33,11 @@ export default function ProfileMessageComposer({
           <Reply className="size-3.5" />
           <span className="min-w-0 flex-1 truncate">
             {translate('samwoo.profileMessages.replyingTo', 'Replying to {{name}}', {
-              name: replyTo.authorLogin
+              name: profileMemberDisplayName(
+                replyTo.authorLogin,
+                replyTo.authorDisplayName,
+                memberNames
+              )
             })}{' '}
             · {replyTo.body}
           </span>

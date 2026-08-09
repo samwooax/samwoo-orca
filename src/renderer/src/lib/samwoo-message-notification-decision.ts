@@ -1,4 +1,5 @@
 import type { SamwooProfileMessageChannel } from '../../../shared/samwoo-profile-messaging'
+import { profileMemberDisplayName } from './profile-member-display'
 
 export type SamwooMessageNotification = {
   channelKey: string
@@ -39,10 +40,10 @@ export function decideSamwooMessageNotifications(args: {
     fresh.push({
       channelKey: channel.key,
       title: channel.kind === 'team' ? args.teamChannelLabel : channel.label,
-      body: `${channel.lastMessageAuthor ?? ''}: ${channel.lastMessagePreview ?? ''}`.slice(
-        0,
-        BODY_MAX_CHARS
-      )
+      body: `${profileMemberDisplayName(
+        channel.lastMessageAuthor ?? '',
+        channel.lastMessageAuthorDisplayName
+      )}: ${channel.lastMessagePreview ?? ''}`.slice(0, BODY_MAX_CHARS)
     })
   }
   if (fresh.length <= MAX_NOTIFICATIONS_PER_POLL) {

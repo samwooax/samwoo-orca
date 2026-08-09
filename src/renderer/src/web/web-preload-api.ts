@@ -2970,6 +2970,15 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
         )
       })
     },
+    samwooProfileMembers: {
+      list: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.profileMessages.webUnavailable',
+          'Profile messaging is unavailable in the web client.'
+        )
+      })
+    },
     samwooConnectionHealth: () =>
       Promise.resolve({
         ok: false,

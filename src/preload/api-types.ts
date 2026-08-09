@@ -54,6 +54,7 @@ import type {
   SamwooProfileMessagingResult,
   SendSamwooProfileMessageArgs
 } from '../shared/samwoo-profile-messaging'
+import type { SamwooProfileMembersResult } from '../shared/samwoo-profile-members'
 import type { ReleaseChannel } from '../shared/release-channel'
 import type {
   HostQualifiedDetectedWorktreeResult,
@@ -824,6 +825,9 @@ export type PreflightApi = {
     listMessages: (args: ListSamwooProfileMessagesArgs) => Promise<SamwooProfileMessagingResult>
     sendMessage: (args: SendSamwooProfileMessageArgs) => Promise<SamwooProfileMessagingResult>
     markRead: (args: MarkSamwooProfileMessagesReadArgs) => Promise<SamwooProfileMessagingResult>
+  }
+  samwooProfileMembers: {
+    list: (token: string) => Promise<SamwooProfileMembersResult>
   }
   samwooConnectionHealth: () => Promise<{
     ok: boolean

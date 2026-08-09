@@ -12,7 +12,8 @@ const RETRYABLE_ROUTES = new Set([
   '/workspace-shares/files/read',
   '/profile-messages/channels/list',
   '/profile-messages/list',
-  '/profile-messages/read'
+  '/profile-messages/read',
+  '/profile-members/list'
 ])
 
 export function postSamwooWorkspaceShare<

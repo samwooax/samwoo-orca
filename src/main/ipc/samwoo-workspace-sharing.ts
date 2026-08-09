@@ -10,6 +10,7 @@ import type {
 import { registerSamwooWorkspaceFileSyncHandlers } from './samwoo-workspace-file-sync'
 import { postSamwooWorkspaceShare } from './samwoo-workspace-share-client'
 import { registerSamwooProfileMessagingHandlers } from './samwoo-profile-messaging'
+import { registerSamwooProfileMemberHandlers } from './samwoo-profile-members'
 
 function hasToken(token: unknown): token is string {
   return typeof token === 'string' && token.length >= 20 && token.length <= 256
@@ -17,6 +18,7 @@ function hasToken(token: unknown): token is string {
 
 export function registerSamwooWorkspaceSharingHandlers(): void {
   registerSamwooProfileMessagingHandlers()
+  registerSamwooProfileMemberHandlers()
   ipcMain.handle('samwooWorkspaceShares:revokeSession', (_event, token: unknown) =>
     hasToken(token)
       ? postSamwooWorkspaceShare('/workspace-shares/session/revoke', token)

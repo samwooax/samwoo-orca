@@ -10,6 +10,7 @@ from unittest import mock
 
 import profile_messaging
 import profile_event_stream
+import profile_display_names
 import workspace_share_endpoints
 import workspace_sharing
 
@@ -56,6 +57,44 @@ class ProfileMessagingTest(unittest.TestCase):
             {"channelKind": "team", "messageId": sent["id"]},
         )
         self.assertEqual(0, profile_messaging.list_channels(PEER_TOKEN)[0]["unreadCount"])
+
+    def test_message_serialization_adds_registered_names_without_changing_logins(self):
+        with mock.patch.object(
+            profile_display_names,
+            "display_name",
+            side_effect=lambda login: {"owner": "홍길동"}.get(login),
+        ):
+            original = profile_messaging.send_message(
+                OWNER_TOKEN, {"channelKind": "team", "body": "원문"}
+            )
+            reply = profile_messaging.send_message(
+                PEER_TOKEN,
+                {"channelKind": "team", "body": "답장", "replyToId": original["id"]},
+            )
+            channel = profile_messaging.list_channels(OWNER_TOKEN)[0]
+
+        self.assertEqual(
+            ("owner", "홍길동"),
+            (original["authorLogin"], original["authorDisplayName"]),
+        )
+        self.assertIsNone(reply["authorDisplayName"])
+        self.assertEqual("홍길동", reply["replyToAuthorDisplayName"])
+        self.assertEqual("peer", channel["lastMessageAuthor"])
+        self.assertIsNone(channel["lastMessageAuthorDisplayName"])
+
+    def test_member_route_derives_profile_from_session(self):
+        with mock.patch.object(
+            profile_display_names,
+            "profile_members",
+            return_value=[{"login": "owner", "name": "홍길동"}],
+        ) as members:
+            status, payload = workspace_share_endpoints.handle_workspace_share(
+                "/profile-members/list", f"Bearer {OWNER_TOKEN}", {"profile": "sales"}
+            )
+
+        self.assertEqual(200, status)
+        self.assertEqual([{"login": "owner", "name": "홍길동"}], payload["members"])
+        members.assert_called_once_with("ai_center")
 
     def test_channel_catalog_aggregates_latest_messages_and_unread_counts(self):
         share = self.create_share()

@@ -3,12 +3,15 @@ import { Search, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { translate } from '@/i18n/i18n'
+import { profileMemberDisplayName } from '@/lib/profile-member-display'
 import type { SamwooProfileMessageChannel } from '../../../../shared/samwoo-profile-messaging'
+import ProfileOnlineMembers from './ProfileOnlineMembers'
 
 type Props = {
   channels: SamwooProfileMessageChannel[]
   selectedKey?: string
   onlineLogins?: ReadonlySet<string>
+  memberNames: ReadonlyMap<string, string>
   onSelect: (channel: SamwooProfileMessageChannel) => void
 }
 
@@ -36,6 +39,7 @@ export default function ProfileMessengerChannelList({
   channels,
   selectedKey,
   onlineLogins,
+  memberNames,
   onSelect
 }: Props): React.JSX.Element {
   const [query, setQuery] = useState('')
@@ -45,11 +49,11 @@ export default function ProfileMessengerChannelList({
       return channels
     }
     return channels.filter((channel) =>
-      `${channel.label} ${channel.lastMessageAuthor ?? ''} ${channel.lastMessagePreview ?? ''}`
+      `${channel.label} ${profileMemberDisplayName(channel.lastMessageAuthor ?? '', channel.lastMessageAuthorDisplayName, memberNames)} ${channel.lastMessagePreview ?? ''}`
         .toLocaleLowerCase()
         .includes(needle)
     )
-  }, [channels, query])
+  }, [channels, memberNames, query])
 
   return (
     <aside className="flex min-h-0 flex-col border-b border-border bg-muted/20 sm:border-r sm:border-b-0">
@@ -59,11 +63,7 @@ export default function ProfileMessengerChannelList({
             {translate('samwoo.profileMessages.title', 'Messages')}
           </h1>
           {onlineLogins ? (
-            <span className="text-xs text-status-success">
-              {translate('samwoo.profileMessages.onlineCount', 'Online {{count}}', {
-                count: onlineLogins.size
-              })}
-            </span>
+            <ProfileOnlineMembers onlineLogins={onlineLogins} memberNames={memberNames} />
           ) : null}
         </div>
         <div className="relative">
@@ -106,7 +106,7 @@ export default function ProfileMessengerChannelList({
               </span>
               <span className="truncate text-xs text-muted-foreground">
                 {channel.lastMessagePreview
-                  ? `${channel.lastMessageAuthor ?? ''}: ${channel.lastMessagePreview}`
+                  ? `${profileMemberDisplayName(channel.lastMessageAuthor ?? '', channel.lastMessageAuthorDisplayName, memberNames)}: ${channel.lastMessagePreview}`
                   : translate('samwoo.profileMessages.empty', 'No messages yet.')}
               </span>
               {channel.unreadCount > 0 ? (

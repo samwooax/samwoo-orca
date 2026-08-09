@@ -25,11 +25,13 @@ function DateSeparator({ timestamp }: { timestamp: number }): React.JSX.Element 
 export default function ProfileMessageTimeline({
   messages,
   onlineLogins,
+  memberNames,
   onReply,
   onRetry
 }: {
   messages: SamwooProfileMessage[]
   onlineLogins?: ReadonlySet<string>
+  memberNames: ReadonlyMap<string, string>
   onReply: (message: SamwooProfileMessage) => void
   onRetry: (clientMessageId: string) => void
 }): React.JSX.Element {
@@ -53,6 +55,7 @@ export default function ProfileMessageTimeline({
               message={message}
               startsGroup={grouping.startsGroup}
               online={Boolean(onlineLogins?.has(message.authorLogin))}
+              memberNames={memberNames}
               onReply={onReply}
               onRetry={onRetry}
             />
