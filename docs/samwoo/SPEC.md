@@ -41,7 +41,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | upstream 원격 | `https://github.com/stablyai/orca.git` |
 | GitHub 공개 범위 | **Public** — 2026-08-08 운영 확인 |
 | 기본 브랜치 | `main` |
-| 최신 공개 릴리스 | `v1.4.185` — 2026-08-09 운영 확인 |
+| 최신 공개 릴리스 | `v1.4.186` — 2026-08-10 운영 확인 |
 | 앱 ID / 제품명 | `com.samwooax.samwoo-orca` / `SAMWOO-ORCA` |
 
 공개 저장소에는 서버 비밀번호·메일 비밀번호·Tailscale 인증 키·코드서명 개인키를 넣지 않는다. 서버 문서의 주소 예시는 마스킹하고, 실제 서비스 주소는 중앙 설정 코드와 이 운영 명세에서만 관리한다.
@@ -70,7 +70,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | Hermes 대시보드 | 원격 `4862` 포트 | 대시보드 터널 | 코드에 구성, 이번 감사에서 UI 미확인 |
 | 회사 메일 | `play.samwooeleco.com:993` IMAPS, `:587` SMTP STARTTLS | 받은메일·본문·발송·첨부 처리 | 코드 기본값. 실계정 송수신은 미실행 |
 | Nextcloud | VPS의 WebDAV 설정 | 공유 워크스페이스 파일 저장 | 코드 경로 확인, 관리 화면 미확인 |
-| 업데이트 피드 | `github.com/samwooax/samwoo-orca/releases` / HTTPS | 공개 릴리스 업데이트 | `v1.4.185` 공개 확인 (2026-08-09) |
+| 업데이트 피드 | `github.com/samwooax/samwoo-orca/releases` / HTTPS | 공개 릴리스 업데이트 | `v1.4.186` 공개 확인 (2026-08-10) |
 
 Tailscale MagicDNS는 관리 Windows PC에서 해석 실패한 이력이 있어 현재는 IP를 직접 쓴다. 엔드포인트는 `src/shared/samwoo-service-endpoints.ts`에서 중앙 관리한다. 클라이언트 노트북에 외부에서 들어오는 SSH를 요구하지 않으며, 앱이 Hermes와 VPS로 **아웃바운드 연결**한다.
 
@@ -392,6 +392,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `f1c2353d5` | one-click NSIS에서 assisted 전용 설치 모드 헤더 제외 |
 | `d124a4c70` | `v1.4.185` Windows 릴리스 기록 |
 | `0262f692d` | 세션·디렉터리·앱 login 정규화와 기존 DB 멱등 마이그레이션 |
+| `5fc6b6224` | 프로필 채팅·워크스페이스 내비게이션 릴리스 UI 정리 |
+| `edff354cf` | `v1.4.186` 릴리스 전 결정 로그·아이콘·고아 로케일 항목 정리 |
 
 ### 14.1 릴리스 이력 (2026-08-09)
 
@@ -399,7 +401,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 |---|---|---|
 | `v1.4.183` | 공개 후 내림(draft 전환) | 메신저 팝아웃에 Tooltip 컨텍스트가 없어 창을 열면 크래시. 패키지 빌드에서만 재현되어 dev 실행 검증을 통과했었다 |
 | `v1.4.184` | 공개 유지 | 크래시 수정 + 허브 2단계(담당자·마감일·작업 항목) |
-| `v1.4.185` | **공개 — 최신** | one-click 전체 사용자 설치기 |
+| `v1.4.185` | 공개 유지 | one-click 전체 사용자 설치기 |
+| `v1.4.186` | **공개 — 최신** | login 정규화·기존 DB 멱등 마이그레이션·프로필 채팅과 워크스페이스 UI 정리. Actions run `31318757576` |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
