@@ -61,6 +61,10 @@ describe('decideSamwooMessageNotifications', () => {
     expect(
       decide(seen, [channel({ lastMessageAt: 2_000, lastMessageAuthor: 'me' })]).notifications
     ).toEqual([])
+    expect(
+      decide(seen, [channel({ lastMessageAt: 2_000, lastMessageAuthor: 'ME@Company.Test' })])
+        .notifications
+    ).toEqual([])
     expect(decide(seen, [channel({ lastMessageAt: 2_000, unreadCount: 0 })]).notifications).toEqual(
       []
     )

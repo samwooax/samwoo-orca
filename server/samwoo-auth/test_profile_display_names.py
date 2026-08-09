@@ -50,6 +50,17 @@ class ProfileDisplayNamesTest(unittest.TestCase):
         os.unlink(self.display_path)
         self.assertEqual("Agent A", profile_display_names.display_name("alpha"))
 
+    def test_email_login_uses_the_canonical_directory_key(self):
+        self.write(self.role_path, "member,Member Name,planning\n")
+
+        self.assertEqual(
+            "Member Name", profile_display_names.display_name(" MEMBER@Company.Test ")
+        )
+        self.assertEqual(
+            [{"login": "member", "name": "Member Name"}],
+            profile_display_names.profile_members("planning"),
+        )
+
     def test_missing_files_fail_open(self):
         self.assertIsNone(profile_display_names.display_name("unknown"))
         self.assertEqual([], profile_display_names.profile_members("planning"))

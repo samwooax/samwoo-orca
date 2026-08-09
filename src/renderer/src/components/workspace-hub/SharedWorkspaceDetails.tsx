@@ -181,6 +181,7 @@ export default function SharedWorkspaceDetails({
             <WorkspaceAssigneePicker
               members={members}
               selectedLogins={share.assigneeLogins ?? []}
+              ownLogin={login}
               canEdit={share.isOwner || share.permission === 'contribute'}
               updating={updatingAssignees}
               onChange={(logins) => void onUpdateAssignees(logins)}
@@ -336,6 +337,7 @@ export default function SharedWorkspaceDetails({
           <SharedWorkspaceWorkItems
             shareId={share.id}
             token={token}
+            ownLogin={login}
             canEdit={share.isOwner || share.permission === 'contribute'}
             members={members}
             onSummaryRefresh={onRefresh}

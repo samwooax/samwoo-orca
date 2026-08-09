@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { translate } from '@/i18n/i18n'
+import { canonicalSamwooLogin } from '../../../shared/samwoo-login-identity'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
 import {
@@ -81,7 +82,11 @@ export function useSamwooMessageNotifications(): void {
       polling = false
     }
     const offEvent = window.api.samwooEventStream.onEvent((event) => {
-      if (event.type === 'message' || (event.type === 'read' && event.login === ownLogin)) {
+      if (
+        event.type === 'message' ||
+        (event.type === 'read' &&
+          canonicalSamwooLogin(event.login) === canonicalSamwooLogin(ownLogin))
+      ) {
         void poll()
       }
     })

@@ -137,6 +137,7 @@ function WorkspaceListRow({
         <WorkspaceAssigneePicker
           members={members}
           selectedLogins={share.assigneeLogins ?? []}
+          ownLogin={login}
           canEdit={share.isOwner || share.permission === 'contribute'}
           updating={updatingAssigneeShareId === share.id}
           onChange={(logins) => onUpdateAssignees(share.id, logins)}

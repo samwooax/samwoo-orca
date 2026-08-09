@@ -40,7 +40,7 @@ describe('samwoo message inbox store', () => {
   it('stores presence only while the event stream is connected', () => {
     const inbox = useSamwooMessageInboxStore.getState()
     inbox.setEventStreamStatus('connected')
-    inbox.setOnlineLogins(['kim', 'lee', 'kim'])
+    inbox.setOnlineLogins(['KIM@Company.Test', 'lee', 'kim'])
     expect(useSamwooMessageInboxStore.getState().onlineLogins).toEqual(new Set(['kim', 'lee']))
 
     inbox.setEventStreamStatus('disconnected')

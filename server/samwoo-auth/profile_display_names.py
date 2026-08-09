@@ -6,6 +6,8 @@ import csv
 import os
 import threading
 
+from profile_login_identity import canonical_login
+
 DISPLAY_NAMES_CSV = "/opt/samwoo-auth/user-display-names.csv"
 ROLE_MAP_CSV = "/opt/samwoo-auth/role-map.csv"
 _cache_lock = threading.Lock()
@@ -51,8 +53,11 @@ def _role_directory(path: str) -> tuple[dict[str, str], dict[str, tuple[str, str
         if index == 0 and login and login.casefold() == "login":
             continue
         if login and profile:
-            key = login.casefold()
-            profiles[key] = (login, profile)
+            canonical = canonical_login(login)
+            if not canonical:
+                continue
+            key = canonical.casefold()
+            profiles[key] = (canonical, profile)
             if name:
                 names[key] = name
     return names, profiles
@@ -67,7 +72,9 @@ def _display_directory(path: str) -> dict[str, str]:
         if index == 0 and login and login.casefold() == "login":
             continue
         if login and name:
-            names[login.casefold()] = name
+            canonical = canonical_login(login)
+            if canonical:
+                names[canonical.casefold()] = name
     return names
 
 
@@ -88,7 +95,7 @@ def _directory() -> tuple[dict[str, str], dict[str, tuple[str, str]]]:
 
 
 def display_name(login: str | None) -> str | None:
-    key = _clean(login)
+    key = canonical_login(_clean(login))
     if not key:
         return None
     names, _ = _directory()

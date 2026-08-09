@@ -16,5 +16,6 @@ describe('SAMWOO live message normalization', () => {
   it('ignores sender-relative isAuthor and recomputes it for the receiver', () => {
     expect(normalizeSamwooEventMessage(eventMessage, 'kim').isAuthor).toBe(false)
     expect(normalizeSamwooEventMessage(eventMessage, 'lee').isAuthor).toBe(true)
+    expect(normalizeSamwooEventMessage(eventMessage, 'LEE@Company.Test').isAuthor).toBe(true)
   })
 })

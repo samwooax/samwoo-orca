@@ -1,6 +1,7 @@
 import React from 'react'
 import { MessageCircle } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
+import { canonicalSamwooLogin } from '../../../../shared/samwoo-login-identity'
 import type { SamwooProfileMessage } from '../../../../shared/samwoo-profile-messaging'
 import ProfileMessageRow from './ProfileMessageRow'
 import { formatProfileMessageDate, getProfileMessageGrouping } from './profile-message-grouping'
@@ -54,7 +55,7 @@ export default function ProfileMessageTimeline({
             <ProfileMessageRow
               message={message}
               startsGroup={grouping.startsGroup}
-              online={Boolean(onlineLogins?.has(message.authorLogin))}
+              online={Boolean(onlineLogins?.has(canonicalSamwooLogin(message.authorLogin)))}
               memberNames={memberNames}
               onReply={onReply}
               onRetry={onRetry}

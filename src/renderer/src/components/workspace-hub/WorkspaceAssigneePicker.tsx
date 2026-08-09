@@ -12,6 +12,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
+import { canonicalSamwooLogin } from '../../../../shared/samwoo-login-identity'
 import type { SamwooProfileMember } from '../../../../shared/samwoo-profile-members'
 
 function memberInitial(name: string): string {
@@ -48,6 +49,7 @@ function AssigneeAvatars({
 export default function WorkspaceAssigneePicker({
   members,
   selectedLogins,
+  ownLogin,
   canEdit,
   updating,
   selectionMode = 'multiple',
@@ -55,12 +57,13 @@ export default function WorkspaceAssigneePicker({
 }: {
   members: readonly SamwooProfileMember[]
   selectedLogins: readonly string[]
+  ownLogin: string
   canEdit: boolean
   updating: boolean
   selectionMode?: 'multiple' | 'single'
   onChange: (logins: string[]) => void
 }): React.JSX.Element {
-  const selected = new Set(selectedLogins.map((login) => login.toLocaleLowerCase()))
+  const selected = new Set(selectedLogins.map(canonicalSamwooLogin))
   const selectedLabel = selectedLogins.length
     ? selectionMode === 'single'
       ? selectedLogins[0]
@@ -69,10 +72,10 @@ export default function WorkspaceAssigneePicker({
         })
     : translate('samwoo.workspaceHub.unassigned', 'Unassigned')
   const toggle = (login: string): void => {
-    const key = login.toLocaleLowerCase()
+    const key = canonicalSamwooLogin(login)
     onChange(
       selected.has(key)
-        ? selectedLogins.filter((candidate) => candidate.toLocaleLowerCase() !== key)
+        ? selectedLogins.filter((candidate) => canonicalSamwooLogin(candidate) !== key)
         : selectionMode === 'single'
           ? [login]
           : [...selectedLogins, login]
@@ -127,7 +130,7 @@ export default function WorkspaceAssigneePicker({
               heading={translate('samwoo.workspaceHub.profileMembers', 'Hermes profile members')}
             >
               {members.map((member) => {
-                const checked = selected.has(member.login.toLocaleLowerCase())
+                const checked = selected.has(canonicalSamwooLogin(member.login))
                 return (
                   <CommandItem
                     key={member.login}
@@ -148,6 +151,11 @@ export default function WorkspaceAssigneePicker({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{member.login}</span>
                     </span>
+                    {canonicalSamwooLogin(member.login) === canonicalSamwooLogin(ownLogin) ? (
+                      <span className="text-[11px] text-muted-foreground">
+                        {translate('samwoo.workspaceHub.me', 'Me')}
+                      </span>
+                    ) : null}
                     {checked ? <Check className="text-status-success" /> : null}
                   </CommandItem>
                 )

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { canonicalSamwooLogin } from '../../../shared/samwoo-login-identity'
 import { hasValidSamwooSession } from './samwoo-session-validation'
 
 /** SAMWOO-ORCA: the signed-in employee's identity + mapped team-bot role.
@@ -23,6 +24,11 @@ type SamwooAuthState = {
 
 const STORAGE_KEY = 'samwoo.auth'
 
+function canonicalAuth(auth: SamwooAuth): SamwooAuth | null {
+  const login = canonicalSamwooLogin(auth.login)
+  return login ? { ...auth, login } : null
+}
+
 function load(): SamwooAuth | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -31,7 +37,17 @@ function load(): SamwooAuth | null {
     }
     const parsed = JSON.parse(raw) as Partial<SamwooAuth>
     if (hasValidSamwooSession(parsed)) {
-      return parsed
+      const auth = canonicalAuth(parsed)
+      if (auth) {
+        if (auth.login !== parsed.login) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(auth))
+          } catch {
+            // best-effort persistence
+          }
+        }
+        return auth
+      }
     }
     localStorage.removeItem(STORAGE_KEY)
   } catch {
@@ -43,12 +59,16 @@ function load(): SamwooAuth | null {
 export const useSamwooAuthStore = create<SamwooAuthState>((set) => ({
   auth: load(),
   setAuth: (auth) => {
+    const normalized = canonicalAuth(auth)
+    if (!normalized) {
+      return
+    }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(auth))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
     } catch {
       // best-effort persistence
     }
-    set({ auth })
+    set({ auth: normalized })
   },
   logout: async () => {
     const token = useSamwooAuthStore.getState().auth?.token

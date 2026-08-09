@@ -14,7 +14,11 @@ const event: SamwooProfileEvent = {
 describe('workspace assignment notification decision', () => {
   it('notifies only newly assigned users and ignores self-assignment', () => {
     expect(isWorkspaceAssignmentForLogin(event, 'PEER')).toBe(true)
+    expect(isWorkspaceAssignmentForLogin(event, 'PEER@Company.Test')).toBe(true)
     expect(isWorkspaceAssignmentForLogin(event, 'other')).toBe(false)
     expect(isWorkspaceAssignmentForLogin({ ...event, updatedBy: 'peer' }, 'peer')).toBe(false)
+    expect(
+      isWorkspaceAssignmentForLogin({ ...event, updatedBy: 'PEER@Company.Test' }, 'peer')
+    ).toBe(false)
   })
 })

@@ -62,6 +62,7 @@ describe('SharedWorkspaceWorkItems', () => {
         <SharedWorkspaceWorkItems
           shareId="share-1"
           token="test-session-token-1234567890"
+          ownLogin="owner"
           canEdit
           members={[
             { login: 'owner', name: 'Owner' },
@@ -101,6 +102,7 @@ describe('SharedWorkspaceWorkItems', () => {
         <SharedWorkspaceWorkItems
           shareId="share-1"
           token="test-session-token-1234567890"
+          ownLogin="owner"
           canEdit={false}
           members={[]}
           onSummaryRefresh={vi.fn(async () => undefined)}
@@ -132,6 +134,7 @@ describe('SharedWorkspaceWorkItems', () => {
     )
     const props = {
       token: 'test-session-token-1234567890',
+      ownLogin: 'owner',
       canEdit: true,
       members: [] as const,
       onSummaryRefresh: vi.fn(async () => undefined)

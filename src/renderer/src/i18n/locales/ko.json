@@ -14691,6 +14691,7 @@
       "searchMembers": "멤버 검색…",
       "noMembers": "프로필 멤버가 없습니다.",
       "profileMembers": "Hermes 프로필 멤버",
+      "me": "나",
       "assigneeUpdateFailed": "담당자를 변경하지 못했습니다.",
       "assigneeAudit": "{{name}}님이 지정 · {{time}}",
       "assignedNotificationTitle": "워크스페이스 담당자 지정",

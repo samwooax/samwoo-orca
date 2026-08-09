@@ -18,6 +18,7 @@ import WorkspaceAssigneePicker from './WorkspaceAssigneePicker'
 type Props = {
   shareId: string
   token: string
+  ownLogin: string
   canEdit: boolean
   members: readonly SamwooProfileMember[]
   onSummaryRefresh: () => Promise<void>
@@ -26,6 +27,7 @@ type Props = {
 export default function SharedWorkspaceWorkItems({
   shareId,
   token,
+  ownLogin,
   canEdit,
   members,
   onSummaryRefresh
@@ -218,6 +220,7 @@ export default function SharedWorkspaceWorkItems({
                 <WorkspaceAssigneePicker
                   members={members}
                   selectedLogins={item.assigneeLogin ? [item.assigneeLogin] : []}
+                  ownLogin={ownLogin}
                   canEdit={canEdit}
                   updating={busy}
                   selectionMode="single"

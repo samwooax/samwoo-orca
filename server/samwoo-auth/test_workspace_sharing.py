@@ -67,6 +67,21 @@ class WorkspaceSharingTest(unittest.TestCase):
         self.assertNotEqual("token-peer-01234567890", stored)
         self.assertEqual(64, len(stored))
 
+    def test_email_session_round_trips_as_canonical_login(self):
+        workspace_sharing.bind_session(
+            "token-email-01234567890", " MEMBER@Company.Test ", "ai_center"
+        )
+
+        self.assertEqual(
+            ("member", "ai_center"),
+            workspace_sharing._identity("token-email-01234567890"),
+        )
+        workspace_sharing._sessions.clear()
+        self.assertEqual(
+            ("member", "ai_center"),
+            workspace_sharing._identity("token-email-01234567890"),
+        )
+
     @mock.patch("workspace_share_endpoints.mail_ext.revoke_session")
     def test_session_revoke_route_removes_persisted_session(self, revoke_mail_session):
         status, result = workspace_share_endpoints.handle_workspace_share(

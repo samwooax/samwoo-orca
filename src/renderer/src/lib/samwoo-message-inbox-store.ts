@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { canonicalSamwooLogin } from '../../../shared/samwoo-login-identity'
 import type { SamwooEventStreamStatus } from '../../../shared/samwoo-profile-messaging'
 
 type SamwooMessageInboxState = {
@@ -28,7 +29,8 @@ export const useSamwooMessageInboxStore = create<SamwooMessageInboxState>((set) 
       eventStreamStatus: status,
       ...(status === 'connected' ? {} : { onlineLogins: new Set() })
     }),
-  setOnlineLogins: (logins) => set({ onlineLogins: new Set(logins) }),
+  setOnlineLogins: (logins) =>
+    set({ onlineLogins: new Set(logins.map(canonicalSamwooLogin).filter(Boolean)) }),
   openMessenger: (channelKey) => {
     set({ requestedChannelKey: channelKey ?? null })
     void window.api.messenger.openPopout(channelKey)

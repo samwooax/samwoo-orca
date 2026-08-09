@@ -15,6 +15,7 @@ import uuid
 
 import nextcloud_workspace_storage
 import profile_display_names
+from profile_login_identity import canonical_login, migrate_login_identities
 
 DB_PATH = os.environ.get("SAMWOO_WORKSPACE_DB", "/opt/samwoo-auth/workspace-shares.db")
 SESSION_TTL = int(os.environ.get("SAMWOO_WORKSPACE_SESSION_TTL", str(8 * 3600)))
@@ -38,6 +39,7 @@ class WorkspaceShareConflictError(WorkspaceShareError):
 
 def bind_session(token: str, login: str, profile: str, ttl: int = SESSION_TTL) -> None:
     """Bind server-issued auth to its resolved profile; clients cannot select scope."""
+    login = canonical_login(login)
     if not token or not login or not profile:
         raise WorkspaceShareError("workspace profile required")
     expires = int(time.time()) + ttl
@@ -78,7 +80,7 @@ def _identity(token: str) -> tuple[str, str]:
     with _session_lock:
         session = _sessions.get(token)
         if session and session["expires"] > time.time():
-            return session["login"], session["profile"]
+            return canonical_login(session["login"]), session["profile"]
         _sessions.pop(token, None)
         conn = _connect()
         try:
@@ -96,7 +98,7 @@ def _identity(token: str) -> tuple[str, str]:
         finally:
             conn.close()
         restored = {
-            "login": row["login"],
+            "login": canonical_login(row["login"]),
             "profile": row["profile"],
             "expires": row["expires_at"],
         }
@@ -226,6 +228,7 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS workspace_comments_cursor_idx ON workspace_share_comments(share_id, created_at, id)"
     )
+    migrate_login_identities(conn)
     conn.commit()
 
 

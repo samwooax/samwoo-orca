@@ -1,4 +1,5 @@
 import type { SamwooProfileMessageChannel } from '../../../shared/samwoo-profile-messaging'
+import { canonicalSamwooLogin } from '../../../shared/samwoo-login-identity'
 import { profileMemberDisplayName } from './profile-member-display'
 
 export type SamwooMessageNotification = {
@@ -33,7 +34,7 @@ export function decideSamwooMessageNotifications(args: {
     if (
       lastAt <= seenAt ||
       channel.unreadCount <= 0 ||
-      channel.lastMessageAuthor === args.ownLogin
+      canonicalSamwooLogin(channel.lastMessageAuthor) === canonicalSamwooLogin(args.ownLogin)
     ) {
       continue
     }

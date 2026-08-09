@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { samwooMessageSendQueue } from '@/lib/samwoo-message-send-queue'
+import { canonicalSamwooLogin } from '../../../../shared/samwoo-login-identity'
 import type { SamwooProfileMessage } from '../../../../shared/samwoo-profile-messaging'
 import { mergeProfileMessages } from './ProfileMessageRow'
 
@@ -17,7 +18,10 @@ export function normalizeSamwooEventMessage(
   message: SamwooProfileMessage,
   ownLogin?: string
 ): SamwooProfileMessage {
-  return { ...message, isAuthor: message.authorLogin === ownLogin }
+  return {
+    ...message,
+    isAuthor: canonicalSamwooLogin(message.authorLogin) === canonicalSamwooLogin(ownLogin)
+  }
 }
 
 export function useProfileMessageLiveUpdates(options: Options): void {
@@ -89,7 +93,10 @@ export function useProfileMessageLiveUpdates(options: Options): void {
             )
             void latestRef.current.refreshMessages(false)
           }
-        } else if (event.type === 'read' && event.login === latestRef.current.ownLogin) {
+        } else if (
+          event.type === 'read' &&
+          canonicalSamwooLogin(event.login) === canonicalSamwooLogin(latestRef.current.ownLogin)
+        ) {
           void latestRef.current.refreshChannels(false)
         }
       }),

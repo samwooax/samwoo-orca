@@ -17,6 +17,7 @@ MODULES = (
     "nextcloud_workspace_storage.py",
     "profile_event_stream.py",
     "profile_display_names.py",
+    "profile_login_identity.py",
     "profile_messaging.py",
     "workspace_sharing.py",
     "workspace_work_items.py",

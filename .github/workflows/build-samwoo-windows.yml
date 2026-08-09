@@ -158,6 +158,7 @@ jobs:
             src/renderer/src/hooks/useSamwooEventStream.workspace-assignment.test.tsx `
             src/renderer/src/hooks/useUnreadDockBadge.test.ts `
             src/renderer/src/components/status-bar/SamwooAuthStatusSegment.test.tsx `
+            src/shared/samwoo-login-identity.test.ts `
             src/renderer/src/lib/samwoo-auth-store.test.ts `
             src/renderer/src/lib/profile-member-display.test.ts `
             src/renderer/src/lib/samwoo-message-inbox-store.test.ts `

@@ -20,6 +20,7 @@ describe('WorkspaceAssigneePicker', () => {
         <WorkspaceAssigneePicker
           members={members}
           selectedLogins={['kim']}
+          ownLogin="kim"
           canEdit
           updating={false}
           onChange={onChange}
@@ -39,6 +40,7 @@ describe('WorkspaceAssigneePicker', () => {
         <WorkspaceAssigneePicker
           members={members}
           selectedLogins={['peer']}
+          ownLogin="kim"
           canEdit={false}
           updating={false}
           onChange={vi.fn()}
@@ -56,6 +58,7 @@ describe('WorkspaceAssigneePicker', () => {
         <WorkspaceAssigneePicker
           members={members}
           selectedLogins={['kim']}
+          ownLogin="kim"
           canEdit
           updating={false}
           selectionMode="single"
@@ -67,5 +70,23 @@ describe('WorkspaceAssigneePicker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'kim' }))
     fireEvent.click(await screen.findByText('peer'))
     expect(onChange).toHaveBeenCalledWith(['peer'])
+  })
+
+  it('marks the current assignee using canonical login matching', async () => {
+    render(
+      <TooltipProvider>
+        <WorkspaceAssigneePicker
+          members={members}
+          selectedLogins={[]}
+          ownLogin="KIM@Company.Test"
+          canEdit
+          updating={false}
+          onChange={vi.fn()}
+        />
+      </TooltipProvider>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Unassigned' }))
+    expect(await screen.findByText('Me')).toBeTruthy()
   })
 })

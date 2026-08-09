@@ -11,6 +11,7 @@ import uuid
 import profile_display_names
 import profile_event_stream
 import workspace_sharing
+from profile_login_identity import migrate_login_identities
 
 MESSAGE_PAGE_SIZE = 100
 SEARCH_PAGE_SIZE = 50
@@ -57,6 +58,7 @@ def _schema(conn: sqlite3.Connection) -> None:
             PRIMARY KEY(owner_profile, login, channel_key)
             )"""
         )
+        migrate_login_identities(conn)
         conn.commit()
         _schema_database_versions[database_key] = conn.execute(
             "PRAGMA schema_version"

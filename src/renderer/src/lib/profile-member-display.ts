@@ -4,7 +4,7 @@ export function profileMemberDisplayName(
   memberNames?: ReadonlyMap<string, string>
 ): string {
   const direct = directName?.trim()
-  return direct || memberNames?.get(login.toLocaleLowerCase()) || login
+  return direct || memberNames?.get(canonicalSamwooLogin(login)) || login
 }
 
 export function profileMemberInitial(
@@ -17,3 +17,4 @@ export function profileMemberInitial(
     '#'
   )
 }
+import { canonicalSamwooLogin } from '../../../shared/samwoo-login-identity'

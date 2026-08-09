@@ -41,4 +41,34 @@ describe('SAMWOO auth store hydration', () => {
 
     expect(useSamwooAuthStore.getState().auth).toEqual(auth)
   })
+
+  it('canonicalizes an email login while restoring and persists the repaired session', async () => {
+    const auth = {
+      login: ' Member@Company.Test ',
+      name: 'Member',
+      role: 'planning',
+      label: 'Planning',
+      token: 'session-token-long-enough'
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(auth))
+
+    const { useSamwooAuthStore } = await import('./samwoo-auth-store')
+
+    expect(useSamwooAuthStore.getState().auth?.login).toBe('member')
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').login).toBe('member')
+  })
+
+  it('canonicalizes a newly signed-in session before storing it', async () => {
+    const { useSamwooAuthStore } = await import('./samwoo-auth-store')
+
+    useSamwooAuthStore.getState().setAuth({
+      login: 'MEMBER@Company.Test',
+      name: 'Member',
+      role: 'planning',
+      label: 'Planning',
+      token: 'session-token-long-enough'
+    })
+
+    expect(useSamwooAuthStore.getState().auth?.login).toBe('member')
+  })
 })

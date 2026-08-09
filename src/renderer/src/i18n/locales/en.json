@@ -14886,6 +14886,7 @@
       "searchMembers": "Search members…",
       "noMembers": "No profile members found.",
       "profileMembers": "Hermes profile members",
+      "me": "Me",
       "assigneeUpdateFailed": "Could not update assignees.",
       "assigneeAudit": "Assigned by {{name}} · {{time}}",
       "assignedNotificationTitle": "Workspace assigned",
