@@ -41,7 +41,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | upstream 원격 | `https://github.com/stablyai/orca.git` |
 | GitHub 공개 범위 | **Public** — 2026-08-08 운영 확인 |
 | 기본 브랜치 | `main` |
-| 최신 공개 릴리스 | `v1.4.182` — 2026-08-08 운영 확인 |
+| 최신 공개 릴리스 | `v1.4.183` — 2026-08-09 운영 확인 |
 | 앱 ID / 제품명 | `com.samwooax.samwoo-orca` / `SAMWOO-ORCA` |
 
 공개 저장소에는 서버 비밀번호·메일 비밀번호·Tailscale 인증 키·코드서명 개인키를 넣지 않는다. 서버 문서의 주소 예시는 마스킹하고, 실제 서비스 주소는 중앙 설정 코드와 이 운영 명세에서만 관리한다.
