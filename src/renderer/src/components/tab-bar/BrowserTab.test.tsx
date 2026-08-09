@@ -163,7 +163,7 @@ function baseBrowserTab(overrides: Partial<BrowserTabState> = {}): BrowserTabSta
   }
 }
 
-async function renderBrowserTab(tab: BrowserTabState): Promise<unknown> {
+async function renderBrowserTab(tab: BrowserTabState, labelOverride?: string): Promise<unknown> {
   reactHookRuntime.index = 0
   const module = await import('./BrowserTab')
   return module.default({
@@ -180,6 +180,7 @@ async function renderBrowserTab(tab: BrowserTabState): Promise<unknown> {
     onCloseToLeft: () => {},
     onDuplicate: () => {},
     onTogglePin: () => {},
+    labelOverride,
     dragData: {
       kind: 'tab',
       worktreeId: tab.worktreeId,
@@ -235,8 +236,11 @@ function findElementsByType(node: unknown, typeName: string): ReactElementLike[]
   return results
 }
 
-async function renderExpandedBrowserTab(tab: BrowserTabState): Promise<unknown> {
-  return expandNode(await renderBrowserTab(tab))
+async function renderExpandedBrowserTab(
+  tab: BrowserTabState,
+  labelOverride?: string
+): Promise<unknown> {
+  return expandNode(await renderBrowserTab(tab, labelOverride))
 }
 
 function browserTabRootChildren(node: unknown): ReactElementLike[] {
@@ -272,6 +276,21 @@ describe('BrowserTab favicon', { timeout: 30_000 }, () => {
     expect(images[0].props.className).toContain('object-contain')
     expect(images[0].props.className).toContain('drop-shadow-[0_0_1px_var(--foreground)]')
     expect(findElementsByType(element, 'Globe')).toHaveLength(0)
+  })
+
+  it('uses an app label override instead of a stale browser title', async () => {
+    const element = await renderExpandedBrowserTab(
+      baseBrowserTab({ title: 'd_support' }),
+      '대구영업지원'
+    )
+    const children = browserTabRootChildren(element)
+
+    expect(
+      children.some((child) => child.type === 'span' && child.props.children === '대구영업지원')
+    ).toBe(true)
+    expect(
+      children.some((child) => child.type === 'span' && child.props.children === 'd_support')
+    ).toBe(false)
   })
 
   it('renders no icon for blank tabs without faviconUrl', async () => {

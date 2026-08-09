@@ -46,7 +46,7 @@ describe('readStoredTeamChat', () => {
 
     expect(readStoredTeamChat(route, 'tab-1')).toEqual({
       messages: [],
-      model: 'gpt-5.5',
+      model: 'gpt-5.6-terra',
       effort: 'medium',
       conversationId: 'new-conversation'
     })

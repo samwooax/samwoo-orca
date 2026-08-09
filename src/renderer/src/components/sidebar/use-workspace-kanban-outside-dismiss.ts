@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import type React from 'react'
 
 const WORKSPACE_BOARD_KEEP_OPEN_SELECTOR = [
-  '[data-workspace-board-trigger]',
   '[data-workspace-board-preserve-open]',
   '[data-workspace-status-appearance-popover]',
   '[data-contextual-tour-overlay]',

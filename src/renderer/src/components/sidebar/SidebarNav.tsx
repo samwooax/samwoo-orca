@@ -2,8 +2,8 @@ import React from 'react'
 import {
   Bell,
   CalendarClock,
+  Copy as ScreenSharing,
   EyeOff,
-  Kanban,
   LayoutDashboard,
   MessageCircle,
   MessageCircleQuestion,
@@ -201,7 +201,7 @@ const SidebarNav = React.memo(function SidebarNav() {
             : 'text-worktree-sidebar-foreground/60 hover:bg-worktree-sidebar-foreground/8'
         )}
       >
-        <Kanban
+        <ScreenSharing
           className={cn(
             'size-4 shrink-0',
             !workspaceHubActive && 'text-worktree-sidebar-foreground/30'

@@ -180,6 +180,14 @@ describe('SidebarNav', () => {
     setSidebarState()
   })
 
+  it('uses an overlapping-screen glyph for the workspace hub entry', async () => {
+    const container = await renderSidebarNav()
+    const workspaceButton = getButtonByText(container, 'Workspaces')
+
+    expect(workspaceButton.querySelector('.lucide-copy')).not.toBeNull()
+    expect(workspaceButton.querySelector('.lucide-kanban')).toBeNull()
+  })
+
   it('hides the Agents entry while settings are loading', () => {
     expect(shouldShowAgentsButton(null)).toBe(false)
   })

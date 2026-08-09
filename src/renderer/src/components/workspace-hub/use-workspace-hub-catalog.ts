@@ -29,7 +29,6 @@ export type WorkspaceHubCatalog = {
   permission: SamwooWorkspacePermission
   refreshing: boolean
   createStage: 'create' | 'upload' | null
-  newChangesCount: number
   setRepoId: (value: string) => void
   setDisplayName: (value: string) => void
   setPermission: (value: SamwooWorkspacePermission) => void
@@ -62,7 +61,6 @@ export function useWorkspaceHubCatalog(): WorkspaceHubCatalog {
   const [permission, setPermission] = useState<SamwooWorkspacePermission>('download')
   const [refreshing, setRefreshing] = useState(false)
   const [createStage, setCreateStage] = useState<'create' | 'upload' | null>(null)
-  const [newChangesCount, setNewChangesCount] = useState(0)
 
   const handleSessionError = useCallback(
     (error: string | undefined): boolean => {
@@ -85,10 +83,8 @@ export function useWorkspaceHubCatalog(): WorkspaceHubCatalog {
     (nextShares: SamwooWorkspaceShare[]): void => {
       setShares(nextShares)
       if (!auth?.login) {
-        setNewChangesCount(0)
         return
       }
-      let count = 0
       for (const share of nextShares) {
         if (!readSharedWorkspaceLocalPath(auth.login, share.id)) {
           continue
@@ -96,11 +92,8 @@ export function useWorkspaceHubCatalog(): WorkspaceHubCatalog {
         const seen = readSharedWorkspaceSeenRevision(auth.login, share.id)
         if (seen === null) {
           writeSharedWorkspaceSeenRevision(auth.login, share.id, share.updatedAt)
-        } else if (share.updatedAt > seen) {
-          count += 1
         }
       }
-      setNewChangesCount(count)
     },
     [auth?.login]
   )
@@ -265,7 +258,6 @@ export function useWorkspaceHubCatalog(): WorkspaceHubCatalog {
     permission,
     refreshing,
     createStage,
-    newChangesCount,
     setRepoId,
     setDisplayName,
     setPermission,

@@ -4161,9 +4161,6 @@
           "removeDescriptionSsh": "此操作仅将 {{name}} 从 Orca 中移除。文件仍保留在 {{host}} 上 — 重新添加该 SSH 主机即可恢复。",
           "removeDescriptionLocal": "此操作仅将 {{name}} 从 Orca 中移除。文件仍保留在您的磁盘上。"
         },
-        "ScrollToCurrentWorkspaceToolbarButton": {
-          "23989bb663": "显示活动工作区"
-        },
         "SetupGuideSidebarEntry": {
           "b0a7bfc34c": "从侧边栏隐藏",
           "88d402b71d": "入门清单"
@@ -4287,13 +4284,6 @@
           "f8a2c91d4e": "里程碑",
           "b7e4d2a19c": "入门引导",
           "c4f8e1b72a": "X"
-        },
-        "SidebarToolbar": {
-          "19e32d0e5f": "打开文件夹选择器以添加项目",
-          "abc62b6328": "添加项目",
-          "87d0064026": "工作区板已移到底部栏",
-          "a30e34eb5c": "关闭工作区板",
-          "49f62c5665": "工作区板"
         },
         "SidebarWorkspaceFilterSection": {
           "c3fa13dc2e": "隐藏默认分支",

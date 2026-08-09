@@ -80,7 +80,7 @@ function wrapTeamChatSession(
 }
 
 export function resolveTeamChatModel(id: unknown) {
-  return MODEL_BY_ID.get(String(id) as TeamChatModelId) ?? MODEL_BY_ID.get('gpt-5.5')!
+  return MODEL_BY_ID.get(String(id) as TeamChatModelId) ?? MODEL_BY_ID.get('gpt-5.6-terra')!
 }
 
 export function resolveTeamChatEffort(modelId: TeamChatModelId, effort: unknown): TeamChatEffort {

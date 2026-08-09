@@ -39,7 +39,7 @@ export function readStoredTeamChat(route: HermesTeamChatRoute, tabId: string): S
   } catch {
     return {
       messages: [],
-      model: 'gpt-5.5',
+      model: 'gpt-5.6-terra',
       effort: 'medium',
       conversationId: crypto.randomUUID()
     }

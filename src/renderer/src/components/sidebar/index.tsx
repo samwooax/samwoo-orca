@@ -8,7 +8,6 @@ import SetupScriptPromptCard from './SetupScriptPromptCard'
 import WorktreeList from './WorktreeList'
 import SidebarToolbar from './SidebarToolbar'
 import WorkspaceKanbanDrawer from './WorkspaceKanbanDrawer'
-import SamwooConnectionStatusDot from './SamwooConnectionStatusDot'
 import { AgentDashboardDrawer } from '@/components/dashboard/AgentDashboardDrawer'
 import type { VirtualizedScrollAnchor } from '@/hooks/useVirtualizedScrollAnchor'
 import { cn } from '@/lib/utils'
@@ -63,7 +62,6 @@ function Sidebar({
     workspaceBoardRenderedOpen,
     workspaceBoardDragPreviewOpen,
     workspaceBoardMenuOpen,
-    toggleWorkspaceBoard,
     handleWorkspaceBoardOpenChange,
     setWorkspaceBoardMenuOpen,
     closeWorkspaceBoard,
@@ -151,14 +149,8 @@ function Sidebar({
 
             <div className="relative shrink-0">
               <SetupScriptPromptCard />
-              <SamwooConnectionStatusDot />
-
               {/* Fixed bottom toolbar */}
-              <SidebarToolbar
-                workspaceBoardOpen={workspaceBoardOpen}
-                workspaceBoardDragPreviewOpen={workspaceBoardDragPreviewOpen}
-                onWorkspaceBoardToggle={toggleWorkspaceBoard}
-              />
+              <SidebarToolbar />
             </div>
           </>
         )}

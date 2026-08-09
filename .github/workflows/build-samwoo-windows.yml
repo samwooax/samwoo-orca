@@ -138,8 +138,12 @@ jobs:
             src/renderer/src/components/sidebar/create-shared-workspace-with-upload.test.ts `
             src/renderer/src/components/sidebar/MessengerPopoutRoot.test.tsx `
             src/renderer/src/components/sidebar/SidebarNav.test.tsx `
+            src/renderer/src/components/sidebar/SidebarToolbar.test.tsx `
             src/renderer/src/components/sidebar/ProfileMessageRow.test.ts `
-            src/renderer/src/components/sidebar/SamwooConnectionStatusDot.test.tsx `
+            src/renderer/src/components/tab-bar/BrowserTab.test.tsx `
+            src/renderer/src/components/tab-bar/SamwooServerConnectionIndicator.test.tsx `
+            src/renderer/src/components/tab-group/tab-drop-zone.test.ts `
+            src/renderer/src/components/tab-group/tab-group-panel-split-target.test.ts `
             src/renderer/src/components/sidebar/profile-message-grouping.test.ts `
             src/renderer/src/components/sidebar/profile-message-interaction-admission.test.ts `
             src/renderer/src/components/sidebar/use-profile-message-live-updates.test.ts `
@@ -147,6 +151,7 @@ jobs:
             src/renderer/src/components/sidebar/shared-workspace-board-status.test.ts `
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawer.task-status-sync.test.tsx `
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawerHeader.test.tsx `
+            src/renderer/src/components/workspace-hub/WorkspaceHubPage.test.tsx `
             src/renderer/src/components/workspace-hub/WorkspaceHubViews.test.tsx `
             src/renderer/src/components/workspace-hub/WorkspaceHubBoardView.test.ts `
             src/renderer/src/components/workspace-hub/WorkspaceAssigneePicker.test.tsx `
@@ -160,6 +165,7 @@ jobs:
             src/renderer/src/components/status-bar/SamwooAuthStatusSegment.test.tsx `
             src/shared/samwoo-login-identity.test.ts `
             src/renderer/src/lib/samwoo-auth-store.test.ts `
+            src/renderer/src/lib/start-agent-picker-store.test.ts `
             src/renderer/src/lib/profile-member-display.test.ts `
             src/renderer/src/lib/samwoo-message-inbox-store.test.ts `
             src/renderer/src/lib/samwoo-message-notification-decision.test.ts `
@@ -169,6 +175,7 @@ jobs:
             src/renderer/src/lib/shared-workspace-alias-store.test.ts `
             src/renderer/src/lib/samwoo-workspace-assignment-inbox-store.test.ts `
             src/renderer/src/lib/samwoo-workspace-assignment-notification.test.ts `
+            src/renderer/src/lib/worktree-activation.test.ts `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
             config/scripts/electron-builder-samwoo-config.test.mjs `
             config/scripts/samwoo-brand-assets.test.mjs `

@@ -1021,9 +1021,49 @@ describe('activateAndRevealWorktree', () => {
       activeRepoId: null,
       activeWorktreeId: null,
       activeView: 'terminal',
+      workspaceHubOpen: false,
       filterRepoIds: [],
       isNavigatingHistory: false
     })
+  })
+
+  it('returns to the active project when it is reselected behind the workspace hub', () => {
+    const setActiveView = vi.fn((view: 'terminal') => {
+      useAppStore.setState({ activeView: view, workspaceHubOpen: false })
+    })
+    const worktree = {
+      id: 'wt-1',
+      repoId: 'repo-1',
+      path: '/repo',
+      displayName: 'main',
+      branch: 'main',
+      head: 'abc',
+      isBare: false,
+      isMainWorktree: true
+    }
+    useAppStore.setState({
+      activeRepoId: 'repo-1',
+      activeWorktreeId: 'wt-1',
+      activeWorkspaceExecutionHostId: null,
+      activeView: 'terminal',
+      workspaceHubOpen: true,
+      filterRepoIds: [],
+      isNavigatingHistory: false,
+      repos: [{ id: 'repo-1', connectionId: null }],
+      worktreesByRepo: { 'repo-1': [worktree] },
+      getKnownWorktreeById: (worktreeId: string) => (worktreeId === 'wt-1' ? worktree : null),
+      setActiveView,
+      setActiveWorktree: vi.fn(),
+      markWorktreeVisited: vi.fn(),
+      recordWorktreeVisit: vi.fn(),
+      reconcileWorktreeTabModel: vi.fn(() => ({ renderableTabCount: 1 })),
+      revealWorktreeInSidebar: vi.fn()
+    } as never)
+
+    activateAndRevealWorktree('wt-1', { revealInSidebar: false })
+
+    expect(setActiveView).toHaveBeenCalledWith('terminal')
+    expect(useAppStore.getState().workspaceHubOpen).toBe(false)
   })
 
   it('queues a one-shot initial cwd for the primary activation-created tab', () => {

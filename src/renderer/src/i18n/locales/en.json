@@ -867,7 +867,6 @@
         "imagePasteFailed": "Image paste failed.",
         "pastedImage": "Pasted image",
         "removeAttachment": "Remove {{value0}}",
-        "sessionAccessNotice": "When you ask the bot a question, it can read your mail and messages during this session.",
         "placeholder": "Enter a message…"
       },
       "CodexRestartChip": {
@@ -4255,9 +4254,6 @@
           "removeDescriptionSsh": "This only removes {{name}} from Orca. Its files stay on {{host}} — re-add that SSH host to recover it.",
           "removeDescriptionLocal": "This only removes {{name}} from Orca. It is still on your disk."
         },
-        "ScrollToCurrentWorkspaceToolbarButton": {
-          "23989bb663": "Reveal active workspace"
-        },
         "SetupGuideSidebarEntry": {
           "b0a7bfc34c": "Hide from sidebar",
           "88d402b71d": "Onboarding checklist"
@@ -4381,13 +4377,6 @@
           "f8a2c91d4e": "Milestones",
           "b7e4d2a19c": "Onboarding",
           "c4f8e1b72a": "X"
-        },
-        "SidebarToolbar": {
-          "87d0064026": "Workspace board moved to the bottom bar",
-          "a30e34eb5c": "Close workspace board",
-          "49f62c5665": "Workspace board",
-          "19e32d0e5f": "Open folder picker to add a project",
-          "abc62b6328": "Add Project"
         },
         "SidebarWorkspaceFilterSection": {
           "c3fa13dc2e": "Hide default branch",
@@ -14871,8 +14860,6 @@
       "viewMode": "View mode",
       "openChannel": "Open channel",
       "messagesNav": "Messages",
-      "summary": "{{profile}} profile · {{count}} shared",
-      "newChangesCount": "{{count}} new",
       "openDetails": "Open details",
       "moreActions": "More actions",
       "editName": "Edit shared name",
@@ -15027,10 +15014,7 @@
       "online": "Connected to the SAMWOO server.",
       "onlineWithLatency": "Connected to the SAMWOO server ({{ms}}ms).",
       "offline": "Cannot reach the SAMWOO server. Check that Tailscale is connected, then retry.",
-      "checking": "Checking the SAMWOO server connection…",
-      "onlineShort": "SAMWOO server connected",
-      "offlineShort": "SAMWOO server offline",
-      "checkingShort": "Checking SAMWOO server"
+      "checking": "Checking the SAMWOO server connection…"
     }
   }
 }

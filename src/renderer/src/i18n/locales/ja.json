@@ -4149,9 +4149,6 @@
           "removeDescriptionSsh": "この操作は {{name}} を Orca から削除するだけです。ファイルは {{host}} に残っており、その SSH ホストを再追加すれば復元できます。",
           "removeDescriptionLocal": "この操作は {{name}} を Orca から削除するだけです。ファイルはディスクに残っています。"
         },
-        "ScrollToCurrentWorkspaceToolbarButton": {
-          "23989bb663": "アクティブなワークスペースを表示する"
-        },
         "SetupGuideSidebarEntry": {
           "b0a7bfc34c": "サイドバーから隠す",
           "88d402b71d": "オンボーディングチェックリスト"
@@ -4275,13 +4272,6 @@
           "f8a2c91d4e": "マイルストーン",
           "b7e4d2a19c": "オンボーディング",
           "c4f8e1b72a": "X"
-        },
-        "SidebarToolbar": {
-          "19e32d0e5f": "フォルダーピッカーを開いてプロジェクトを追加します",
-          "abc62b6328": "プロジェクトを追加",
-          "87d0064026": "ワークスペースボードは下部バーに移動しました",
-          "a30e34eb5c": "ワークスペースボードを閉じる",
-          "49f62c5665": "ワークスペースボード"
         },
         "SidebarWorkspaceFilterSection": {
           "c3fa13dc2e": "デフォルトのブランチを非表示にする",

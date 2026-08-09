@@ -4168,9 +4168,6 @@
           "removeDescriptionSsh": "Esto solo elimina {{name}} de Orca. Sus archivos permanecen en {{host}}; vuelve a añadir ese host SSH para recuperarlo.",
           "removeDescriptionLocal": "Esto solo elimina {{name}} de Orca. Sigue estando en tu disco."
         },
-        "ScrollToCurrentWorkspaceToolbarButton": {
-          "23989bb663": "Mostrar espacio de trabajo activo"
-        },
         "SetupGuideSidebarEntry": {
           "b0a7bfc34c": "Ocultar de la barra lateral",
           "88d402b71d": "Checklist de onboarding"
@@ -4294,13 +4291,6 @@
           "f8a2c91d4e": "Milestones",
           "b7e4d2a19c": "Onboarding",
           "c4f8e1b72a": "X"
-        },
-        "SidebarToolbar": {
-          "19e32d0e5f": "Abrir el selector de carpetas para agregar un proyecto",
-          "abc62b6328": "Agregar proyecto",
-          "87d0064026": "El tablero de espacios de trabajo se movió a la barra inferior",
-          "a30e34eb5c": "Cerrar tablero de espacios de trabajo",
-          "49f62c5665": "Tablero de espacios de trabajo"
         },
         "SidebarWorkspaceFilterSection": {
           "c3fa13dc2e": "Ocultar rama predeterminada",

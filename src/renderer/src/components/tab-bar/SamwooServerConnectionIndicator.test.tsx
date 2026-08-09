@@ -5,9 +5,9 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
-import SamwooConnectionStatusDot from './SamwooConnectionStatusDot'
+import SamwooServerConnectionIndicator from './SamwooServerConnectionIndicator'
 
-describe('SamwooConnectionStatusDot', () => {
+describe('SamwooServerConnectionIndicator', () => {
   let root: Root
   let container: HTMLDivElement
   const health = vi.fn()
@@ -16,7 +16,7 @@ describe('SamwooConnectionStatusDot', () => {
     vi.useFakeTimers()
     health.mockResolvedValue({ ok: true, latencyMs: 12 })
     useSamwooAuthStore.setState({
-      auth: { login: 'kim', name: 'Kim', role: 'ai_center', label: 'AI Center', token: 'token' }
+      auth: { login: 'member', name: 'Member', role: 'planning', label: 'Planning', token: 'token' }
     })
     Object.defineProperty(window, 'api', {
       configurable: true,
@@ -34,21 +34,26 @@ describe('SamwooConnectionStatusDot', () => {
     vi.useRealTimers()
   })
 
-  it('shows the account and updates online state to offline after a failed probe', async () => {
+  it('shares one health probe across every Hermes tab without rendering account text', async () => {
     await act(async () => {
       root.render(
         <TooltipProvider>
-          <SamwooConnectionStatusDot />
+          <SamwooServerConnectionIndicator />
+          <SamwooServerConnectionIndicator />
         </TooltipProvider>
       )
       await Promise.resolve()
     })
-    expect(container.textContent).toContain('SAMWOO server connected · kim')
+
+    expect(health).toHaveBeenCalledTimes(1)
+    expect(container.querySelectorAll('[data-status="online"]')).toHaveLength(2)
+    expect(container.textContent).toBe('')
 
     health.mockResolvedValue({ ok: false })
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000)
     })
-    expect(container.textContent).toContain('SAMWOO server offline · kim')
+    expect(health).toHaveBeenCalledTimes(2)
+    expect(container.querySelectorAll('[data-status="offline"]')).toHaveLength(2)
   })
 })

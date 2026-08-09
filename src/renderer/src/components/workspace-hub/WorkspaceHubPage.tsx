@@ -80,27 +80,11 @@ export default function WorkspaceHubPage(): React.JSX.Element {
 
   return (
     <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-background">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-5">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold">
-            {translate('samwoo.workspaceHub.title', 'Workspaces')}
-          </h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {translate('samwoo.workspaceHub.summary', '{{profile}} profile · {{count}} shared', {
-              profile: catalog.profile,
-              count: catalog.shares.length
-            })}
-            {catalog.newChangesCount > 0
-              ? ` · ${translate('samwoo.workspaceHub.newChangesCount', '{{count}} new', {
-                  count: catalog.newChangesCount
-                })}`
-              : ''}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+      <header className="flex shrink-0 flex-wrap items-center justify-end gap-1 border-b border-border px-3 py-2">
+        <div className="flex flex-wrap items-center justify-end gap-1">
           <ButtonGroup aria-label={translate('samwoo.workspaceHub.viewMode', 'View mode')}>
             <Button
-              size="sm"
+              size="xs"
               variant={viewMode === 'list' ? 'secondary' : 'outline'}
               aria-pressed={viewMode === 'list'}
               onClick={() => setViewMode('list')}
@@ -108,7 +92,7 @@ export default function WorkspaceHubPage(): React.JSX.Element {
               <LayoutList /> {translate('samwoo.workspaceHub.viewList', 'List')}
             </Button>
             <Button
-              size="sm"
+              size="xs"
               variant={viewMode === 'board' ? 'secondary' : 'outline'}
               aria-pressed={viewMode === 'board'}
               onClick={() => setViewMode('board')}
@@ -119,7 +103,7 @@ export default function WorkspaceHubPage(): React.JSX.Element {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                size="icon-sm"
+                size="icon-xs"
                 variant="outline"
                 disabled={catalog.refreshing || catalog.createStage !== null}
                 aria-label={translate('samwoo.workspaceSharing.refresh', 'Refresh')}
@@ -132,7 +116,11 @@ export default function WorkspaceHubPage(): React.JSX.Element {
               {translate('samwoo.workspaceSharing.refresh', 'Refresh')}
             </TooltipContent>
           </Tooltip>
-          <Button onClick={() => setCreateOpen((open) => !open)} aria-expanded={createOpen}>
+          <Button
+            size="xs"
+            onClick={() => setCreateOpen((open) => !open)}
+            aria-expanded={createOpen}
+          >
             <Plus /> {translate('samwoo.workspaceSharing.newShare', 'New share')}
           </Button>
         </div>

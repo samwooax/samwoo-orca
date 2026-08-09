@@ -241,7 +241,7 @@ export function activateAndRevealFolderWorkspace(
     return false
   }
 
-  if (state.activeView !== 'terminal') {
+  if (state.activeView !== 'terminal' || state.workspaceHubOpen) {
     state.setActiveView('terminal')
   }
 
@@ -374,7 +374,8 @@ export function activateAndRevealWorktree(
     state.activeRepoId === wt.repoId &&
     state.activeWorktreeId === worktreeId &&
     state.activeWorkspaceExecutionHostId === (opts?.executionHostId ?? null) &&
-    state.activeView === 'terminal'
+    state.activeView === 'terminal' &&
+    !state.workspaceHubOpen
 
   // 1. Set activeRepoId if crossing repos
   if (wt.repoId !== state.activeRepoId) {
@@ -382,7 +383,7 @@ export function activateAndRevealWorktree(
   }
 
   // 2. Switch any non-terminal view back to terminal
-  if (state.activeView !== 'terminal') {
+  if (state.activeView !== 'terminal' || state.workspaceHubOpen) {
     state.setActiveView('terminal')
   }
 

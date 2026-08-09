@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import {
   X,
@@ -126,6 +126,8 @@ export default function BrowserTab({
   onCloseToLeft,
   onDuplicate,
   onTogglePin,
+  labelOverride,
+  leadingIndicator,
   dragData,
   dropIndicator,
   includeTopTabBorder = true
@@ -143,6 +145,8 @@ export default function BrowserTab({
   onCloseToLeft: () => void
   onDuplicate: () => void
   onTogglePin: () => void
+  labelOverride?: string
+  leadingIndicator?: ReactNode
   dragData: TabDragItemData
   dropIndicator?: DropIndicator
   includeTopTabBorder?: boolean
@@ -167,7 +171,7 @@ export default function BrowserTab({
   } catch {
     // invalid URL — leave disabled
   }
-  const tabLabel = getBrowserTabLabel(tab)
+  const tabLabel = labelOverride ?? getBrowserTabLabel(tab)
 
   useEffect(() => {
     const closeMenu = (): void => setMenuOpen(false)
@@ -230,6 +234,7 @@ export default function BrowserTab({
       )}
       <BrowserTabFavicon tabId={tab.id} faviconUrl={tab.faviconUrl} />
       {isPinned && <Pin className="mr-1 size-3 shrink-0 text-muted-foreground" aria-hidden />}
+      {leadingIndicator}
       <span className={`${TAB_LABEL_WIDTH_CLASSES} mr-1`}>{tabLabel}</span>
       {!isPinned && (
         <button

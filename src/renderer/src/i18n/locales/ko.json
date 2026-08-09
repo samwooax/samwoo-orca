@@ -826,7 +826,6 @@
         "imagePasteFailed": "이미지를 붙여넣지 못했습니다.",
         "pastedImage": "붙여넣은 이미지",
         "removeAttachment": "{{value0}} 제거",
-        "sessionAccessNotice": "봇에게 질문하면 세션 동안 내 메일·메시지 열람 권한이 봇에게 부여됩니다.",
         "placeholder": "메시지를 입력하세요…"
       },
       "CodexRestartChip": {
@@ -4154,9 +4153,6 @@
           "removeDescriptionSsh": "이 작업은 {{name}}을(를) Orca에서 제거만 합니다. 파일은 {{host}}에 그대로 남아 있으며, 해당 SSH 호스트를 다시 추가하면 복구할 수 있습니다.",
           "removeDescriptionLocal": "이 작업은 {{name}}을(를) Orca에서 제거만 합니다. 파일은 디스크에 그대로 남아 있습니다."
         },
-        "ScrollToCurrentWorkspaceToolbarButton": {
-          "23989bb663": "활성 워크스페이스로 이동"
-        },
         "SetupGuideSidebarEntry": {
           "b0a7bfc34c": "사이드바에서 숨기기",
           "88d402b71d": "온보딩 체크리스트"
@@ -4280,13 +4276,6 @@
           "f8a2c91d4e": "마일스톤",
           "b7e4d2a19c": "온보딩",
           "c4f8e1b72a": "X"
-        },
-        "SidebarToolbar": {
-          "19e32d0e5f": "폴더 선택기를 열어 프로젝트를 추가하세요.",
-          "abc62b6328": "프로젝트 추가",
-          "87d0064026": "워크스페이스 보드가 하단 바로 옮겨졌습니다",
-          "a30e34eb5c": "워크스페이스 보드 닫기",
-          "49f62c5665": "워크스페이스 보드"
         },
         "SidebarWorkspaceFilterSection": {
           "c3fa13dc2e": "기본 브랜치 숨기기",
@@ -14676,8 +14665,6 @@
       "viewMode": "보기 방식",
       "openChannel": "채널 열기",
       "messagesNav": "메시지",
-      "summary": "{{profile}} 프로필 · 공유 {{count}}개",
-      "newChangesCount": "새 변경 {{count}}개",
       "openDetails": "상세 열기",
       "moreActions": "추가 작업",
       "editName": "공유 이름 편집",
@@ -14832,10 +14819,7 @@
       "online": "SAMWOO 서버에 연결됨",
       "onlineWithLatency": "SAMWOO 서버에 연결됨 ({{ms}}ms)",
       "offline": "SAMWOO 서버에 연결할 수 없습니다. Tailscale 연결을 확인한 뒤 다시 시도하세요.",
-      "checking": "SAMWOO 서버 연결 확인 중…",
-      "onlineShort": "SAMWOO 서버 연결됨",
-      "offlineShort": "SAMWOO 서버 오프라인",
-      "checkingShort": "SAMWOO 서버 확인 중"
+      "checking": "SAMWOO 서버 연결 확인 중…"
     }
   }
 }

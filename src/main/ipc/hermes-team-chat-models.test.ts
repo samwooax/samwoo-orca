@@ -22,8 +22,8 @@ describe('team chat model catalog', () => {
     ])
   })
 
-  it('falls back to GPT-5.5 and a supported effort', () => {
-    expect(resolveTeamChatModel('unknown').id).toBe('gpt-5.5')
+  it('falls back to Terra and a supported effort', () => {
+    expect(resolveTeamChatModel('unknown').id).toBe('gpt-5.6-terra')
     expect(resolveTeamChatEffort('fable', 'high')).toBe('high')
     expect(resolveTeamChatEffort('opus', 'invalid')).toBe('medium')
     expect(resolveTeamChatEffort('gpt-5.6-sol', 'xhigh')).toBe('xhigh')

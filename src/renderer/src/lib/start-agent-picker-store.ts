@@ -47,16 +47,17 @@ export const DEFAULT_HERMES_LAUNCH_COMMAND = `ssh -tt -o StrictHostKeyChecking=a
 
 const PROFILE_NAME_RE = /^[A-Za-z0-9._-]+$/
 
-/** SAMWOO-ORCA: Korean display names matching the Slack bot names (minus the
- *  "봇" suffix). Unmapped profiles fall back to their raw name. */
+/** User-facing app labels; internal Hermes profile ids remain unchanged. */
 export const HERMES_PROFILE_LABELS: Record<string, string> = {
   ai_center: 'AI 센터',
   hr: '총무인사',
-  cs: '영업1팀 CS',
+  cs: 'CS',
+  d_support: '대구영업지원',
   finance: '재경',
   oliver: '전략기획',
   planning: '영업기획',
   sales: '영업',
+  support: '영업지원',
   default: '기본'
 }
 

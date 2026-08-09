@@ -83,6 +83,8 @@ import { canToggleNativeChat } from '../native-chat/native-chat-availability'
 import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { selectTabBarAgentProjections } from './tab-agent-types-by-tab-id'
 import { resolveCommittedTitleAgentType } from '@/lib/pane-agent-evidence'
+import { parseHermesTeamChatRoute } from '../hermes-team-chat/hermes-team-chat-route'
+import SamwooServerConnectionIndicator from './SamwooServerConnectionIndicator'
 
 const isWindows = navigator.userAgent.includes('Windows')
 const isMacOs = navigator.userAgent.includes('Mac')
@@ -1117,6 +1119,7 @@ function TabBarInner({
                 )
               }
               if (item.type === 'browser') {
+                const hermesRoute = parseHermesTeamChatRoute(item.data.url)
                 return (
                   <BrowserTab
                     key={item.id}
@@ -1133,6 +1136,10 @@ function TabBarInner({
                     onCloseToLeft={() => onCloseToLeft(item.id)}
                     onDuplicate={() => onDuplicateBrowserTab?.(item.id)}
                     onTogglePin={() => togglePinned(item)}
+                    labelOverride={
+                      hermesRoute ? hermesProfileLabel(hermesRoute.profile) : undefined
+                    }
+                    leadingIndicator={hermesRoute ? <SamwooServerConnectionIndicator /> : undefined}
                     dragData={dragData}
                     dropIndicator={dropIndicatorByVisibleId.get(item.id) ?? null}
                     includeTopTabBorder={includeTopTabBorder}
