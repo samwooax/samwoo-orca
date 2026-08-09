@@ -17,7 +17,8 @@
 | W4a | 봇 메일 첨부 파이프라인 (서버) | ✅ 완료 (배포 대기) | 478aa31dc |
 | W4b | 봇 대화 맥락·검색 API + 스킬 배포 | ✅ 구현 완료 (통합 배포 대기) | 7289d7769 |
 | W5 | 예약 자동화 — 위임 토큰·크론 등록 스킬 | 설계 대기 (W4b 후 Claude가 지시서 작성) | — |
-| W6 | 허브 2단계 — /profile/members·담당자·마감일·작업 항목 | 설계 대기 | — |
+| W6a | 프로필 멤버 디렉터리·메신저 실명 표시 | ✅ 구현 완료 (배포·실측 대기) | f4d4df553 |
+| W6b | 허브 2단계 — 담당자·마감일·작업 항목 | 설계 대기 | — |
 
 ## 웨이브 상세
 
@@ -40,8 +41,14 @@
 - 선행 설계: 예약 작업용 위임 토큰 (범위 제한: 메일 읽기+지정 워크스페이스 쓰기+메신저 전송, 폐기 가능, 장수명)
 - 크론 등록/조회/삭제 스킬 + 등록 전 사용자 확인 가드레일 + 결과의 워크스페이스 저장·메신저 통지
 
-### W6 — 허브 2단계 (지시서 미작성)
-- `/profile/members` API → 담당자 지정(팝오버 1개 재사용, 워크스페이스 복수·작업 항목 1명) → 마감일 → work_items 테이블
+### W6a — 프로필 멤버 디렉터리·메신저 실명 표시 (구현 완료, 배포·실측 대기)
+- 지시서: `_claude-proposals/waves/W6a-profile-directory-real-names.md`
+- 구현: VPS 런타임 CSV 이중 원천·mtime 캐시, 토큰 프로필 기반 `/profile-members/list`, 메시지·답장·채널·알림·프레즌스 표시명 fallback
+- 경계: login 식별과 기존 Hermes 프로필·에이전트 표기는 유지하며 실명은 메신저에서만 사용한다. 직원 명단은 Public 저장소에 두지 않는다.
+- 검증: Python 서버 전체 72개, focused Vitest 16개, TypeScript 3종, oxlint·React 규칙, max-lines, i18n 게이트 통과. 실제 VPS CSV·핫 리로드·2계정 실측은 W3c로 이월
+
+### W6b — 허브 2단계 (지시서 미작성)
+- `/profile-members/list` API → 담당자 지정(팝오버 1개 재사용, 워크스페이스 복수·작업 항목 1명) → 마감일 → work_items 테이블
 - 디자인 확정본: `_claude-proposals/workspace-hub-design.png`, `assignee-picker-preview.png`
 
 ## 폐기·보류
