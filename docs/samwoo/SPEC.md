@@ -3,7 +3,7 @@
 > 이 문서는 SAMWOO-ORCA의 제품 결정, 현재 구현, 실제 배포 상태, 네트워크 구성, 제한값, 작업 대기열과 검증 기준을 함께 관리하는 **단일 진실(source of truth)**이다.
 > Codex와 Claude는 작업 전에 이 문서를 읽는다. 대화·지시서와 이 문서가 충돌하면 이 문서가 우선한다.
 > 비밀번호, Tailscale 인증 키, 코드서명 개인키, 메일 자격 증명 등 비밀값은 이 문서에 기록하지 않는다.
-> 최종 코드·운영 감사: 2026-08-09 · 저장소 버전: `1.4.184`
+> 최종 코드·운영 감사: 2026-08-09 · 저장소 버전: `1.4.185`
 
 ## 0. 상태 표기와 감사 범위
 
@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목 | 현재 상태 |
 |---|---|
-| 로컬 패키지 버전 | `1.4.184` |
+| 로컬 패키지 버전 | `1.4.185` |
 | 작업 브랜치 | `samwoo/upstream-v1.4.168` |
 | SAMWOO 원격 | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격 | `https://github.com/stablyai/orca.git` |
@@ -64,8 +64,8 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 대상 | 주소·프로토콜 | 용도 | 2026-08-08 상태 |
 |---|---|---|---|
-| 인증·협업 VPS | `http://100.116.18.119:8823` / Tailscale HTTP | 로그인, 세션, 워크스페이스, 메신저, 메일 | 로그인 검증 응답 확인. 연속 API 점검 중 일부 타임아웃 관측 |
-| SSE 예정 경로 | 위 서버의 `GET /events` | 메신저 실시간 이벤트·프레즌스 | **404 확인 — 운영 미배포** |
+| 인증·협업 VPS | `http://100.116.18.119:8823` / Tailscale HTTP | 로그인, 세션, 워크스페이스, 메신저, 메일 | 2026-08-09 배포 완료. 연속 요청 10회 약 0.5~1ms 응답(타임아웃 해소) |
+| SSE 경로 | 위 서버의 `GET /events` | 메신저 실시간 이벤트·프레즌스 | 2026-08-09 배포 확인 — 401 응답(라우트 가동), 앱 실측 대기 |
 | Hermes 호스트 | `hermes@100.68.242.83` / Tailscale SSH | 팀봇 ACP·Claude 실행 | SSH 연결 확인 |
 | Hermes 대시보드 | 원격 `4862` 포트 | 대시보드 터널 | 코드에 구성, 이번 감사에서 UI 미확인 |
 | 회사 메일 | `play.samwooeleco.com:993` IMAPS, `:587` SMTP STARTTLS | 받은메일·본문·발송·첨부 처리 | 코드 기본값. 실계정 송수신은 미실행 |
@@ -222,7 +222,7 @@ SAMWOO-Workspaces/<Hermes 프로필>/<공유 UUID>/
 - 메시지 작성자·답장·채널 미리보기·알림·온라인 목록은 서버 CSV 디렉터리의 직원 표시명을 사용한다. `user-display-names.csv`가 우선이고 누락 시 `role-map.csv`의 `name`, 두 원천 모두 없으면 login 순으로 fallback한다.
 - login은 메시지 저장·본인 판정·프로필 격리의 불변 식별자이며 동명이인이 있어도 표시명으로 비교하지 않는다. 실명 표시는 메신저에만 적용하고 기존 Hermes 프로필·에이전트 표기는 유지한다.
 
-앱은 SSE 연결을 우선 사용하고, 연결할 수 없으면 기존 폴링을 그대로 유지한다. 운영 서버의 `/events`가 아직 404이므로 배포 전 실사용 동기화는 현재 **폴링 fallback**이다.
+앱은 SSE 연결을 우선 사용하고, 연결할 수 없으면 기존 폴링을 그대로 유지한다. 운영 서버의 `/events`는 2026-08-09 배포되어 401(라우트 가동)을 반환하며, 앱 엔드투엔드 실측만 남았다.
 
 - SSE 연결 시 메시지 이벤트를 즉시 반영하고 열린 메신저·전역 inbox의 확인 폴링은 각각 약 1분·5분으로 낮춘다.
 - SSE 미연결 시 열린 메신저는 포그라운드 약 3초·백그라운드 약 30초, 전역 읽지 않음·알림은 약 30초로 폴링한다.
@@ -236,7 +236,7 @@ SAMWOO-Workspaces/<Hermes 프로필>/<공유 UUID>/
 
 앱에는 main 프로세스 단일 SSE 연결, 지수 백오프 재연결, 폴링 fallback, 멱등 전송 큐와 pending·재시도·재전송 UI, `onlineLogins` 상태와 온라인 표시가 구현되어 있다. 연결이 끊기면 잘못된 온라인 상태를 보여주지 않도록 프레즌스 UI를 숨긴다. 서버 이벤트의 `isAuthor`는 수신 사용자의 로그인과 `authorLogin`을 비교해 다시 계산한다.
 
-운영 VPS의 `GET /events`는 아직 404이므로 현재 앱은 자동으로 폴링으로 강등된다. **앱 구현은 완료됐고 서버 배포와 2계정 실측은 W3c 대기 상태**다.
+운영 VPS의 `GET /events`는 2026-08-09 배포되어 401을 반환한다. **서버·앱·릴리스는 정합 상태이고 2계정 엔드투엔드 실측만 남았다.**
 
 SSE를 배포할 때 서버는 반드시 `ThreadingHTTPServer`여야 한다. 단일 스레드 서버에서 장시간 SSE 연결을 열면 다른 요청을 막는다.
 
@@ -301,15 +301,15 @@ SQLite는 WAL, `busy_timeout=5000`, `synchronous=NORMAL`, foreign keys를 사용
 5. GitHub에는 **Draft 릴리스**로 만든다.
 6. 관리자가 산출물과 해시를 확인한 뒤 Public release로 공개한다.
 
-Windows NSIS 설치기는 one-click이 아닌 설치 마법사 방식이며 설치 경로 변경과 바탕화면 바로가기를 지원하고 설치 직후 자동 실행은 하지 않는다. 산출물 이름은 `samwoo-orca-windows-setup.exe`다.
+Windows NSIS 설치기는 전체 사용자용 one-click 방식이다. 설치 마법사와 경로 선택 없이 진행 표시만 보여주고 완료 후 자동 종료·실행하며 바탕화면 바로가기를 만든다. 전체 사용자 설치는 Windows 권한 정책상 최초 설치와 이후 업데이트에서 UAC 승인을 요구할 수 있다. 산출물 이름은 `samwoo-orca-windows-setup.exe`다.
 
 ### 10.2 설치된 앱의 업데이트
 
 앱은 공개 GitHub release의 `latest.yml`을 확인한다. 자동 점검은 대략 하루 주기이며 공개 직후 파일 전파가 불완전한 경우 약 1시간 뒤 재시도한다.
 
-사용자가 업데이트 버튼을 누르면 앱이 설치 파일과 blockmap을 다운로드하고 단계·진행률을 표시한다. Windows에서는 진행 표시 프로세스를 앱 종료 뒤에도 유지해 무인 설치하고 SAMWOO-ORCA를 다시 실행한다. 앱이 닫히지 않을 때를 위한 약 20초 watchdog이 있다.
+사용자가 업데이트 버튼을 누르면 앱이 설치 파일과 blockmap을 다운로드하고 단계·진행률을 표시한다. Windows에서는 진행 표시 프로세스를 앱 종료 뒤에도 유지하고 NSIS의 진행 표시로 이어서 설치한 뒤 SAMWOO-ORCA를 다시 실행한다. 전체 사용자용 NSIS는 실행 때 UAC 승인을 요구할 수 있으므로 이를 “UAC 없는 완전 무인 업데이트”로 표현하지 않는다. 앱이 닫히지 않을 때를 위한 약 20초 watchdog이 있다.
 
-내부 인증서 설치, 설치 파일 해시·서명 검증, Tailscale 설정, OpenSSH Client 준비와 인바운드 SSH 차단은 사내 설치 키트의 계약이다. 실제 키·비밀번호는 저장소에 두지 않는다. Nextcloud 설치 키트의 마지막 업로드 상태는 이번 감사에서 재확인하지 않았으므로 별도 운영 확인이 필요하다.
+내부 인증서 설치, 설치 파일 해시·서명 검증, Tailscale 설정, OpenSSH Client 준비와 인바운드 SSH 차단은 사내 설치 키트의 계약이다. Git·Python·uv 오프라인 파일이 없으면 고정된 공식 URL에서 내려받아 SHA-256을 검증하며, 전체 사용자 설치와 기존 사용자 설치 경로를 모두 확인한다. 실제 키·비밀번호는 저장소에 두지 않는다. Nextcloud 설치 키트의 마지막 업로드 상태는 이번 감사에서 재확인하지 않았으므로 별도 운영 확인이 필요하다.
 
 ## 11. upstream Orca에서 유지하는 기능
 
@@ -392,18 +392,27 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 - lint disable이나 per-file max-lines 예외로 게이트를 우회하지 않는다.
 - 빌드·배포는 사용자의 명시적 지시가 있을 때만 실행한다.
 
-## 17. 현재 알려진 운영 차이와 위험
+## 17. 운영 배포 현황과 남은 위험
 
-1. 서버와 앱의 SSE 경로는 구현됐지만 운영 `/events`가 404라 현재 앱은 폴링 fallback으로 동작한다. 서버 배포와 2계정 실측이 필요하다.
-2. `clientMessageId` 기반 renderer 전송 큐·pending·자동 재시도·수동 재전송은 앱 구현 완료 상태이며, 배포·실측 대기다.
-3. `onlineLogins` 상태 저장과 프레즌스 UI는 앱 구현 완료 상태이며, 운영 SSE 배포·2계정 실측 전까지 연결이 없어 표시되지 않는다.
-4. 메일 첨부 파이프라인은 코드에 있으나 VPS 반영과 실계정 통합 시험이 확인되지 않았다.
-5. 봇용 메시지 검색 API와 Hermes 스킬은 구현됐지만 VPS·Hermes 통합 배포와 실계정 요약·타 프로필 차단 실측은 W3c 대기다.
-6. VPS가 ThreadingHTTPServer인지 이번 감사로 확인하지 못했다. SSE 운영 전 반드시 확인해야 한다.
-7. 인증 VPS의 일부 연속 요청에서 타임아웃을 관측했다. 배포 전 동시성·응답성 실측이 필요하다.
-8. 백업 스크립트는 구현됐지만 운영 cron 등록 여부는 미확인이다.
-9. Nextcloud 사내 설치 키트의 최신 업로드 상태는 이번 감사에서 확인하지 않았다.
-10. 메신저 실명 디렉터리와 멤버 API는 구현됐지만 VPS CSV 형식·핫 리로드·2계정 프로필 격리 실측은 W3c 대기다.
+### 17.1 VPS 배포 완료 — 2026-08-09 운영 확인
+
+- VPS `/opt/samwoo-auth`에 서버 모듈을 반영하고 재시작했다. Python `3.12.3`, `ThreadingHTTPServer` 사용을 서버 소스(212행)에서 직접 확인했다.
+- 반영 모듈: `workspace_sharing.py`, `profile_messaging.py`, `profile_event_stream.py`, `nextcloud_workspace_storage.py`, `workspace_share_endpoints.py`, `mail_ext.py`, `mail_endpoints.py`, `profile_display_names.py`, `workspace_work_items.py`, `backup-workspace-db.sh`.
+- `auth-server.py`에 `/events` 라우팅(import + do_GET 3줄)을 적용했고, `GET /events`가 404 대신 401을 반환함을 확인했다(SSE 라우트 가동).
+- **연속 요청 타임아웃 해소 확인**: `/workspace-shares/list`를 10회 연속 호출해 전부 약 0.5~1ms에 응답했다. 이전 관측된 타임아웃은 구 코드의 전역 DB 락이 원인이었고, WAL+락 제거로 해소됐다.
+- 작업 항목·담당자 라우트(`/workspace-shares/work-items/*`)는 `workspace_share_endpoints._ROUTES`에 통합되어 있어 auth-server 추가 편집 없이 재시작만으로 가동됐고, `work-items/list`가 401을 반환함을 확인했다.
+- SQLite 백업: `sqlite3` CLI(3.45.1)를 설치하고 `backup-workspace-db.sh`를 1회 실행해 백업 파일(권한 0600) 생성을 확인했다. cron `0 3 * * *`을 등록했다.
+- 실명 CSV: VPS에는 `user-display-names.csv`가 없고 `role-map.csv`(형식 `login,name,role`)의 name 컬럼에 실명이 들어 있다. 로더의 role-map fallback 경로가 이 구성을 담당한다.
+- Hermes 호스트: `samwoo-messages`, `samwoo-mail` 스킬을 `/opt/data/skills/communication/`에 배포하고 소유권을 `hermes`로 맞췄다.
+
+### 17.2 남은 위험·미확인
+
+1. **앱 실측 미완료**: 실사용 클라이언트에서 SSE 1초 내 수신·프레즌스·실명 표시·담당자/작업 항목·메일 첨부의 엔드투엔드 확인이 아직이다. (서버·릴리스는 정합, 클라이언트 GUI 실측만 남음)
+2. 메일 첨부의 IMAP→Nextcloud 실계정 저장, 봇의 대화 요약·타 프로필 차단은 실계정 시나리오로 아직 확인하지 않았다.
+3. 실명 CSV의 핫 리로드(mtime 재로딩) 실동작은 파일 변경 시나리오로 아직 확인하지 않았다.
+4. Nextcloud 사내 설치 키트의 최신 업로드 상태와 Windows 설치 키트의 Tailscale 온라인 fallback 설치는 별도 확인이 필요하다(실 PC 설치 중 Tailscale 단계 이슈 조사 진행 중).
+5. VPS에 커널 업데이트 재부팅 보류 알림이 있다. 서비스 동작에는 지장 없으나 유휴 시간에 재부팅 후 서비스 자동 복구를 확인하는 것이 좋다.
+6. Tailnet 분리: 이 관리용 맥은 `tail5c6263`에, VPS·직원 PC는 `tail730b48`에 있어 맥에서 VPS 직결이 안 된다. 개발 실측 필요 시 맥을 직원 tailnet에 붙여야 한다.
 
 ## 18. 공통 금지 사항
 
