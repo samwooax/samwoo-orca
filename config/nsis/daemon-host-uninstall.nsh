@@ -14,18 +14,18 @@
 ; DAEMON_HOST_EXE_NAME and LOCAL_HOST_ROOT_NAME in
 ; src/main/daemon/daemon-host-relocation.ts.
 
-; Why: exposing the Windows account name in the install-mode choice is unnecessary and confusing.
 !ifndef BUILD_UNINSTALLER
-  !define MUI_PAGE_CUSTOMFUNCTION_SHOW SamwooInstallModePageShow
-
-  !macro customHeader
-    Function SamwooInstallModePageShow
-      SendMessage $MultiUser.InstallModePage.CurrentUser ${WM_SETTEXT} 0 "STR:현재 사용자"
-    FunctionEnd
-  !macroend
-
   ; Why: one-click has native progress/relaunch; these assisted-only hooks would launch twice.
   !ifndef ONE_CLICK
+    ; Why: the install-mode page does not exist in one-click builds.
+    !define MUI_PAGE_CUSTOMFUNCTION_SHOW SamwooInstallModePageShow
+
+    !macro customHeader
+      Function SamwooInstallModePageShow
+        SendMessage $MultiUser.InstallModePage.CurrentUser ${WM_SETTEXT} 0 "STR:현재 사용자"
+      FunctionEnd
+    !macroend
+
     !macro customFinishPage
       Function SamwooFinishPagePre
         ${if} ${isUpdated}

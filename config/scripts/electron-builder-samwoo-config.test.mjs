@@ -40,6 +40,13 @@ describe('SAMWOO electron-builder identity', () => {
     )
 
     expect(include).toContain('!ifndef ONE_CLICK')
+    const assistedOnly = include.slice(
+      include.indexOf('!ifndef ONE_CLICK'),
+      include.indexOf('!endif\n!endif', include.indexOf('!ifndef ONE_CLICK'))
+    )
+    expect(assistedOnly).toContain('!define MUI_PAGE_CUSTOMFUNCTION_SHOW SamwooInstallModePageShow')
+    expect(assistedOnly).toContain('!macro customHeader')
+    expect(assistedOnly).toContain('$MultiUser.InstallModePage.CurrentUser')
     expect(include).toContain('!macro customFinishPage')
     expect(include).toContain('!macro customInstall')
     expect(include).toMatch(/!ifndef ONE_CLICK[\s\S]*!macro customInstall[\s\S]*!endif/)
