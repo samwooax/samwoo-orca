@@ -239,6 +239,18 @@ async function renderExpandedBrowserTab(tab: BrowserTabState): Promise<unknown> 
   return expandNode(await renderBrowserTab(tab))
 }
 
+function browserTabRootChildren(node: unknown): ReactElementLike[] {
+  const tabRoot = findElementsByType(node, 'div').find(
+    (candidate) => candidate.props['data-tab-id'] === 'browser-1'
+  )
+  if (!tabRoot || !Array.isArray(tabRoot.props.children)) {
+    throw new Error('browser tab root was not rendered')
+  }
+  return tabRoot.props.children.filter((child): child is ReactElementLike =>
+    Boolean(child && typeof child === 'object')
+  )
+}
+
 describe('BrowserTab favicon', { timeout: 30_000 }, () => {
   beforeEach(() => {
     reactHookRuntime.states = []
@@ -262,7 +274,7 @@ describe('BrowserTab favicon', { timeout: 30_000 }, () => {
     expect(findElementsByType(element, 'Globe')).toHaveLength(0)
   })
 
-  it('keeps the globe fallback for blank tabs without faviconUrl', async () => {
+  it('renders no icon for blank tabs without faviconUrl', async () => {
     const element = await renderExpandedBrowserTab(
       baseBrowserTab({
         url: 'about:blank',
@@ -272,13 +284,10 @@ describe('BrowserTab favicon', { timeout: 30_000 }, () => {
     )
 
     expect(findElementsByType(element, 'img')).toHaveLength(0)
-    const globes = findElementsByType(element, 'Globe')
-    expect(globes).toHaveLength(1)
-    expect(globes[0].props.className).toContain('size-3 mr-1 shrink-0')
-    expect(globes[0].props.className).toContain('text-blue-500')
+    expect(findElementsByType(element, 'Globe')).toHaveLength(0)
   })
 
-  it('falls back to the globe after the favicon image errors', async () => {
+  it('renders no icon after the favicon image errors', async () => {
     const tab = baseBrowserTab({ faviconUrl: 'https://example.com/favicon.ico' })
     const firstRender = await renderExpandedBrowserTab(tab)
     const image = findElementsByType(firstRender, 'img')[0]
@@ -287,7 +296,7 @@ describe('BrowserTab favicon', { timeout: 30_000 }, () => {
     const secondRender = await renderExpandedBrowserTab(tab)
 
     expect(findElementsByType(secondRender, 'img')).toHaveLength(0)
-    expect(findElementsByType(secondRender, 'Globe')).toHaveLength(1)
+    expect(findElementsByType(secondRender, 'Globe')).toHaveLength(0)
   })
 
   it('resets the image-error fallback when faviconUrl changes', async () => {
@@ -297,7 +306,8 @@ describe('BrowserTab favicon', { timeout: 30_000 }, () => {
 
     ;(image.props.onError as () => void)()
     const failedRender = await renderExpandedBrowserTab(tab)
-    expect(findElementsByType(failedRender, 'Globe')).toHaveLength(1)
+    expect(findElementsByType(failedRender, 'img')).toHaveLength(0)
+    expect(findElementsByType(failedRender, 'Globe')).toHaveLength(0)
 
     const nextIconUrl = 'data:image/png;base64,abc123'
     const resetRender = await renderExpandedBrowserTab(
@@ -308,5 +318,38 @@ describe('BrowserTab favicon', { timeout: 30_000 }, () => {
     expect(images).toHaveLength(1)
     expect(images[0].props.src).toBe(nextIconUrl)
     expect(findElementsByType(resetRender, 'Globe')).toHaveLength(0)
+  })
+
+  it('places the loading dot before the favicon and label', async () => {
+    const element = await renderExpandedBrowserTab(
+      baseBrowserTab({ loading: true, faviconUrl: 'https://example.com/favicon.ico' })
+    )
+    const children = browserTabRootChildren(element)
+    const loadingIndex = children.findIndex((child) =>
+      String(child.props.className ?? '').includes('bg-sky-500/80')
+    )
+    const faviconIndex = children.findIndex((child) => child.type === 'img')
+    const labelIndex = children.findIndex(
+      (child) => child.type === 'span' && child.props.children === 'Example'
+    )
+
+    expect(loadingIndex).toBeGreaterThanOrEqual(0)
+    expect(loadingIndex).toBeLessThan(faviconIndex)
+    expect(faviconIndex).toBeLessThan(labelIndex)
+  })
+
+  it('places the loading dot before the label when no favicon exists', async () => {
+    const element = await renderExpandedBrowserTab(baseBrowserTab({ loading: true }))
+    const children = browserTabRootChildren(element)
+    const loadingIndex = children.findIndex((child) =>
+      String(child.props.className ?? '').includes('bg-sky-500/80')
+    )
+    const labelIndex = children.findIndex(
+      (child) => child.type === 'span' && child.props.children === 'Example'
+    )
+
+    expect(findElementsByType(element, 'img')).toHaveLength(0)
+    expect(loadingIndex).toBeGreaterThanOrEqual(0)
+    expect(loadingIndex).toBeLessThan(labelIndex)
   })
 })

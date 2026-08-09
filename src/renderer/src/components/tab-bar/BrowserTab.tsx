@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import {
-  Globe,
   X,
   ExternalLink,
   Copy,
@@ -79,7 +78,7 @@ function BrowserTabFavicon({
 }: {
   tabId: string
   faviconUrl: string | null
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const displayFaviconUrl = faviconUrl?.trim() ? faviconUrl : null
   const [failedFavicon, setFailedFavicon] = useState<FailedFavicon | null>(null)
 
@@ -110,7 +109,7 @@ function BrowserTabFavicon({
     )
   }
 
-  return <Globe className="size-3 mr-1 shrink-0 text-blue-500" />
+  return null
 }
 
 export default function BrowserTab({
@@ -226,19 +225,12 @@ export default function BrowserTab({
       }}
     >
       {isActive && <span className={ACTIVE_TAB_INDICATOR_CLASSES} aria-hidden />}
-      {/* Why: the browser tab icon is the only non-terminal, non-editor
-          surface in the tab strip. Coloring the Globe blue (matching the
-          in-app browser's identity and the default tab insertion bar)
-          gives it a distinct, recognizable anchor so users can spot
-          browser tabs at a glance even when the strip is saturated. We
-          keep full color on both active and inactive tabs — dimming to
-          muted-foreground made the icon read as "disabled" in practice. */}
-      <BrowserTabFavicon tabId={tab.id} faviconUrl={tab.faviconUrl} />
-      {isPinned && <Pin className="mr-1 size-3 shrink-0 text-muted-foreground" aria-hidden />}
-      <span className={`${TAB_LABEL_WIDTH_CLASSES} mr-1`}>{tabLabel}</span>
       {tab.loading && !tab.loadError && !isBlankBrowserTab(tab) && (
         <span className="mr-1 size-1.5 rounded-full bg-sky-500/80 shrink-0" />
       )}
+      <BrowserTabFavicon tabId={tab.id} faviconUrl={tab.faviconUrl} />
+      {isPinned && <Pin className="mr-1 size-3 shrink-0 text-muted-foreground" aria-hidden />}
+      <span className={`${TAB_LABEL_WIDTH_CLASSES} mr-1`}>{tabLabel}</span>
       {!isPinned && (
         <button
           className={`flex items-center justify-center w-4 h-4 rounded-sm shrink-0 ${
