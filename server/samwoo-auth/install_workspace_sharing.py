@@ -19,6 +19,7 @@ MODULES = (
     "profile_display_names.py",
     "profile_messaging.py",
     "workspace_sharing.py",
+    "workspace_work_items.py",
     "workspace_share_endpoints.py",
 )
 NEXTCLOUD_URL = "https://nextcloud-ebml.srv1808091.hstgr.cloud"

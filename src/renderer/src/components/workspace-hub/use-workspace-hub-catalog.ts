@@ -129,6 +129,12 @@ export function useWorkspaceHubCatalog(): WorkspaceHubCatalog {
   }, [fetchReposForAllHosts, refresh])
 
   useEffect(() => {
+    const refreshAssignees = (): void => void refresh()
+    window.addEventListener('samwoo-workspace-assignees-updated', refreshAssignees)
+    return () => window.removeEventListener('samwoo-workspace-assignees-updated', refreshAssignees)
+  }, [refresh])
+
+  useEffect(() => {
     if (!auth?.token) {
       return
     }

@@ -33,7 +33,9 @@ import type { AppIdentity } from '../shared/app-identity'
 import type {
   CreateSamwooWorkspaceCommentArgs,
   CreateSamwooWorkspaceShareArgs,
+  CreateSamwooWorkspaceWorkItemArgs,
   ListSamwooWorkspaceCommentsArgs,
+  ListSamwooWorkspaceWorkItemsArgs,
   PreviewSamwooWorkspaceFilesArgs,
   PullSamwooWorkspaceFilesArgs,
   PushSamwooWorkspaceFilesArgs,
@@ -42,7 +44,11 @@ import type {
   SamwooWorkspaceSyncPreview,
   SamwooWorkspaceSyncResult,
   SetSamwooWorkspaceCommentCompletedArgs,
+  SetSamwooWorkspaceWorkItemAssigneeArgs,
+  SetSamwooWorkspaceWorkItemCompletedArgs,
   UpdateSamwooWorkspaceBoardStatusArgs,
+  UpdateSamwooWorkspaceAssigneesArgs,
+  UpdateSamwooWorkspaceDueDateArgs,
   UpdateSamwooWorkspaceShareArgs
 } from '../shared/samwoo-workspace-sharing'
 import type {
@@ -806,6 +812,18 @@ export type PreflightApi = {
     update: (args: UpdateSamwooWorkspaceShareArgs) => Promise<SamwooWorkspaceShareResult>
     updateBoardStatus: (
       args: UpdateSamwooWorkspaceBoardStatusArgs
+    ) => Promise<SamwooWorkspaceShareResult>
+    updateAssignees: (
+      args: UpdateSamwooWorkspaceAssigneesArgs
+    ) => Promise<SamwooWorkspaceShareResult>
+    updateDueDate: (args: UpdateSamwooWorkspaceDueDateArgs) => Promise<SamwooWorkspaceShareResult>
+    listWorkItems: (args: ListSamwooWorkspaceWorkItemsArgs) => Promise<SamwooWorkspaceShareResult>
+    createWorkItem: (args: CreateSamwooWorkspaceWorkItemArgs) => Promise<SamwooWorkspaceShareResult>
+    setWorkItemCompleted: (
+      args: SetSamwooWorkspaceWorkItemCompletedArgs
+    ) => Promise<SamwooWorkspaceShareResult>
+    setWorkItemAssignee: (
+      args: SetSamwooWorkspaceWorkItemAssigneeArgs
     ) => Promise<SamwooWorkspaceShareResult>
     revoke: (args: { token: string; id: string }) => Promise<SamwooWorkspaceShareResult>
     listComments: (args: ListSamwooWorkspaceCommentsArgs) => Promise<SamwooWorkspaceShareResult>

@@ -6,12 +6,17 @@ import mail_ext
 import profile_display_names
 import profile_messaging
 import workspace_sharing
+import workspace_work_items
 
 _ROUTES = {
     "/workspace-shares/session/revoke",
     "/workspace-shares/list", "/workspace-shares/create",
     "/workspace-shares/update", "/workspace-shares/revoke",
     "/workspace-shares/status/update",
+    "/workspace-shares/assignees/update",
+    "/workspace-shares/due-date/update",
+    "/workspace-shares/work-items/list", "/workspace-shares/work-items/create",
+    "/workspace-shares/work-items/complete", "/workspace-shares/work-items/assignee",
     "/workspace-shares/comments/list", "/workspace-shares/comments/create",
     "/workspace-shares/comments/complete",
     "/profile-messages/channels/list", "/profile-messages/list",
@@ -52,6 +57,22 @@ def handle_workspace_share(path: str, auth_header: str | None, body: dict) -> tu
         if path == "/workspace-shares/status/update":
             share = workspace_sharing.update_board_status(token, body)
             return 200, {"ok": True, "share": share}
+        if path == "/workspace-shares/assignees/update":
+            share = workspace_sharing.update_assignees(token, body)
+            return 200, {"ok": True, "share": share}
+        if path == "/workspace-shares/due-date/update":
+            share = workspace_sharing.update_due_date(token, body)
+            return 200, {"ok": True, "share": share}
+        if path == "/workspace-shares/work-items/list":
+            return 200, {"ok": True, "workItems": workspace_work_items.list_items(token, body)}
+        if path == "/workspace-shares/work-items/create":
+            return 200, {"ok": True, "workItem": workspace_work_items.create_item(token, body)}
+        if path == "/workspace-shares/work-items/complete":
+            work_item = workspace_work_items.set_completed(token, body)
+            return 200, {"ok": True, "workItem": work_item}
+        if path == "/workspace-shares/work-items/assignee":
+            work_item = workspace_work_items.set_assignee(token, body)
+            return 200, {"ok": True, "workItem": work_item}
         if path == "/workspace-shares/files/list":
             return 200, {"ok": True, "entries": workspace_sharing.list_workspace_files(token, body)}
         if path == "/workspace-shares/files/read":

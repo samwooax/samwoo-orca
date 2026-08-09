@@ -26,6 +26,16 @@ export function admitSamwooProfileEvent(value: unknown): SamwooProfileEvent | nu
     return { type: 'read', channelKey: event.channelKey, login: event.login }
   }
   if (
+    event.type === 'workspace-assignees' &&
+    typeof event.shareId === 'string' &&
+    typeof event.displayName === 'string' &&
+    isStringArray(event.addedLogins) &&
+    typeof event.updatedBy === 'string' &&
+    typeof event.updatedAt === 'number'
+  ) {
+    return event as SamwooProfileEvent
+  }
+  if (
     event.type === 'message' &&
     typeof event.channelKey === 'string' &&
     event.message &&

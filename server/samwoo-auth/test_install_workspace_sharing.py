@@ -7,6 +7,9 @@ import install_workspace_sharing
 
 
 class InstallWorkspaceSharingTest(unittest.TestCase):
+    def test_includes_workspace_work_item_module(self):
+        self.assertIn("workspace_work_items.py", install_workspace_sharing.MODULES)
+
     def test_refuses_an_unknown_existing_route_shape(self):
         source = '''import workspace_sharing
 import workspace_share_endpoints

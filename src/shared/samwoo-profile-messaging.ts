@@ -35,6 +35,14 @@ export type SamwooProfileEvent =
   | { type: 'snapshot' | 'presence'; online: string[] }
   | { type: 'message'; channelKey: string; message: SamwooProfileMessage }
   | { type: 'read'; channelKey: string; login: string }
+  | {
+      type: 'workspace-assignees'
+      shareId: string
+      displayName: string
+      addedLogins: string[]
+      updatedBy: string
+      updatedAt: number
+    }
   | { type: 'expired' }
 
 export type SamwooEventStreamStatus = 'connected' | 'disconnected' | 'expired'

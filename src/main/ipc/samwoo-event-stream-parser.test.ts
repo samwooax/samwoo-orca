@@ -29,4 +29,17 @@ describe('SAMWOO event stream parser', () => {
   it('rejects incomplete message payloads at the main-process boundary', () => {
     expect(admitSamwooProfileEvent({ type: 'message', channelKey: 'team', message: {} })).toBeNull()
   })
+
+  it('admits bounded workspace assignment events and rejects incomplete ones', () => {
+    const event = {
+      type: 'workspace-assignees',
+      shareId: 'share-1',
+      displayName: 'Design',
+      addedLogins: ['peer'],
+      updatedBy: 'owner',
+      updatedAt: 123
+    }
+    expect(admitSamwooProfileEvent(event)).toEqual(event)
+    expect(admitSamwooProfileEvent({ ...event, addedLogins: [123] })).toBeNull()
+  })
 })

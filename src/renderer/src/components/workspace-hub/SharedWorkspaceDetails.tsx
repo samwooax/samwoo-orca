@@ -20,6 +20,7 @@ import {
 } from '@/lib/shared-workspace-alias-store'
 import { useAppStore } from '@/store'
 import type { SamwooWorkspaceShare } from '../../../../shared/samwoo-workspace-sharing'
+import type { SamwooProfileMember } from '../../../../shared/samwoo-profile-members'
 import SharedWorkspaceComments from '../sidebar/SharedWorkspaceComments'
 import SharedWorkspaceConflictDialog from '../sidebar/SharedWorkspaceConflictDialog'
 import SharedWorkspaceSyncPreviewDialog from '../sidebar/SharedWorkspaceSyncPreviewDialog'
@@ -29,12 +30,19 @@ import {
   getSharedWorkspaceDisplayName,
   getSharedWorkspaceInitial
 } from './shared-workspace-presentation'
+import WorkspaceAssigneePicker from './WorkspaceAssigneePicker'
+import SharedWorkspaceWorkItems from './SharedWorkspaceWorkItems'
 
 type Props = {
   share: SamwooWorkspaceShare
   login: string
   busy: boolean
   focusNameEditor: boolean
+  members: readonly SamwooProfileMember[]
+  updatingAssignees: boolean
+  onUpdateAssignees: (logins: string[]) => Promise<boolean>
+  updatingDueDate: boolean
+  onUpdateDueDate: (dueDate: string | null) => Promise<boolean>
   onRefresh: () => Promise<void>
   onRevoke: () => Promise<boolean>
   onClose: () => void
@@ -45,6 +53,11 @@ export default function SharedWorkspaceDetails({
   login,
   busy,
   focusNameEditor,
+  members,
+  updatingAssignees,
+  onUpdateAssignees,
+  updatingDueDate,
+  onUpdateDueDate,
   onRefresh,
   onRevoke,
   onClose
@@ -162,6 +175,51 @@ export default function SharedWorkspaceDetails({
 
         <div className="space-y-2">
           <p className="text-xs font-medium">
+            {translate('samwoo.workspaceHub.assignees', 'Assignees')}
+          </p>
+          <div className="flex min-h-9 items-center rounded-md border border-border px-2">
+            <WorkspaceAssigneePicker
+              members={members}
+              selectedLogins={share.assigneeLogins ?? []}
+              canEdit={share.isOwner || share.permission === 'contribute'}
+              updating={updatingAssignees}
+              onChange={(logins) => void onUpdateAssignees(logins)}
+            />
+          </div>
+          {share.assigneesUpdatedBy ? (
+            <p className="text-[11px] text-muted-foreground">
+              {translate('samwoo.workspaceHub.assigneeAudit', 'Assigned by {{name}} · {{time}}', {
+                name: share.assigneesUpdatedBy,
+                time: new Date(share.assigneesUpdatedAt ?? 0).toLocaleString()
+              })}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium">
+            {translate('samwoo.workspaceHub.dueDate', 'Due date')}
+          </p>
+          <Input
+            type="date"
+            value={share.dueDate ?? ''}
+            disabled={
+              busy || updatingDueDate || (!share.isOwner && share.permission !== 'contribute')
+            }
+            onChange={(event) => void onUpdateDueDate(event.target.value || null)}
+          />
+          {share.dueDateUpdatedBy ? (
+            <p className="text-[11px] text-muted-foreground">
+              {translate('samwoo.workspaceHub.dueDateAudit', 'Updated by {{name}} · {{time}}', {
+                name: share.dueDateUpdatedBy,
+                time: new Date(share.dueDateUpdatedAt ?? 0).toLocaleString()
+              })}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium">
             {share.isOwner
               ? translate('samwoo.workspaceSharing.sharedName', 'Shared name')
               : translate('samwoo.workspaceSharing.localAlias', 'My local alias')}
@@ -273,6 +331,15 @@ export default function SharedWorkspaceDetails({
           <Badge variant="secondary">
             {translate('samwoo.workspaceSharing.newChanges', 'New changes')}
           </Badge>
+        ) : null}
+        {token ? (
+          <SharedWorkspaceWorkItems
+            shareId={share.id}
+            token={token}
+            canEdit={share.isOwner || share.permission === 'contribute'}
+            members={members}
+            onSummaryRefresh={onRefresh}
+          />
         ) : null}
         {token ? (
           <SharedWorkspaceComments

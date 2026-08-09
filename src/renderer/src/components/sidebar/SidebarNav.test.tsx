@@ -9,6 +9,7 @@ import type { GlobalSettings } from '../../../../shared/types'
 import { i18n } from '../../i18n/i18n'
 import { PSEUDO_LOCALIZATION_LOCALE } from '../../i18n/pseudo-localization'
 import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
+import { useSamwooWorkspaceAssignmentInboxStore } from '@/lib/samwoo-workspace-assignment-inbox-store'
 
 const mocks = vi.hoisted(() => ({
   state: {} as Record<string, unknown>,
@@ -175,6 +176,7 @@ describe('SidebarNav', () => {
     mocks.hasPairedMobileDevice = false
     mocks.agentBucketCounts = { attention: 0, working: 0, done: 0, idle: 0 }
     useSamwooMessageInboxStore.setState({ totalUnread: 0, messengerOpen: false })
+    useSamwooWorkspaceAssignmentInboxStore.getState().clear()
     setSidebarState()
   })
 
@@ -387,6 +389,18 @@ describe('SidebarNav', () => {
       button.textContent?.includes('Messages')
     )
     expect(messages?.textContent).toContain('99+')
+  })
+
+  it('shows one badge per unseen assigned workspace', async () => {
+    const assignmentInbox = useSamwooWorkspaceAssignmentInboxStore.getState()
+    assignmentInbox.markAssigned('share-1')
+    assignmentInbox.markAssigned('share-2')
+    const container = await renderSidebarNav()
+
+    const workspaces = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Workspaces')
+    )
+    expect(workspaces?.textContent).toContain('2')
   })
 
   it('shows the setup guide entry only after readiness, before completion, and before explicit hide', () => {

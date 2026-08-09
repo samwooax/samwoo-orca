@@ -19,6 +19,16 @@ class WorkspaceSharingTest(unittest.TestCase):
             "workspace_sharing.nextcloud_workspace_storage.ensure_workspace",
             return_value="SAMWOO-Workspaces/profile/share-id",
         ).start()
+        self.profile_members = mock.patch(
+            "workspace_sharing.profile_display_names.profile_members",
+            side_effect=lambda profile: {
+                "ai_center": [
+                    {"login": "owner", "name": "Owner"},
+                    {"login": "peer", "name": "Peer"},
+                ],
+                "sales": [{"login": "other", "name": "Other"}],
+            }.get(profile, []),
+        ).start()
 
     def tearDown(self):
         mock.patch.stopall()
@@ -157,6 +167,126 @@ class WorkspaceSharingTest(unittest.TestCase):
         self.assertEqual(400, status)
         self.assertFalse(result["ok"])
 
+    def test_assignees_are_shared_with_audit_and_profile_validation(self):
+        share = self.create()
+        with mock.patch("profile_event_stream.publish") as publish:
+            assigned = workspace_sharing.update_assignees(
+                "token-owner-0123456789",
+                {"shareId": share["id"], "assigneeLogins": ["PEER", "owner", "peer"]},
+            )
+        self.assertEqual(["owner", "peer"], assigned["assigneeLogins"])
+        self.assertEqual("owner", assigned["assigneesUpdatedBy"])
+        self.assertGreater(assigned["assigneesUpdatedAt"], 0)
+        peer_view = workspace_sharing.list_shares("token-peer-01234567890")[0]
+        self.assertEqual(["owner", "peer"], peer_view["assigneeLogins"])
+        publish.assert_called_once_with(
+            "ai_center",
+            {
+                "type": "workspace-assignees", "shareId": share["id"],
+                "displayName": "프로젝트 보드", "addedLogins": ["owner", "peer"],
+                "updatedBy": "owner", "updatedAt": assigned["assigneesUpdatedAt"],
+            },
+        )
+
+        with self.assertRaisesRegex(
+            workspace_sharing.WorkspaceShareError, "not a profile member"
+        ):
+            workspace_sharing.update_assignees(
+                "token-owner-0123456789",
+                {"shareId": share["id"], "assigneeLogins": ["other"]},
+            )
+
+    def test_assignees_require_owner_or_contribute_permission(self):
+        share = self.create()
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.update_assignees(
+                "token-peer-01234567890",
+                {"shareId": share["id"], "assigneeLogins": ["peer"]},
+            )
+        workspace_sharing.update_share(
+            "token-owner-0123456789",
+            {"id": share["id"], "displayName": "프로젝트 보드", "permission": "contribute"},
+        )
+        assigned = workspace_sharing.update_assignees(
+            "token-peer-01234567890",
+            {"shareId": share["id"], "assigneeLogins": ["peer"]},
+        )
+        self.assertEqual(["peer"], assigned["assigneeLogins"])
+        self.assertEqual("peer", assigned["assigneesUpdatedBy"])
+
+    def test_assignees_route_supports_assignment_and_clear(self):
+        share = self.create()
+        with mock.patch("profile_event_stream.publish") as publish:
+            for assignees in (["peer"], []):
+                status, result = workspace_share_endpoints.handle_workspace_share(
+                    "/workspace-shares/assignees/update",
+                    "Bearer token-owner-0123456789",
+                    {"shareId": share["id"], "assigneeLogins": assignees},
+                )
+                self.assertEqual(200, status)
+                self.assertEqual(assignees, result["share"]["assigneeLogins"])
+            workspace_sharing.update_assignees(
+                "token-owner-0123456789",
+                {"shareId": share["id"], "assigneeLogins": []},
+            )
+        self.assertEqual(2, publish.call_count)
+        self.assertEqual([], publish.call_args_list[-1].args[1]["addedLogins"])
+
+    def test_due_date_is_shared_with_audit_and_can_be_cleared(self):
+        share = self.create()
+        file_revision = share["updatedAt"]
+        updated = workspace_sharing.update_due_date(
+            "token-owner-0123456789",
+            {"shareId": share["id"], "dueDate": "2026-08-31"},
+        )
+        self.assertEqual("2026-08-31", updated["dueDate"])
+        self.assertEqual("owner", updated["dueDateUpdatedBy"])
+        self.assertGreater(updated["dueDateUpdatedAt"], 0)
+        self.assertEqual(file_revision, updated["updatedAt"])
+        peer_view = workspace_sharing.list_shares("token-peer-01234567890")[0]
+        self.assertEqual("2026-08-31", peer_view["dueDate"])
+
+        cleared = workspace_sharing.update_due_date(
+            "token-owner-0123456789",
+            {"shareId": share["id"], "dueDate": None},
+        )
+        self.assertIsNone(cleared["dueDate"])
+
+    def test_due_date_requires_contribution_and_valid_calendar_date(self):
+        share = self.create()
+        for invalid in ("2026-02-30", "2026/08/31", "../../date"):
+            with self.subTest(invalid=invalid), self.assertRaises(
+                workspace_sharing.WorkspaceShareError
+            ):
+                workspace_sharing.update_due_date(
+                    "token-owner-0123456789",
+                    {"shareId": share["id"], "dueDate": invalid},
+                )
+        with self.assertRaises(workspace_sharing.WorkspaceShareError):
+            workspace_sharing.update_due_date(
+                "token-peer-01234567890",
+                {"shareId": share["id"], "dueDate": "2026-08-31"},
+            )
+        workspace_sharing.update_share(
+            "token-owner-0123456789",
+            {"id": share["id"], "displayName": "프로젝트 보드", "permission": "contribute"},
+        )
+        updated = workspace_sharing.update_due_date(
+            "token-peer-01234567890",
+            {"shareId": share["id"], "dueDate": "2026-08-31"},
+        )
+        self.assertEqual("peer", updated["dueDateUpdatedBy"])
+
+    def test_due_date_route(self):
+        share = self.create()
+        status, result = workspace_share_endpoints.handle_workspace_share(
+            "/workspace-shares/due-date/update",
+            "Bearer token-owner-0123456789",
+            {"shareId": share["id"], "dueDate": "2026-08-31"},
+        )
+        self.assertEqual(200, status)
+        self.assertEqual("2026-08-31", result["share"]["dueDate"])
+
     def test_existing_share_catalog_migrates_board_status_columns(self):
         with workspace_sharing._database() as conn:
             conn.execute("DROP TABLE workspace_shares")
@@ -169,16 +299,40 @@ class WorkspaceSharingTest(unittest.TestCase):
                 source_kind TEXT NOT NULL DEFAULT 'nextcloud', storage_path TEXT
                 )"""
             )
+            conn.execute(
+                """INSERT INTO workspace_shares
+                (id,owner_login,owner_profile,display_name,repository_url,default_branch,
+                description,permission,created_at,updated_at,revoked_at,source_kind,storage_path)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "123e4567-e89b-42d3-a456-426614174000", "owner", "ai_center",
+                    "기존 공유", "", None, None, "download", 1, 1, None,
+                    "nextcloud", "SAMWOO-Workspaces/ai_center/existing",
+                ),
+            )
 
         with workspace_sharing._database() as conn:
             columns = {
                 row["name"] for row in conn.execute("PRAGMA table_info(workspace_shares)")
             }
         self.assertTrue(
-            {"board_status", "board_status_updated_by", "board_status_updated_at"}.issubset(
-                columns
-            )
+            {
+                "board_status", "board_status_updated_by", "board_status_updated_at",
+                "assignees_updated_by", "assignees_updated_at",
+                "due_date", "due_date_updated_by", "due_date_updated_at",
+            }.issubset(columns)
         )
+        with workspace_sharing._database() as conn:
+            tables = {
+                row["name"]
+                for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
+        self.assertIn("workspace_share_assignees", tables)
+        self.assertIn("workspace_work_items", tables)
+        migrated = workspace_sharing.list_shares("token-peer-01234567890")
+        self.assertEqual("기존 공유", migrated[0]["displayName"])
+        self.assertEqual([], migrated[0]["assigneeLogins"])
+        self.assertIsNone(migrated[0]["dueDate"])
 
     def test_rejects_git_and_legacy_clients(self):
         for source_kind in (None, "git"):

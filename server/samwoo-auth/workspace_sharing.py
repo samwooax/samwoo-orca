@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 import hashlib
 import os
 import re
@@ -13,6 +14,7 @@ import time
 import uuid
 
 import nextcloud_workspace_storage
+import profile_display_names
 
 DB_PATH = os.environ.get("SAMWOO_WORKSPACE_DB", "/opt/samwoo-auth/workspace-shares.db")
 SESSION_TTL = int(os.environ.get("SAMWOO_WORKSPACE_SESSION_TTL", str(8 * 3600)))
@@ -170,6 +172,44 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE workspace_shares ADD COLUMN board_status_updated_at INTEGER NOT NULL DEFAULT 0"
         )
+    if "assignees_updated_by" not in columns:
+        conn.execute("ALTER TABLE workspace_shares ADD COLUMN assignees_updated_by TEXT")
+    if "assignees_updated_at" not in columns:
+        conn.execute(
+            "ALTER TABLE workspace_shares ADD COLUMN assignees_updated_at INTEGER NOT NULL DEFAULT 0"
+        )
+    if "due_date" not in columns:
+        conn.execute("ALTER TABLE workspace_shares ADD COLUMN due_date TEXT")
+    if "due_date_updated_by" not in columns:
+        conn.execute("ALTER TABLE workspace_shares ADD COLUMN due_date_updated_by TEXT")
+    if "due_date_updated_at" not in columns:
+        conn.execute(
+            "ALTER TABLE workspace_shares ADD COLUMN due_date_updated_at INTEGER NOT NULL DEFAULT 0"
+        )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS workspace_share_assignees (
+        share_id TEXT NOT NULL, assignee_login TEXT NOT NULL,
+        assigned_by TEXT NOT NULL, assigned_at INTEGER NOT NULL,
+        PRIMARY KEY (share_id, assignee_login),
+        FOREIGN KEY (share_id) REFERENCES workspace_shares(id) ON DELETE CASCADE
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS workspace_assignees_login_idx ON workspace_share_assignees(assignee_login, share_id)"
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS workspace_work_items (
+        id TEXT PRIMARY KEY, share_id TEXT NOT NULL, title TEXT NOT NULL,
+        assignee_login TEXT, completed INTEGER NOT NULL DEFAULT 0,
+        completed_by TEXT, completed_at INTEGER,
+        created_by TEXT NOT NULL, created_at INTEGER NOT NULL,
+        updated_by TEXT NOT NULL, updated_at INTEGER NOT NULL,
+        FOREIGN KEY (share_id) REFERENCES workspace_shares(id) ON DELETE CASCADE
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS workspace_work_items_share_idx ON workspace_work_items(share_id, created_at, id)"
+    )
     # Why: remove the last Git-era permission name without discarding existing shares.
     conn.execute("UPDATE workspace_shares SET permission='download' WHERE permission='clone'")
     conn.execute(
@@ -239,7 +279,7 @@ def _board_status(value: object) -> str:
     return status
 
 
-def _serialize(row: sqlite3.Row, login: str) -> dict:
+def _serialize(row: sqlite3.Row, login: str, assignee_logins: list[str] | None = None) -> dict:
     return {
         "id": row["id"], "ownerLogin": row["owner_login"],
         "ownerProfile": row["owner_profile"], "displayName": row["display_name"],
@@ -248,8 +288,19 @@ def _serialize(row: sqlite3.Row, login: str) -> dict:
         "boardStatus": row["board_status"],
         "boardStatusUpdatedBy": row["board_status_updated_by"],
         "boardStatusUpdatedAt": row["board_status_updated_at"],
+        "assigneeLogins": assignee_logins or [],
+        "assigneesUpdatedBy": row["assignees_updated_by"],
+        "assigneesUpdatedAt": row["assignees_updated_at"],
+        "dueDate": row["due_date"],
+        "dueDateUpdatedBy": row["due_date_updated_by"],
+        "dueDateUpdatedAt": row["due_date_updated_at"],
         "isOwner": row["owner_login"] == login,
         "commentCount": row["comment_count"] if "comment_count" in row.keys() else 0,
+        "workItemCount": row["work_item_count"] if "work_item_count" in row.keys() else 0,
+        "completedWorkItemCount": (
+            row["completed_work_item_count"]
+            if "completed_work_item_count" in row.keys() else 0
+        ),
     }
 
 
@@ -278,12 +329,26 @@ def list_shares(token: str) -> list[dict]:
         rows = conn.execute(
             """SELECT workspace_shares.*,
             (SELECT COUNT(*) FROM workspace_share_comments
-             WHERE workspace_share_comments.share_id=workspace_shares.id) AS comment_count
+             WHERE workspace_share_comments.share_id=workspace_shares.id) AS comment_count,
+            (SELECT COUNT(*) FROM workspace_work_items
+             WHERE workspace_work_items.share_id=workspace_shares.id) AS work_item_count,
+            (SELECT COUNT(*) FROM workspace_work_items
+             WHERE workspace_work_items.share_id=workspace_shares.id AND completed=1) AS completed_work_item_count
             FROM workspace_shares WHERE owner_profile=? AND source_kind='nextcloud' AND revoked_at IS NULL
             ORDER BY updated_at DESC""",
             (profile,),
         ).fetchall()
-    return [_serialize(row, login) for row in rows]
+        share_ids = [row["id"] for row in rows]
+        assignees_by_share: dict[str, list[str]] = {share_id: [] for share_id in share_ids}
+        if share_ids:
+            placeholders = ",".join("?" for _ in share_ids)
+            assignee_rows = conn.execute(
+                f"SELECT share_id,assignee_login FROM workspace_share_assignees WHERE share_id IN ({placeholders}) ORDER BY assignee_login COLLATE NOCASE",
+                share_ids,
+            ).fetchall()
+            for assignee in assignee_rows:
+                assignees_by_share[assignee["share_id"]].append(assignee["assignee_login"])
+    return [_serialize(row, login, assignees_by_share[row["id"]]) for row in rows]
 
 
 def create_share(token: str, body: dict) -> dict:
@@ -353,6 +418,112 @@ def update_board_status(token: str, body: dict) -> dict:
             "SELECT * FROM workspace_shares WHERE id=?", (share_id,)
         ).fetchone()
     return _serialize(updated, login)
+
+
+def update_assignees(token: str, body: dict) -> dict:
+    login, profile = _identity(token)
+    share_id = _share_id(body.get("shareId"))
+    requested = body.get("assigneeLogins")
+    if not isinstance(requested, list) or len(requested) > 100:
+        raise WorkspaceShareError("invalid assignees")
+    members = {
+        member["login"].casefold(): member["login"]
+        for member in profile_display_names.profile_members(profile)
+    }
+    assignee_logins: list[str] = []
+    seen: set[str] = set()
+    for value in requested:
+        assignee = _text(value, "assignee login", 160, True)
+        key = assignee.casefold()
+        canonical = members.get(key)
+        if canonical is None:
+            raise WorkspaceShareError("assignee is not a profile member")
+        if key not in seen:
+            seen.add(key)
+            assignee_logins.append(canonical)
+    assignee_logins.sort(key=str.casefold)
+    now = int(time.time() * 1000)
+    with _database() as conn:
+        row = _nextcloud_share(conn, share_id, profile)
+        if row["owner_login"] != login and row["permission"] != "contribute":
+            raise WorkspaceShareError("workspace assignment contribution is not allowed")
+        previous_logins = {
+            item["assignee_login"].casefold()
+            for item in conn.execute(
+                "SELECT assignee_login FROM workspace_share_assignees WHERE share_id=?",
+                (share_id,),
+            ).fetchall()
+        }
+        added_logins = [
+            assignee for assignee in assignee_logins
+            if assignee.casefold() not in previous_logins
+        ]
+        assignments_changed = previous_logins != {
+            assignee.casefold() for assignee in assignee_logins
+        }
+        conn.execute("DELETE FROM workspace_share_assignees WHERE share_id=?", (share_id,))
+        conn.executemany(
+            "INSERT INTO workspace_share_assignees (share_id,assignee_login,assigned_by,assigned_at) VALUES (?,?,?,?)",
+            [(share_id, assignee, login, now) for assignee in assignee_logins],
+        )
+        conn.execute(
+            "UPDATE workspace_shares SET assignees_updated_by=?,assignees_updated_at=? WHERE id=? AND owner_profile=?",
+            (login, now, share_id, profile),
+        )
+        updated = conn.execute(
+            "SELECT * FROM workspace_shares WHERE id=?", (share_id,)
+        ).fetchone()
+    result = _serialize(updated, login, assignee_logins)
+    if assignments_changed:
+        # Why: import lazily because the SSE registry imports this module for session identity.
+        import profile_event_stream
+        profile_event_stream.publish(
+            profile,
+            {
+                "type": "workspace-assignees",
+                "shareId": share_id,
+                "displayName": result["displayName"],
+                "addedLogins": added_logins,
+                "updatedBy": login,
+                "updatedAt": now,
+            },
+        )
+    return result
+
+
+def update_due_date(token: str, body: dict) -> dict:
+    login, profile = _identity(token)
+    share_id = _share_id(body.get("shareId"))
+    raw_due_date = body.get("dueDate")
+    if raw_due_date is None or raw_due_date == "":
+        due_date = None
+    else:
+        due_date = _text(raw_due_date, "due date", 10, True)
+        try:
+            if date.fromisoformat(due_date).isoformat() != due_date:
+                raise ValueError
+        except ValueError as error:
+            raise WorkspaceShareError("invalid due date") from error
+    now = int(time.time() * 1000)
+    with _database() as conn:
+        row = _nextcloud_share(conn, share_id, profile)
+        if row["owner_login"] != login and row["permission"] != "contribute":
+            raise WorkspaceShareError("workspace due date contribution is not allowed")
+        conn.execute(
+            "UPDATE workspace_shares SET due_date=?,due_date_updated_by=?,due_date_updated_at=? WHERE id=? AND owner_profile=?",
+            (due_date, login, now, share_id, profile),
+        )
+        updated = conn.execute(
+            "SELECT * FROM workspace_shares WHERE id=?", (share_id,)
+        ).fetchone()
+        assignee_logins = [
+            item["assignee_login"]
+            for item in conn.execute(
+                "SELECT assignee_login FROM workspace_share_assignees WHERE share_id=? ORDER BY assignee_login COLLATE NOCASE",
+                (share_id,),
+            ).fetchall()
+        ]
+    return _serialize(updated, login, assignee_logins)
 
 
 def revoke_share(token: str, body: dict) -> None:

@@ -13,8 +13,16 @@ export type SamwooWorkspaceShare = {
   boardStatus?: SamwooWorkspaceBoardStatus
   boardStatusUpdatedBy?: string | null
   boardStatusUpdatedAt?: number
+  assigneeLogins?: string[]
+  assigneesUpdatedBy?: string | null
+  assigneesUpdatedAt?: number
+  dueDate?: string | null
+  dueDateUpdatedBy?: string | null
+  dueDateUpdatedAt?: number
   isOwner: boolean
   commentCount: number
+  workItemCount?: number
+  completedWorkItemCount?: number
 }
 
 export type SamwooWorkspaceFileEntry = {
@@ -72,6 +80,20 @@ export type SamwooWorkspaceComment = {
   isAuthor: boolean
 }
 
+export type SamwooWorkspaceWorkItem = {
+  id: string
+  shareId: string
+  title: string
+  assigneeLogin?: string | null
+  completed: boolean
+  completedBy?: string | null
+  completedAt?: number | null
+  createdBy: string
+  createdAt: number
+  updatedBy: string
+  updatedAt: number
+}
+
 export type SamwooWorkspaceShareResult = {
   ok: boolean
   errorCode?: 'file_conflict'
@@ -79,6 +101,8 @@ export type SamwooWorkspaceShareResult = {
   shares?: SamwooWorkspaceShare[]
   comment?: SamwooWorkspaceComment
   comments?: SamwooWorkspaceComment[]
+  workItem?: SamwooWorkspaceWorkItem
+  workItems?: SamwooWorkspaceWorkItem[]
   entries?: SamwooWorkspaceFileEntry[]
   file?: SamwooWorkspaceFile
   commentCount?: number
@@ -141,6 +165,37 @@ export type UpdateSamwooWorkspaceBoardStatusArgs = {
   token: string
   shareId: string
   status: SamwooWorkspaceBoardStatus
+}
+
+export type UpdateSamwooWorkspaceAssigneesArgs = {
+  token: string
+  shareId: string
+  assigneeLogins: string[]
+}
+
+export type UpdateSamwooWorkspaceDueDateArgs = {
+  token: string
+  shareId: string
+  dueDate: string | null
+}
+
+export type ListSamwooWorkspaceWorkItemsArgs = {
+  token: string
+  shareId: string
+}
+
+export type CreateSamwooWorkspaceWorkItemArgs = ListSamwooWorkspaceWorkItemsArgs & {
+  title: string
+}
+
+export type SetSamwooWorkspaceWorkItemCompletedArgs = ListSamwooWorkspaceWorkItemsArgs & {
+  workItemId: string
+  completed: boolean
+}
+
+export type SetSamwooWorkspaceWorkItemAssigneeArgs = ListSamwooWorkspaceWorkItemsArgs & {
+  workItemId: string
+  assigneeLogin: string | null
 }
 
 export type ListSamwooWorkspaceCommentsArgs = {

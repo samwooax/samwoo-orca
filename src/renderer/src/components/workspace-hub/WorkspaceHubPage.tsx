@@ -11,27 +11,48 @@ import {
 } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
+import { useSamwooWorkspaceAssignmentInboxStore } from '@/lib/samwoo-workspace-assignment-inbox-store'
 import { useAppStore } from '@/store'
 import SharedWorkspaceDetails from './SharedWorkspaceDetails'
 import WorkspaceHubCreateForm from './WorkspaceHubCreateForm'
 import WorkspaceHubViews from './WorkspaceHubViews'
 import { useWorkspaceHubCatalog } from './use-workspace-hub-catalog'
+import { useWorkspaceHubAssignees } from './use-workspace-hub-assignees'
+import { useWorkspaceHubBoardStatusUpdate } from './use-workspace-hub-board-status-update'
+import { useWorkspaceHubDueDate } from './use-workspace-hub-due-date'
 import { useWorkspaceHubWideLayout } from './use-workspace-hub-wide-layout'
 
 type ViewMode = 'list' | 'board'
 
 export default function WorkspaceHubPage(): React.JSX.Element {
   const catalog = useWorkspaceHubCatalog()
+  const clearAssignmentInbox = useSamwooWorkspaceAssignmentInboxStore((state) => state.clear)
   const workspaceStatuses = useAppStore((state) => state.workspaceStatuses)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedShareId, setSelectedShareId] = useState<string | null>(null)
   const [nameEditorShareId, setNameEditorShareId] = useState<string | null>(null)
   const wideLayout = useWorkspaceHubWideLayout()
+  const boardStatusUpdate = useWorkspaceHubBoardStatusUpdate({
+    shares: catalog.shares,
+    onRefresh: catalog.refresh
+  })
+  const assignees = useWorkspaceHubAssignees({
+    shares: catalog.shares,
+    onRefresh: catalog.refresh
+  })
+  const dueDate = useWorkspaceHubDueDate({
+    shares: catalog.shares,
+    onRefresh: catalog.refresh
+  })
   const selectedShare = useMemo(
     () => catalog.shares.find((share) => share.id === selectedShareId) ?? null,
     [catalog.shares, selectedShareId]
   )
+
+  useEffect(() => {
+    clearAssignmentInbox()
+  }, [clearAssignmentInbox])
 
   useEffect(() => {
     if (selectedShareId && !selectedShare) {
@@ -46,6 +67,11 @@ export default function WorkspaceHubPage(): React.JSX.Element {
       login={catalog.login}
       busy={catalog.refreshing || catalog.createStage !== null}
       focusNameEditor={nameEditorShareId === selectedShare.id}
+      members={assignees.members}
+      updatingAssignees={assignees.updatingShareId === selectedShare.id}
+      onUpdateAssignees={(logins) => assignees.updateAssignees(selectedShare.id, logins)}
+      updatingDueDate={dueDate.updatingShareId === selectedShare.id}
+      onUpdateDueDate={(value) => dueDate.updateDueDate(selectedShare.id, value)}
       onRefresh={catalog.refresh}
       onRevoke={() => catalog.revoke(selectedShare.id)}
       onClose={() => setSelectedShareId(null)}
@@ -140,6 +166,9 @@ export default function WorkspaceHubPage(): React.JSX.Element {
             login={catalog.login}
             statuses={workspaceStatuses}
             selectedShareId={selectedShareId}
+            updatingShareId={boardStatusUpdate.updatingShareId}
+            members={assignees.members}
+            updatingAssigneeShareId={assignees.updatingShareId}
             onSelect={(shareId) => {
               setNameEditorShareId(null)
               setSelectedShareId(shareId)
@@ -154,6 +183,12 @@ export default function WorkspaceHubPage(): React.JSX.Element {
                   setSelectedShareId(null)
                 }
               })
+            }}
+            onMoveStatus={(shareId, status) => {
+              void boardStatusUpdate.updateBoardStatus(shareId, status)
+            }}
+            onUpdateAssignees={(shareId, logins) => {
+              void assignees.updateAssignees(shareId, logins)
             }}
           />
         </section>

@@ -1,4 +1,4 @@
-import { MessageCircle, MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,7 +11,11 @@ import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import type { WorkspaceStatusDefinition } from '../../../../shared/types'
 import type { SamwooWorkspaceShare } from '../../../../shared/samwoo-workspace-sharing'
+import type { SamwooProfileMember } from '../../../../shared/samwoo-profile-members'
 import { getWorkspaceStatusVisualMeta } from '../sidebar/workspace-status'
+import WorkspaceHubBoardView from './WorkspaceHubBoardView'
+import WorkspaceAssigneePicker from './WorkspaceAssigneePicker'
+import { formatWorkspaceDueDate, isWorkspaceDueDateOverdue } from './workspace-due-date'
 import {
   formatSharedWorkspaceUpdatedAt,
   getSamwooWorkspacePermissionLabel,
@@ -29,6 +33,11 @@ type Props = {
   onSelect: (shareId: string) => void
   onEditName: (shareId: string) => void
   onRevoke: (shareId: string) => void
+  updatingShareId: string | null
+  onMoveStatus: (shareId: string, status: string) => void
+  members: readonly SamwooProfileMember[]
+  updatingAssigneeShareId: string | null
+  onUpdateAssignees: (shareId: string, logins: string[]) => void
 }
 
 function WorkspaceStatusPill({
@@ -63,8 +72,11 @@ function WorkspaceListRow({
   selected,
   onSelect,
   onEditName,
-  onRevoke
-}: Omit<Props, 'mode' | 'shares' | 'selectedShareId'> & {
+  onRevoke,
+  members,
+  updatingAssigneeShareId,
+  onUpdateAssignees
+}: Omit<Props, 'mode' | 'shares' | 'selectedShareId' | 'updatingShareId' | 'onMoveStatus'> & {
   share: SamwooWorkspaceShare
   selected: boolean
 }): React.JSX.Element {
@@ -74,7 +86,7 @@ function WorkspaceListRow({
       role="button"
       tabIndex={0}
       data-current={selected}
-      className="grid min-h-16 cursor-pointer grid-cols-[minmax(0,1fr)_120px_32px] items-center gap-3 border-b border-border/50 px-6 text-left hover:bg-accent/50 data-[current=true]:bg-accent/30 sm:grid-cols-[minmax(0,1fr)_110px_100px_120px_32px]"
+      className="grid min-h-16 cursor-pointer grid-cols-[minmax(0,1fr)_120px_32px] items-center gap-3 border-b border-border/50 px-6 text-left hover:bg-accent/50 data-[current=true]:bg-accent/30 sm:grid-cols-[minmax(0,1fr)_110px_110px_90px_100px_120px_32px]"
       onClick={() => onSelect(share.id)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -102,10 +114,41 @@ function WorkspaceListRow({
               })}
             </span>
           ) : null}
+          <span className="block truncate text-[11px] text-muted-foreground">
+            {translate(
+              'samwoo.workspaceHub.workItemProgress',
+              '{{completed}}/{{total}} work items complete',
+              {
+                completed: share.completedWorkItemCount ?? 0,
+                total: share.workItemCount ?? 0
+              }
+            )}
+            {' · '}
+            {translate('samwoo.workspaceHub.commentCount', '{{count}} comments', {
+              count: share.commentCount ?? 0
+            })}
+          </span>
         </span>
       </span>
       <span className="hidden sm:block">
         <WorkspaceStatusPill share={share} statuses={statuses} />
+      </span>
+      <span className="hidden min-w-0 sm:block">
+        <WorkspaceAssigneePicker
+          members={members}
+          selectedLogins={share.assigneeLogins ?? []}
+          canEdit={share.isOwner || share.permission === 'contribute'}
+          updating={updatingAssigneeShareId === share.id}
+          onChange={(logins) => onUpdateAssignees(share.id, logins)}
+        />
+      </span>
+      <span
+        className={cn(
+          'hidden text-xs text-muted-foreground sm:block',
+          isWorkspaceDueDateOverdue(share.dueDate) && 'text-destructive'
+        )}
+      >
+        {formatWorkspaceDueDate(share.dueDate)}
       </span>
       <span className="hidden text-xs text-muted-foreground sm:block">
         {getSamwooWorkspacePermissionLabel(share.permission)}
@@ -148,10 +191,16 @@ function WorkspaceListRow({
 function WorkspaceListView(props: Omit<Props, 'mode'>): React.JSX.Element {
   return (
     <div className="min-w-[360px]">
-      <div className="grid h-10 grid-cols-[minmax(0,1fr)_120px_32px] items-center gap-3 border-b border-border px-6 text-xs text-muted-foreground sm:grid-cols-[minmax(0,1fr)_110px_100px_120px_32px]">
+      <div className="grid h-10 grid-cols-[minmax(0,1fr)_120px_32px] items-center gap-3 border-b border-border px-6 text-xs text-muted-foreground sm:grid-cols-[minmax(0,1fr)_110px_110px_90px_100px_120px_32px]">
         <span>{translate('samwoo.workspaceSharing.columnName', 'Name')}</span>
         <span className="hidden sm:block">
           {translate('samwoo.workspaceSharing.columnStatus', 'Status')}
+        </span>
+        <span className="hidden sm:block">
+          {translate('samwoo.workspaceHub.assignees', 'Assignees')}
+        </span>
+        <span className="hidden sm:block">
+          {translate('samwoo.workspaceHub.dueDate', 'Due date')}
         </span>
         <span className="hidden sm:block">
           {translate('samwoo.workspaceSharing.columnPermission', 'Permission')}
@@ -169,78 +218,11 @@ function WorkspaceListView(props: Omit<Props, 'mode'>): React.JSX.Element {
           onSelect={props.onSelect}
           onEditName={props.onEditName}
           onRevoke={props.onRevoke}
+          members={props.members}
+          updatingAssigneeShareId={props.updatingAssigneeShareId}
+          onUpdateAssignees={props.onUpdateAssignees}
         />
       ))}
-    </div>
-  )
-}
-
-function WorkspaceBoardCard({
-  share,
-  login,
-  selected,
-  onSelect
-}: {
-  share: SamwooWorkspaceShare
-  login: string
-  selected: boolean
-  onSelect: (shareId: string) => void
-}): React.JSX.Element {
-  const name = getSharedWorkspaceDisplayName(share, login)
-  return (
-    <button
-      type="button"
-      data-current={selected}
-      className="w-full rounded-lg border border-border bg-card p-3 text-left shadow-xs transition-colors hover:bg-accent data-[current=true]:ring-1 data-[current=true]:ring-ring"
-      onClick={() => onSelect(share.id)}
-    >
-      <span className="flex items-center gap-2">
-        <WorkspaceInitialTile name={name} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
-        {hasSharedWorkspaceRemoteChanges(share, login) ? (
-          <span className="size-1.5 shrink-0 rounded-full bg-status-success" />
-        ) : null}
-      </span>
-      <span className="mt-3 flex items-center justify-end gap-1 text-xs text-muted-foreground">
-        <MessageCircle className="size-3" />
-        {share.commentCount ?? 0}
-      </span>
-    </button>
-  )
-}
-
-function WorkspaceBoardView(props: Omit<Props, 'mode'>): React.JSX.Element {
-  const firstStatusId = props.statuses[0]?.id
-  return (
-    <div className="grid min-w-max auto-cols-[280px] grid-flow-col gap-4 p-5">
-      {props.statuses.map((status) => {
-        const shares = props.shares.filter((share) => {
-          const shareStatus = share.boardStatus ?? 'todo'
-          const known = props.statuses.some((item) => item.id === shareStatus)
-          return shareStatus === status.id || (!known && status.id === firstStatusId)
-        })
-        const visual = getWorkspaceStatusVisualMeta(status)
-        return (
-          <section key={status.id} className={cn('rounded-xl bg-muted/40 p-3', visual.laneTint)}>
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-              <span className={cn('size-2 rounded-full', visual.swatch)} />
-              {status.label}
-              <span className="font-normal">{shares.length}</span>
-            </h2>
-            <div className="space-y-2">
-              {shares.map((share) => (
-                <WorkspaceBoardCard
-                  key={share.id}
-                  share={share}
-                  login={props.login}
-                  selected={share.id === props.selectedShareId}
-                  onSelect={props.onSelect}
-                />
-              ))}
-            </div>
-          </section>
-        )
-      })}
     </div>
   )
 }
@@ -253,5 +235,17 @@ export default function WorkspaceHubViews({ mode, ...props }: Props): React.JSX.
       </div>
     )
   }
-  return mode === 'list' ? <WorkspaceListView {...props} /> : <WorkspaceBoardView {...props} />
+  return mode === 'list' ? (
+    <WorkspaceListView {...props} />
+  ) : (
+    <WorkspaceHubBoardView
+      shares={props.shares}
+      login={props.login}
+      statuses={props.statuses}
+      selectedShareId={props.selectedShareId}
+      updatingShareId={props.updatingShareId}
+      onSelect={props.onSelect}
+      onMoveStatus={props.onMoveStatus}
+    />
+  )
 }

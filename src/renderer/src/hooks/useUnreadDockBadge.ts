@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { getUnreadBadgeCount } from '@/lib/unread-badge-count'
 import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
+import { useSamwooWorkspaceAssignmentInboxStore } from '@/lib/samwoo-workspace-assignment-inbox-store'
 import { useAppStore } from '@/store'
 
 function setUnreadDockBadgeCountBestEffort(count: number): void {
@@ -22,11 +23,14 @@ export function useUnreadDockBadge(): typeof clearUnreadDockBadgeCount {
     })
   )
   const messageUnread = useSamwooMessageInboxStore((state) => state.totalUnread)
+  const assignmentUnread = useSamwooWorkspaceAssignmentInboxStore(
+    (state) => state.unreadShareIds.size
+  )
 
   // oxlint-disable-next-line react-doctor/no-derived-state-effect -- Why: this syncs an external OS dock badge, not React render state.
   useEffect(() => {
-    setUnreadDockBadgeCountBestEffort(unreadCount + messageUnread)
-  }, [messageUnread, unreadCount])
+    setUnreadDockBadgeCountBestEffort(unreadCount + messageUnread + assignmentUnread)
+  }, [assignmentUnread, messageUnread, unreadCount])
 
   return clearUnreadDockBadgeCount
 }

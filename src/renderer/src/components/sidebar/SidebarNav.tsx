@@ -27,6 +27,7 @@ import { SetupGuideSidebarEntry } from './SetupGuideSidebarEntry'
 import { HideSidebarMenu } from './sidebar-nav-controls'
 import { translate } from '@/i18n/i18n'
 import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
+import { useSamwooWorkspaceAssignmentInboxStore } from '@/lib/samwoo-workspace-assignment-inbox-store'
 
 export { getSetupGuideSidebarEntryReady, shouldShowSetupGuideEntry } from './SetupGuideSidebarEntry'
 
@@ -171,6 +172,9 @@ const SidebarNav = React.memo(function SidebarNav() {
   const activityActive = activeView === 'activity'
   const mobileActive = activeView === 'mobile'
   const totalUnread = useSamwooMessageInboxStore((state) => state.totalUnread)
+  const assignmentUnread = useSamwooWorkspaceAssignmentInboxStore(
+    (state) => state.unreadShareIds.size
+  )
   const openMessenger = useSamwooMessageInboxStore((state) => state.openMessenger)
   const activityUnreadCount = useActivityUnreadCount(showAgentsButton, 'sidebar-badge')
   const mobileOnboardingBadge = useMobileSidebarOnboardingBadge(showMobileButton)
@@ -205,6 +209,11 @@ const SidebarNav = React.memo(function SidebarNav() {
           strokeWidth={workspaceHubActive ? 2.25 : 1.75}
         />
         <span className="flex-1">{translate('samwoo.workspaceHub.title', 'Workspaces')}</span>
+        {assignmentUnread > 0 ? (
+          <span className="rounded-full bg-primary px-1.5 py-px text-[10px] font-semibold text-primary-foreground">
+            {assignmentUnread > 99 ? '99+' : assignmentUnread}
+          </span>
+        ) : null}
       </button>
       <button
         type="button"

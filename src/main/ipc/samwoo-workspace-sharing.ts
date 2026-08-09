@@ -2,9 +2,15 @@ import { ipcMain } from 'electron'
 import type {
   CreateSamwooWorkspaceCommentArgs,
   CreateSamwooWorkspaceShareArgs,
+  CreateSamwooWorkspaceWorkItemArgs,
   ListSamwooWorkspaceCommentsArgs,
+  ListSamwooWorkspaceWorkItemsArgs,
+  SetSamwooWorkspaceWorkItemAssigneeArgs,
+  SetSamwooWorkspaceWorkItemCompletedArgs,
   SetSamwooWorkspaceCommentCompletedArgs,
+  UpdateSamwooWorkspaceAssigneesArgs,
   UpdateSamwooWorkspaceBoardStatusArgs,
+  UpdateSamwooWorkspaceDueDateArgs,
   UpdateSamwooWorkspaceShareArgs
 } from '../../shared/samwoo-workspace-sharing'
 import { registerSamwooWorkspaceFileSyncHandlers } from './samwoo-workspace-file-sync'
@@ -53,6 +59,79 @@ export function registerSamwooWorkspaceSharingHandlers(): void {
     hasToken(args?.token) && typeof args.id === 'string'
       ? postSamwooWorkspaceShare('/workspace-shares/revoke', args.token, { id: args.id })
       : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:updateDueDate',
+    (_event, args: UpdateSamwooWorkspaceDueDateArgs) =>
+      hasToken(args?.token) &&
+      typeof args.shareId === 'string' &&
+      (typeof args.dueDate === 'string' || args.dueDate === null)
+        ? postSamwooWorkspaceShare('/workspace-shares/due-date/update', args.token, {
+            shareId: args.shareId,
+            dueDate: args.dueDate
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:listWorkItems',
+    (_event, args: ListSamwooWorkspaceWorkItemsArgs) =>
+      hasToken(args?.token) && typeof args.shareId === 'string'
+        ? postSamwooWorkspaceShare('/workspace-shares/work-items/list', args.token, {
+            shareId: args.shareId
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:createWorkItem',
+    (_event, args: CreateSamwooWorkspaceWorkItemArgs) =>
+      hasToken(args?.token) && typeof args.shareId === 'string' && typeof args.title === 'string'
+        ? postSamwooWorkspaceShare('/workspace-shares/work-items/create', args.token, {
+            shareId: args.shareId,
+            title: args.title
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:setWorkItemCompleted',
+    (_event, args: SetSamwooWorkspaceWorkItemCompletedArgs) =>
+      hasToken(args?.token) &&
+      typeof args.shareId === 'string' &&
+      typeof args.workItemId === 'string' &&
+      typeof args.completed === 'boolean'
+        ? postSamwooWorkspaceShare('/workspace-shares/work-items/complete', args.token, {
+            shareId: args.shareId,
+            workItemId: args.workItemId,
+            completed: args.completed
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:setWorkItemAssignee',
+    (_event, args: SetSamwooWorkspaceWorkItemAssigneeArgs) =>
+      hasToken(args?.token) &&
+      typeof args.shareId === 'string' &&
+      typeof args.workItemId === 'string' &&
+      (typeof args.assigneeLogin === 'string' || args.assigneeLogin === null)
+        ? postSamwooWorkspaceShare('/workspace-shares/work-items/assignee', args.token, {
+            shareId: args.shareId,
+            workItemId: args.workItemId,
+            assigneeLogin: args.assigneeLogin
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
+  )
+  ipcMain.handle(
+    'samwooWorkspaceShares:updateAssignees',
+    (_event, args: UpdateSamwooWorkspaceAssigneesArgs) =>
+      hasToken(args?.token) &&
+      typeof args.shareId === 'string' &&
+      Array.isArray(args.assigneeLogins)
+        ? postSamwooWorkspaceShare('/workspace-shares/assignees/update', args.token, {
+            shareId: args.shareId,
+            assigneeLogins: args.assigneeLogins.filter(
+              (login): login is string => typeof login === 'string'
+            )
+          })
+        : Promise.resolve({ ok: false, error: 'login required' })
   )
   ipcMain.handle(
     'samwooWorkspaceShares:updateBoardStatus',

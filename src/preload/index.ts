@@ -2202,6 +2202,14 @@ const api = {
       update: (args) => ipcRenderer.invoke('samwooWorkspaceShares:update', args),
       updateBoardStatus: (args) =>
         ipcRenderer.invoke('samwooWorkspaceShares:updateBoardStatus', args),
+      updateAssignees: (args) => ipcRenderer.invoke('samwooWorkspaceShares:updateAssignees', args),
+      updateDueDate: (args) => ipcRenderer.invoke('samwooWorkspaceShares:updateDueDate', args),
+      listWorkItems: (args) => ipcRenderer.invoke('samwooWorkspaceShares:listWorkItems', args),
+      createWorkItem: (args) => ipcRenderer.invoke('samwooWorkspaceShares:createWorkItem', args),
+      setWorkItemCompleted: (args) =>
+        ipcRenderer.invoke('samwooWorkspaceShares:setWorkItemCompleted', args),
+      setWorkItemAssignee: (args) =>
+        ipcRenderer.invoke('samwooWorkspaceShares:setWorkItemAssignee', args),
       revoke: (args) => ipcRenderer.invoke('samwooWorkspaceShares:revoke', args),
       listComments: (args) => ipcRenderer.invoke('samwooWorkspaceShares:listComments', args),
       createComment: (args) => ipcRenderer.invoke('samwooWorkspaceShares:createComment', args),
