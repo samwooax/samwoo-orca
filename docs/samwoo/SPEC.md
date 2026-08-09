@@ -3,7 +3,7 @@
 > 이 문서는 SAMWOO-ORCA의 제품 결정, 현재 구현, 실제 배포 상태, 네트워크 구성, 제한값, 작업 대기열과 검증 기준을 함께 관리하는 **단일 진실(source of truth)**이다.
 > Codex와 Claude는 작업 전에 이 문서를 읽는다. 대화·지시서와 이 문서가 충돌하면 이 문서가 우선한다.
 > 비밀번호, Tailscale 인증 키, 코드서명 개인키, 메일 자격 증명 등 비밀값은 이 문서에 기록하지 않는다.
-> 최종 코드·운영 감사: 2026-08-08 · 저장소 버전: `1.4.184`
+> 최종 코드·운영 감사: 2026-08-09 · 저장소 버전: `1.4.184`
 
 ## 0. 상태 표기와 감사 범위
 
@@ -41,7 +41,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | upstream 원격 | `https://github.com/stablyai/orca.git` |
 | GitHub 공개 범위 | **Public** — 2026-08-08 운영 확인 |
 | 기본 브랜치 | `main` |
-| 최신 공개 릴리스 | `v1.4.183` — 2026-08-09 운영 확인 |
+| 최신 공개 릴리스 | `v1.4.184` — 2026-08-09 운영 확인 |
 | 앱 ID / 제품명 | `com.samwooax.samwoo-orca` / `SAMWOO-ORCA` |
 
 공개 저장소에는 서버 비밀번호·메일 비밀번호·Tailscale 인증 키·코드서명 개인키를 넣지 않는다. 서버 문서의 주소 예시는 마스킹하고, 실제 서비스 주소는 중앙 설정 코드와 이 운영 명세에서만 관리한다.
@@ -70,7 +70,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | Hermes 대시보드 | 원격 `4862` 포트 | 대시보드 터널 | 코드에 구성, 이번 감사에서 UI 미확인 |
 | 회사 메일 | `play.samwooeleco.com:993` IMAPS, `:587` SMTP STARTTLS | 받은메일·본문·발송·첨부 처리 | 코드 기본값. 실계정 송수신은 미실행 |
 | Nextcloud | VPS의 WebDAV 설정 | 공유 워크스페이스 파일 저장 | 코드 경로 확인, 관리 화면 미확인 |
-| 업데이트 피드 | `github.com/samwooax/samwoo-orca/releases` / HTTPS | 공개 릴리스 업데이트 | `v1.4.182` 공개 확인 |
+| 업데이트 피드 | `github.com/samwooax/samwoo-orca/releases` / HTTPS | 공개 릴리스 업데이트 | `v1.4.184` 공개 확인 |
 
 Tailscale MagicDNS는 관리 Windows PC에서 해석 실패한 이력이 있어 현재는 IP를 직접 쓴다. 엔드포인트는 `src/shared/samwoo-service-endpoints.ts`에서 중앙 관리한다. 클라이언트 노트북에 외부에서 들어오는 SSH를 요구하지 않으며, 앱이 Hermes와 VPS로 **아웃바운드 연결**한다.
 
@@ -372,6 +372,10 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `c87cdf8d4` | 메신저 SSE 클라이언트·전송 큐·프레즌스 UI |
 | `7289d7769` | 봇용 프로필 메시지 검색 API·온디맨드 조회 스킬·세션 접근 안내 |
 | `f4d4df553` | CSV 프로필 멤버 디렉터리·메신저 실명 표시·온라인 멤버 Tooltip |
+| `3a2594771` | 메신저 팝아웃 Tooltip 컨텍스트 누락 크래시 수정·회귀 테스트 |
+| `30e8ef9b8` | 워크스페이스 담당자·마감일·작업 항목 중앙 저장·허브 UI |
+| `086c4a4fd` | W6b 허브 2단계 완료 문서화 |
+| `5701ac030` | Windows 대체 릴리스 버전 `1.4.184` 반영 |
 
 ## 15. 현재 대기열
 
