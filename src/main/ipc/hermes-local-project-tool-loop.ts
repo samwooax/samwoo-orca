@@ -30,6 +30,29 @@ export async function executeLocalProjectToolReply(args: {
   if (!fileRequest && !commandRequest) {
     return null
   }
+  // Why: without a selected project root every local operation fails anyway, so
+  // approving one first is a prompt the user can only answer one way. It also
+  // keeps an unattended turn (a scheduled prompt) from raising a modal dialog
+  // nobody is there to dismiss. The bot still learns the operation was refused.
+  if (!args.cwd.trim()) {
+    const reason = 'no local project is selected'
+    return fileRequest
+      ? formatLocalFileResults(
+          fileRequest.operations.map((operation) => ({
+            id: operation.id,
+            ok: false,
+            path: operation.path,
+            error: reason
+          }))
+        )
+      : formatLocalCommandResults(
+          commandRequest!.operations.map((operation) => ({
+            id: operation.id,
+            ok: false,
+            error: reason
+          }))
+        )
+  }
   if (fileRequest) {
     return executeLocalFileRequest({
       cwd: args.cwd,

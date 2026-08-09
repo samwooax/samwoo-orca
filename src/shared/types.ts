@@ -3334,6 +3334,8 @@ export type RightSidebarTab =
   | 'explorer'
   | 'search'
   | 'vault'
+  // SAMWOO-ORCA: scheduled team-bot prompts, run in-app while signed in.
+  | 'schedules'
   | 'workspaces'
   | 'pr-checks'
   | 'source-control'

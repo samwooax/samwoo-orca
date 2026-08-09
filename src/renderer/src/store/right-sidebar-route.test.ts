@@ -48,4 +48,13 @@ describe('normalizeRightSidebarRoute', () => {
       rightSidebarExplorerView: 'files'
     })
   })
+
+  it('keeps the SAMWOO schedules tab across a restart', () => {
+    // Why: an unknown tab falls back to Explorer, so every built-in tab has to
+    // be listed here or it silently resets on relaunch.
+    expect(normalizeRightSidebarRoute('schedules')).toEqual({
+      rightSidebarTab: 'schedules',
+      rightSidebarExplorerView: 'files'
+    })
+  })
 })

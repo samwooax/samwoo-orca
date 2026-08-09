@@ -115,6 +115,7 @@ jobs:
             src/main/ipc/hermes-local-command-approval.test.ts `
             src/main/ipc/hermes-team-chat-device-context.test.ts `
             src/main/ipc/hermes-team-chat-models.test.ts `
+            src/main/ipc/hermes-local-project-tool-loop.test.ts `
             src/main/ipc/hermes-team-chat-page.test.ts `
             src/main/ipc/samwoo-workspace-file-sync.test.ts `
             src/main/ipc/samwoo-workspace-assignees.test.ts `
@@ -152,6 +153,8 @@ jobs:
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawer.task-status-sync.test.tsx `
             src/renderer/src/components/sidebar/WorkspaceKanbanDrawerHeader.test.tsx `
             src/renderer/src/components/workspace-hub/WorkspaceHubPage.test.tsx `
+            src/renderer/src/components/right-sidebar/SamwooSchedulePanel.test.tsx `
+            src/renderer/src/components/right-sidebar/samwoo-schedule-day-picker.test.ts `
             src/renderer/src/components/workspace-hub/WorkspaceHubViews.test.tsx `
             src/renderer/src/components/workspace-hub/WorkspaceHubBoardView.test.ts `
             src/renderer/src/components/workspace-hub/WorkspaceAssigneePicker.test.tsx `
@@ -164,7 +167,10 @@ jobs:
             src/renderer/src/hooks/useUnreadDockBadge.test.ts `
             src/renderer/src/components/status-bar/SamwooAuthStatusSegment.test.tsx `
             src/shared/samwoo-login-identity.test.ts `
+            src/shared/samwoo-schedule.test.ts `
             src/renderer/src/lib/samwoo-auth-store.test.ts `
+            src/renderer/src/lib/samwoo-schedule-store.test.ts `
+            src/renderer/src/lib/samwoo-schedule-runner.test.ts `
             src/renderer/src/lib/start-agent-picker-store.test.ts `
             src/renderer/src/lib/profile-member-display.test.ts `
             src/renderer/src/lib/samwoo-message-inbox-store.test.ts `
