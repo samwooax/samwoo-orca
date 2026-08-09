@@ -19,6 +19,7 @@
 | W5 | 예약 자동화 — 위임 토큰·크론 등록 스킬 | 설계 대기 (W4b 후 Claude가 지시서 작성) | — |
 | W6a | 프로필 멤버 디렉터리·메신저 실명 표시 | ✅ 구현 완료 (배포·실측 대기) | f4d4df553 |
 | W6b | 허브 2단계 — 담당자·마감일·작업 항목 | 설계 대기 | — |
+| W7 | 빌드 준비 — 핵심 테스트 배선·CI 범위·버전 | ✅ 완료 | 27fb634d4, v1.4.183 준비 |
 
 ## 웨이브 상세
 
@@ -50,6 +51,12 @@
 ### W6b — 허브 2단계 (지시서 미작성)
 - `/profile-members/list` API → 담당자 지정(팝오버 1개 재사용, 워크스페이스 복수·작업 항목 1명) → 마감일 → work_items 테이블
 - 디자인 확정본: `_claude-proposals/workspace-hub-design.png`, `assignee-picker-preview.png`
+
+### W7 — 빌드 준비 (완료)
+- 핵심 IPC 등록 테스트에 SSE mock·호출 검증을 연결하고 W2~W6a 신규 테스트 15개를 Windows 워크플로에 전수 포함했다.
+- 저장소 버전을 `1.4.183`으로 올렸으며 최신 공개 릴리스 표기는 배포 전까지 `v1.4.182`로 유지한다.
+- 검증: Windows 지정 Vitest 57개 파일, TypeScript 3종, oxlint·React 규칙, 신뢰성·max-lines·스킬 번들·i18n 게이트, Python 서버 72개 통과.
+- 다음 단계: W3c VPS 배포·실측 후 CI draft 빌드를 수동 실행한다.
 
 ## 폐기·보류
 - 완료·폐기 지시서는 전부 `_claude-proposals/archive/`에 있음 — 참조 금지 (이력 보존용)
