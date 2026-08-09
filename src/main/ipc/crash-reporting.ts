@@ -55,7 +55,8 @@ const REACT_ERROR_BOUNDARY_SURFACES = new Set<ReactErrorBoundaryReportArgs['surf
   'modal',
   'overlay',
   'rich-markdown-editor',
-  'dashboard-popout'
+  'dashboard-popout',
+  'messenger-popout'
 ])
 
 function stringField(value: unknown, maxLength: number): string | undefined {

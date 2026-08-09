@@ -734,6 +734,37 @@ describe('registerCrashReportingHandlers', () => {
     expect(recordMock).not.toHaveBeenCalled()
   })
 
+  it('records messenger popout renderer failures', async () => {
+    const recorded = report('pending', 'messenger-render')
+    const recordMock = vi.fn(async () => recorded)
+    registerCrashReportingHandlers({
+      getById: vi.fn(),
+      dismiss: vi.fn(),
+      markSent: vi.fn(),
+      markDismissedSent: vi.fn(),
+      listRecent: vi.fn(async () => []),
+      record: recordMock,
+      formatDiagnosticText: vi.fn()
+    } as never)
+
+    await expect(
+      handlers.get('crashReports:recordRendererError')?.(null, {
+        boundaryId: 'messenger-popout.root',
+        surface: 'messenger-popout',
+        errorName: 'Error',
+        errorMessage: 'Tooltip context missing'
+      })
+    ).resolves.toEqual({ ok: true, report: recorded, deduped: false })
+    expect(recordMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          boundary_id: 'messenger-popout.root',
+          surface: 'messenger-popout'
+        })
+      })
+    )
+  })
+
   it('bounds renderer error dedupe keys by evicting the oldest unique reports', async () => {
     let recordCount = 0
     const recordMock = vi.fn(async () => report('pending', `react-render-${recordCount++}`))
