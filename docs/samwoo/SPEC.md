@@ -35,13 +35,13 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목 | 현재 상태 |
 |---|---|
-| 로컬 패키지 버전 | `1.4.187` |
+| 로컬 패키지 버전 | `1.4.189` |
 | 작업 브랜치 | `samwoo/upstream-v1.4.168` |
 | SAMWOO 원격 | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격 | `https://github.com/stablyai/orca.git` |
 | GitHub 공개 범위 | **Public** — 2026-08-08 운영 확인 |
 | 기본 브랜치 | `main` |
-| 최신 공개 릴리스 | `v1.4.187` — 2026-08-10 운영 확인 |
+| 최신 공개 릴리스 | `v1.4.189` — 2026-08-10 운영 확인 |
 | 앱 ID / 제품명 | `com.samwooax.samwoo-orca` / `SAMWOO-ORCA` |
 
 공개 저장소에는 서버 비밀번호·메일 비밀번호·Tailscale 인증 키·코드서명 개인키를 넣지 않는다. 서버 문서의 주소 예시는 마스킹하고, 실제 서비스 주소는 중앙 설정 코드와 이 운영 명세에서만 관리한다.
@@ -419,6 +419,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `12ffde36d` | W12 인앱 예약 지시·우측 사이드탭·무인 턴 로컬 도구 거절 |
 | `5eb6dd155` | W12 공개용 패키지 버전 `1.4.187` 반영 |
 | `663d6c626` | `v1.4.188` 워크스페이스 카드 드래그·담당자 실명·상세 패널, 온라인 실명 명단, 일반 예약의 메일 토큰 선택 전달 |
+| `452a5612a` | 빈 워크스페이스 공유·동기화 차단, 메신저 읽지 않은 인원 수, Windows 네이티브 메시지 알림, 팀 채팅 중복 로딩 점 제거 |
+| `4172239d9` | 공개 릴리스 버전 `1.4.189` 반영 |
 
 ### 14.1 릴리스 이력 (2026-08-10)
 
@@ -429,7 +431,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.185` | 공개 유지 | one-click 전체 사용자 설치기 |
 | `v1.4.186` | 공개 유지 | login 정규화·기존 DB 멱등 마이그레이션·프로필 채팅과 워크스페이스 UI 정리. Actions run `31318757576` |
 | `v1.4.187` | 공개 유지 | W12 인앱 예약 지시·우측 예약 탭·무인 턴 로컬 도구 거절. Actions run `31341733681` |
-| `v1.4.188` | **공개 — 최신** | 워크스페이스·메신저 UI 보완과 일반 예약의 메일 토큰 의존성 분리. Actions run `31346008860` |
+| `v1.4.188` | 공개 유지 | 워크스페이스·메신저 UI 보완과 일반 예약의 메일 토큰 의존성 분리. Actions run `31346008860` |
+| `v1.4.189` | **공개 — 최신** | 빈 공유 방지, 메시지별 읽지 않은 인원 수와 Windows 네이티브 알림, 팀 채팅 중복 로딩 점 제거. Actions run `31358937097` |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
@@ -482,7 +485,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 
 - 공개 릴리스는 draft·prerelease가 아니며 대상 커밋은 `edff354cf`다. Actions run `31318757576`의 통합 검사, 빌드, 내부 코드서명, NSIS 패키징, 자산 검증·업로드 단계가 모두 성공했다.
 - 공개 EXE를 독립 다운로드해 크기 `185686944`, SHA-256 `768869edf319a3f96d89b7ee1723412fc349c393a17a00d7da8931cda776cbd2`, SHA-512(Base64) `CEG3OKafBbYUEwJU+i6tTxCpl3BpRy/XCwgX3sKZZ+Kb8iFU39V2YSm4yOX2JusyWs4PdUyA4hTsmYeUVhY4KQ==`가 GitHub 자산 digest와 `latest.yml`에 일치함을 확인했다.
-- 현재 서버 소스의 Python 전체 테스트 87개가 통과했다. login 7개 영역 무손실·멱등 마이그레이션, WAL 동시성, 멱등 메시지 전송, 단조 읽음 커서, 프로필 격리, 담당자·마감일·작업 항목, CSV mtime 재로딩과 Nextcloud 경계 테스트를 포함한다.
+- 현재 서버 소스의 Python 전체 테스트 88개가 통과했다. login 7개 영역 무손실·멱등 마이그레이션, WAL 동시성, 멱등 메시지 전송, 메시지별 읽지 않은 인원 계산, 단조 읽음 커서, 프로필 격리, 담당자·마감일·작업 항목, CSV mtime 재로딩과 Nextcloud 경계 테스트를 포함한다.
 - Nextcloud `status.php`는 `installed=true`, `maintenance=false`, `needsDbUpgrade=false`, 버전 `30.0.17.2`를 반환했다. 운영 제한 서비스 계정으로 기존 공유 조회와 임시 파일 쓰기·ETag 삭제도 통과했다.
 - 사용자 조작 범위로 분리한 최종 항목은 앱 업데이트 후 재로그인, 두 계정 메신저·프레즌스·워크스페이스 GUI 실측과 직원 배포다. Windows 10 전용 시험은 요구하지 않는다.
 
@@ -499,6 +502,14 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 - Actions run `31346008860`에서 SAMWOO 통합·설치기 계약·Python 서버 테스트, 앱 빌드, 내부 코드서명 NSIS 패키징과 자산 검증·draft 업로드를 모두 통과했다.
 - 공개 EXE 크기는 `185698032`, SHA-256은 `c7ac8f24ab0c2137ecec1bb323b5040df88fce6211949cfb07deebc9342b0264`이며 blockmap과 함께 공개했다.
 - 공개 `latest.yml`은 버전 `1.4.188`, `isAdminRightsRequired: true`, EXE SHA-512 `EmgxjR2CUxtX+2bvzVlhjUviOW/ilz5/cursPv9ZY3Cd9sFaRTfxEcmUnnPgLSmr+b7DfRInueQgCKqa+N13yA==`를 반환한다.
+
+### 17.6 v1.4.189 공유·메신저 안정화 Windows 공개 — 2026-08-10
+
+- 커밋 `452a5612a`에서 빈 워크스페이스의 공유 성공 오표시와 빈 원격 폴더 생성을 차단하고, 메시지별 읽지 않은 프로필 구성원 수·Windows 네이티브 알림·팀 채팅 중복 로딩 점 제거를 반영했다. 패키지 버전은 `4172239d9`에서 올렸다.
+- VPS의 `/opt/samwoo-auth/profile_messaging.py`를 기존 파일 백업 후 배포했다. Python 문법 검사와 서비스 재시작 뒤 `samwoo-auth active`, HTTP 응답, 배포 파일 SHA-256 `3367ae70a81771c53166f4b553628d4de71d878abef91fcad4b4e3934cbdaf04`를 확인했다.
+- Actions run `31358937097`에서 통합·설치기 검사, 내부 코드서명, 앱 빌드, Windows NSIS 패키징과 자산 검증·draft 업로드를 모두 통과했다.
+- 공개 EXE 크기는 `185701920`, GitHub 자산 SHA-256은 `a6eb541c780f35d3c644d9bfad46c9bcd80472104a416b95172d37969a11b493`이다.
+- 공개 `latest.yml`은 버전 `1.4.189`, `isAdminRightsRequired: true`, EXE SHA-512 `7tNn0obB15/xD7hiRe8XRXYeqH7vuiE2PAy0OK52tk5caYOr5BL2hB4nKjXx/1Jfo1JlvnQsPEHouMWhxx57qg==`를 반환하며 draft와 공개 URL의 `latest.yml` SHA-256이 `90801e414961b708f6b067db5c3f5e15c140d3d3cf292c82d95f2e60fdaff883`으로 일치한다.
 
 ## 18. 공통 금지 사항
 
