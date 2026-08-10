@@ -10,9 +10,7 @@ import {
   useSensors,
   type DragEndEvent
 } from '@dnd-kit/core'
-import { CalendarDays, GripVertical, ListTodo, Loader2, MessageCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { CalendarDays, ListTodo, Loader2, MessageCircle } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import type { WorkspaceStatusDefinition } from '../../../../shared/types'
@@ -100,9 +98,16 @@ function WorkspaceBoardCard({
       style={style}
     >
       <button
+        ref={setActivatorNodeRef}
         type="button"
-        className="w-full p-3 pr-9 text-left"
+        className={cn(
+          'w-full p-3 text-left',
+          !disabled && 'touch-none cursor-grab active:cursor-grabbing',
+          updating && 'pr-9'
+        )}
         onClick={() => onSelect(share.id)}
+        {...attributes}
+        {...listeners}
       >
         <span className="flex items-center gap-2">
           <span className="flex size-[26px] shrink-0 items-center justify-center rounded-md bg-muted text-xs font-bold text-foreground/80">
@@ -149,26 +154,6 @@ function WorkspaceBoardCard({
       </button>
       {updating ? (
         <Loader2 className="absolute top-3 right-3 size-3.5 animate-spin text-muted-foreground" />
-      ) : canMove ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              ref={setActivatorNodeRef}
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              className="absolute top-2 right-2 touch-none"
-              aria-label={translate('samwoo.workspaceSharing.boardStatus', 'Board status')}
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={4}>
-            {translate('samwoo.workspaceSharing.boardStatus', 'Board status')}
-          </TooltipContent>
-        </Tooltip>
       ) : null}
     </div>
   )

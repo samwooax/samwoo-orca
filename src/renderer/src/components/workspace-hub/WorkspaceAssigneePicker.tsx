@@ -12,17 +12,16 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
+import { profileMemberDisplayName, profileMemberInitial } from '@/lib/profile-member-display'
 import { canonicalSamwooLogin } from '../../../../shared/samwoo-login-identity'
 import type { SamwooProfileMember } from '../../../../shared/samwoo-profile-members'
 
-function memberInitial(name: string): string {
-  return Array.from(name.trim())[0]?.toLocaleUpperCase() ?? '?'
-}
-
 function AssigneeAvatars({
-  selectedLogins
+  selectedLogins,
+  memberNames
 }: {
   selectedLogins: readonly string[]
+  memberNames: ReadonlyMap<string, string>
 }): React.JSX.Element {
   if (!selectedLogins.length) {
     return <Plus className="size-3.5" />
@@ -34,7 +33,7 @@ function AssigneeAvatars({
           key={login}
           className="flex size-5 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-medium text-foreground"
         >
-          {memberInitial(login)}
+          {profileMemberInitial(login, undefined, memberNames)}
         </span>
       ))}
       {selectedLogins.length > 3 ? (
@@ -63,10 +62,13 @@ export default function WorkspaceAssigneePicker({
   selectionMode?: 'multiple' | 'single'
   onChange: (logins: string[]) => void
 }): React.JSX.Element {
+  const memberNames = new Map(
+    members.map((member) => [canonicalSamwooLogin(member.login), member.name])
+  )
   const selected = new Set(selectedLogins.map(canonicalSamwooLogin))
   const selectedLabel = selectedLogins.length
     ? selectionMode === 'single'
-      ? selectedLogins[0]
+      ? profileMemberDisplayName(selectedLogins[0], undefined, memberNames)
       : translate('samwoo.workspaceHub.assigneeCount', '{{count}} assignees', {
           count: selectedLogins.length
         })
@@ -96,7 +98,7 @@ export default function WorkspaceAssigneePicker({
       {updating ? (
         <Loader2 className="size-3.5 animate-spin" />
       ) : (
-        <AssigneeAvatars selectedLogins={selectedLogins} />
+        <AssigneeAvatars selectedLogins={selectedLogins} memberNames={memberNames} />
       )}
     </Button>
   )
@@ -131,10 +133,11 @@ export default function WorkspaceAssigneePicker({
             >
               {members.map((member) => {
                 const checked = selected.has(canonicalSamwooLogin(member.login))
+                const displayName = profileMemberDisplayName(member.login, member.name)
                 return (
                   <CommandItem
                     key={member.login}
-                    value={member.login}
+                    value={`${displayName} ${member.login}`}
                     onSelect={() => toggle(member.login)}
                   >
                     {selectionMode === 'multiple' ? (
@@ -146,10 +149,10 @@ export default function WorkspaceAssigneePicker({
                       />
                     ) : null}
                     <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                      {memberInitial(member.login)}
+                      {profileMemberInitial(member.login, member.name)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate">{member.login}</span>
+                      <span className="block truncate">{displayName}</span>
                     </span>
                     {canonicalSamwooLogin(member.login) === canonicalSamwooLogin(ownLogin) ? (
                       <span className="text-[11px] text-muted-foreground">

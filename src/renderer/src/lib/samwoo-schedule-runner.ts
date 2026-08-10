@@ -28,7 +28,7 @@ export type ScheduleRunnerDeps = {
   send: (args: {
     schedule: SamwooSchedule
     profile: string
-    mailToken: string
+    mailToken: string | null
     occurrenceAt: number
   }) => Promise<ScheduleSendResult>
   recordRun: (run: SamwooScheduleRun) => void
@@ -73,7 +73,7 @@ export async function runDueSamwooSchedules(deps: ScheduleRunnerDeps): Promise<v
       })
       continue
     }
-    if (!profile || !mailToken) {
+    if (!profile) {
       deps.recordRun({
         scheduleId: schedule.id,
         occurrenceAt,
@@ -110,7 +110,7 @@ export async function runDueSamwooSchedules(deps: ScheduleRunnerDeps): Promise<v
 function sendThroughTeamChat(args: {
   schedule: SamwooSchedule
   profile: string
-  mailToken: string
+  mailToken: string | null
   occurrenceAt: number
 }): Promise<ScheduleSendResult> {
   const requestId = requestIdFor(args.schedule, args.occurrenceAt)
@@ -121,7 +121,7 @@ function sendThroughTeamChat(args: {
     conversationId: requestId,
     profile: args.profile,
     host: SAMWOO_HERMES_SSH_HOST,
-    mailtoken: args.mailToken,
+    ...(args.mailToken ? { mailtoken: args.mailToken } : {}),
     model: resolveTeamChatModel(DEFAULT_MODEL_ID).id,
     effort: DEFAULT_EFFORT,
     message: args.schedule.prompt,
@@ -158,7 +158,7 @@ export async function runSamwooScheduleNow(
   const nowMs = deps.now()
   const profile = deps.getProfile()
   const mailToken = deps.getMailToken()
-  if (!profile || !mailToken) {
+  if (!profile) {
     return { ok: false, reason: 'signed-out' }
   }
   if (inFlight.has(schedule.id)) {

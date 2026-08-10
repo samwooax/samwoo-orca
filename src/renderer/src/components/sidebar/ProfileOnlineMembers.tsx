@@ -25,12 +25,18 @@ export default function ProfileOnlineMembers({
     'Online members: {{names}}',
     { names: names.join(', ') }
   )
+  const visibleLabel = names.length ? `${countLabel} · ${names.join(', ')}` : countLabel
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={0} className="text-xs text-status-success" aria-label={detailLabel}>
-          {countLabel}
+        <span
+          tabIndex={0}
+          className="flex min-w-0 max-w-full items-center gap-1.5 text-[11px] text-muted-foreground"
+          aria-label={detailLabel}
+        >
+          <span className="size-1.5 shrink-0 rounded-full bg-status-success" />
+          <span className="truncate">{visibleLabel}</span>
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={4} className="max-w-72">

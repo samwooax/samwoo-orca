@@ -58,7 +58,7 @@ export default function ProfileMessengerChannelList({
   return (
     <aside className="flex min-h-0 flex-col border-b border-border bg-muted/20 sm:border-r sm:border-b-0">
       <div className="space-y-3 border-b border-border p-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 space-y-1">
           <h1 className="text-lg font-semibold">
             {translate('samwoo.profileMessages.title', 'Messages')}
           </h1>

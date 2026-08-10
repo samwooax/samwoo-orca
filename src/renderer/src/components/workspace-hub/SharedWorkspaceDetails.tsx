@@ -31,6 +31,7 @@ import {
   getSharedWorkspaceInitial
 } from './shared-workspace-presentation'
 import WorkspaceAssigneePicker from './WorkspaceAssigneePicker'
+import WorkspaceDetailAuditLine from './WorkspaceDetailAuditLine'
 import SharedWorkspaceWorkItems from './SharedWorkspaceWorkItems'
 
 type Props = {
@@ -143,193 +144,200 @@ export default function SharedWorkspaceDetails({
   const displayName = getSharedWorkspaceDisplayName(share, login)
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="flex items-start gap-3 border-b border-border px-4 py-4">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-bold text-foreground/80">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-foreground/80">
           {getSharedWorkspaceInitial(displayName)}
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold">{displayName}</h2>
-          <p className="truncate text-xs text-muted-foreground">
+          <h2 className="truncate text-xs font-medium">{displayName}</h2>
+          <p className="truncate text-[11px] text-muted-foreground">
             {getSamwooWorkspacePermissionLabel(share.permission)} ·{' '}
             {translate('samwoo.workspaceSharing.profileCloud', 'Hermes profile cloud')}
           </p>
         </div>
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon-xs"
           aria-label={translate('samwoo.workspaceHub.closeDetails', 'Close details')}
           onClick={onClose}
         >
           <X />
         </Button>
       </header>
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 scrollbar-sleek">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 scrollbar-sleek">
         <Button
+          size="xs"
           variant="outline"
-          className="w-full"
+          className="w-full justify-start"
           onClick={() => openMessenger(`workspace:${share.id}`)}
         >
           <MessageCircle />
           {translate('samwoo.workspaceHub.openChannel', 'Open channel')}
         </Button>
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium">
-            {translate('samwoo.workspaceHub.assignees', 'Assignees')}
-          </p>
-          <div className="flex min-h-9 items-center rounded-md border border-border px-2">
-            <WorkspaceAssigneePicker
-              members={members}
-              selectedLogins={share.assigneeLogins ?? []}
-              ownLogin={login}
-              canEdit={share.isOwner || share.permission === 'contribute'}
-              updating={updatingAssignees}
-              onChange={(logins) => void onUpdateAssignees(logins)}
-            />
+        <div className="divide-y divide-border border-y border-border">
+          <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-2 py-2">
+            <p className="pt-1 text-[11px] text-muted-foreground">
+              {translate('samwoo.workspaceHub.assignees', 'Assignees')}
+            </p>
+            <div className="min-w-0">
+              <WorkspaceAssigneePicker
+                members={members}
+                selectedLogins={share.assigneeLogins ?? []}
+                ownLogin={login}
+                canEdit={share.isOwner || share.permission === 'contribute'}
+                updating={updatingAssignees}
+                onChange={(logins) => void onUpdateAssignees(logins)}
+              />
+              <WorkspaceDetailAuditLine
+                kind="assignee"
+                name={share.assigneesUpdatedBy}
+                updatedAt={share.assigneesUpdatedAt}
+              />
+            </div>
           </div>
-          {share.assigneesUpdatedBy ? (
-            <p className="text-[11px] text-muted-foreground">
-              {translate('samwoo.workspaceHub.assigneeAudit', 'Assigned by {{name}} · {{time}}', {
-                name: share.assigneesUpdatedBy,
-                time: new Date(share.assigneesUpdatedAt ?? 0).toLocaleString()
-              })}
-            </p>
-          ) : null}
-        </div>
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium">
-            {translate('samwoo.workspaceHub.dueDate', 'Due date')}
-          </p>
-          <Input
-            type="date"
-            value={share.dueDate ?? ''}
-            disabled={
-              busy || updatingDueDate || (!share.isOwner && share.permission !== 'contribute')
-            }
-            onChange={(event) => void onUpdateDueDate(event.target.value || null)}
-          />
-          {share.dueDateUpdatedBy ? (
-            <p className="text-[11px] text-muted-foreground">
-              {translate('samwoo.workspaceHub.dueDateAudit', 'Updated by {{name}} · {{time}}', {
-                name: share.dueDateUpdatedBy,
-                time: new Date(share.dueDateUpdatedAt ?? 0).toLocaleString()
-              })}
+          <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-2 py-2">
+            <p className="pt-1.5 text-[11px] text-muted-foreground">
+              {translate('samwoo.workspaceHub.dueDate', 'Due date')}
             </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs font-medium">
-            {share.isOwner
-              ? translate('samwoo.workspaceSharing.sharedName', 'Shared name')
-              : translate('samwoo.workspaceSharing.localAlias', 'My local alias')}
-          </p>
-          <div className="flex gap-2">
-            <Input
-              autoFocus={focusNameEditor}
-              value={share.isOwner ? name : alias}
-              placeholder={share.isOwner ? undefined : share.displayName}
-              onChange={(event) => {
-                if (share.isOwner) {
-                  setName(event.target.value)
-                } else {
-                  setAlias(event.target.value)
-                  writeSharedWorkspaceAlias(login, share.id, event.target.value)
+            <div className="min-w-0">
+              <Input
+                className="h-7 px-2 text-xs shadow-none"
+                type="date"
+                value={share.dueDate ?? ''}
+                disabled={
+                  busy || updatingDueDate || (!share.isOwner && share.permission !== 'contribute')
                 }
-              }}
-            />
-            {share.isOwner ? (
-              <Button
-                size="icon-sm"
-                variant="outline"
-                aria-label={translate('samwoo.workspaceSharing.saveSharedName', 'Save shared name')}
-                onClick={() => void saveName()}
-              >
-                <Pencil />
-              </Button>
-            ) : null}
+                onChange={(event) => void onUpdateDueDate(event.target.value || null)}
+              />
+              <WorkspaceDetailAuditLine
+                kind="dueDate"
+                name={share.dueDateUpdatedBy}
+                updatedAt={share.dueDateUpdatedAt}
+              />
+            </div>
           </div>
-          {!share.isOwner && alias ? (
-            <p className="text-[11px] text-muted-foreground">
-              {translate('samwoo.workspaceSharing.centralName', 'Central name: {{name}}', {
-                name: share.displayName
-              })}
-            </p>
-          ) : null}
-        </div>
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium">
-            {translate('samwoo.workspaceSharing.boardStatus', 'Board status')}
-          </p>
-          <Select
-            value={boardStatus}
-            disabled={busy || updatingStatus || !canUpdateStatus}
-            onValueChange={(status) => void updateBoardStatus(status)}
-          >
-            <SelectTrigger className="w-full">
-              {updatingStatus ? <Loader2 className="animate-spin" /> : null}
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {!hasLocalBoardStatus ? (
-                <SelectItem value={boardStatus}>{boardStatus}</SelectItem>
+          <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-2 py-2">
+            <p className="pt-1.5 text-[11px] text-muted-foreground">
+              {share.isOwner
+                ? translate('samwoo.workspaceSharing.sharedName', 'Shared name')
+                : translate('samwoo.workspaceSharing.localAlias', 'My local alias')}
+            </p>
+            <div className="min-w-0">
+              <div className="flex gap-1">
+                <Input
+                  className="h-7 px-2 text-xs shadow-none"
+                  autoFocus={focusNameEditor}
+                  value={share.isOwner ? name : alias}
+                  placeholder={share.isOwner ? undefined : share.displayName}
+                  onChange={(event) => {
+                    if (share.isOwner) {
+                      setName(event.target.value)
+                    } else {
+                      setAlias(event.target.value)
+                      writeSharedWorkspaceAlias(login, share.id, event.target.value)
+                    }
+                  }}
+                />
+                {share.isOwner ? (
+                  <Button
+                    size="icon-xs"
+                    variant="outline"
+                    aria-label={translate(
+                      'samwoo.workspaceSharing.saveSharedName',
+                      'Save shared name'
+                    )}
+                    onClick={() => void saveName()}
+                  >
+                    <Pencil />
+                  </Button>
+                ) : null}
+              </div>
+              {!share.isOwner && alias ? (
+                <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                  {translate('samwoo.workspaceSharing.centralName', 'Central name: {{name}}', {
+                    name: share.displayName
+                  })}
+                </p>
               ) : null}
-              {workspaceStatuses.map((status) => (
-                <SelectItem key={status.id} value={status.id}>
-                  {status.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {share.boardStatusUpdatedBy ? (
-            <p className="text-[11px] text-muted-foreground">
-              {translate(
-                'samwoo.workspaceSharing.boardStatusAudit',
-                'Updated by {{name}} · {{time}}',
-                {
-                  name: share.boardStatusUpdatedBy,
-                  time: new Date(share.boardStatusUpdatedAt ?? 0).toLocaleString()
-                }
-              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-2 py-2">
+            <p className="pt-1.5 text-[11px] text-muted-foreground">
+              {translate('samwoo.workspaceSharing.boardStatus', 'Board status')}
             </p>
-          ) : null}
+            <div className="min-w-0">
+              <Select
+                value={boardStatus}
+                disabled={busy || updatingStatus || !canUpdateStatus}
+                onValueChange={(status) => void updateBoardStatus(status)}
+              >
+                <SelectTrigger size="sm" className="h-7 w-full px-2 text-xs shadow-none">
+                  {updatingStatus ? <Loader2 className="animate-spin" /> : null}
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {!hasLocalBoardStatus ? (
+                    <SelectItem value={boardStatus}>{boardStatus}</SelectItem>
+                  ) : null}
+                  {workspaceStatuses.map((status) => (
+                    <SelectItem key={status.id} value={status.id}>
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <WorkspaceDetailAuditLine
+                kind="boardStatus"
+                name={share.boardStatusUpdatedBy}
+                updatedAt={share.boardStatusUpdatedAt}
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-1.5">
           {share.permission !== 'view' || share.isOwner ? (
             <Button
-              size="sm"
+              size="xs"
               variant="outline"
+              className="min-w-0 flex-1"
               disabled={busy || sync.syncing !== null}
               onClick={() => void sync.preview('pull')}
             >
               {sync.syncing === 'pull' ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-              {sync.syncing === 'pull'
-                ? translate('samwoo.workspaceSharing.downloading', 'Getting changes…')
-                : sync.localPath
-                  ? translate('samwoo.workspaceSharing.pullChanges', 'Get changes')
-                  : translate('samwoo.workspaceSharing.downloadLocal', 'Download locally')}
+              <span className="truncate">
+                {sync.syncing === 'pull'
+                  ? translate('samwoo.workspaceSharing.downloading', 'Getting changes…')
+                  : sync.localPath
+                    ? translate('samwoo.workspaceSharing.pullChanges', 'Get changes')
+                    : translate('samwoo.workspaceSharing.downloadLocal', 'Download locally')}
+              </span>
             </Button>
           ) : null}
           {sync.localPath && (share.isOwner || share.permission === 'contribute') ? (
             <Button
-              size="sm"
+              size="xs"
               variant="outline"
+              className="min-w-0 flex-1"
               disabled={busy || sync.syncing !== null}
               onClick={() => void sync.preview('push')}
             >
               {sync.syncing === 'push' ? <Loader2 className="animate-spin" /> : <Upload />}
-              {sync.syncing === 'push'
-                ? translate('samwoo.workspaceSharing.uploading', 'Uploading…')
-                : translate('samwoo.workspaceSharing.pushChanges', 'Upload changes')}
+              <span className="truncate">
+                {sync.syncing === 'push'
+                  ? translate('samwoo.workspaceSharing.uploading', 'Uploading…')
+                  : translate('samwoo.workspaceSharing.pushChanges', 'Upload changes')}
+              </span>
             </Button>
           ) : null}
         </div>
 
         {sync.hasRemoteChanges ? (
-          <Badge variant="secondary">
+          <Badge variant="secondary" className="text-[11px]">
             {translate('samwoo.workspaceSharing.newChanges', 'New changes')}
           </Badge>
         ) : null}
@@ -353,7 +361,7 @@ export default function SharedWorkspaceDetails({
         {share.isOwner ? (
           <Button
             variant="destructive"
-            size="sm"
+            size="xs"
             disabled={busy}
             onClick={() => {
               void onRevoke().then((revoked) => {

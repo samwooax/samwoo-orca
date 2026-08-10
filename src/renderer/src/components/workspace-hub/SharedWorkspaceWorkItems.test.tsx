@@ -78,7 +78,7 @@ describe('SharedWorkspaceWorkItems', () => {
     await waitFor(() => expect(api.setWorkItemCompleted).toHaveBeenCalled())
 
     fireEvent.click(screen.getByRole('button', { name: 'Unassigned' }))
-    fireEvent.click(await screen.findByText('peer'))
+    fireEvent.click(await screen.findByText('Peer'))
     await waitFor(() =>
       expect(api.setWorkItemAssignee).toHaveBeenCalledWith({
         token: 'test-session-token-1234567890',

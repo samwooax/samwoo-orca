@@ -82,11 +82,13 @@ describe('runDueSamwooSchedules', () => {
     expect(runs[0]).toMatchObject({ status: 'skipped', occurrenceAt: MONDAY_0800 })
   })
 
-  it('records an error instead of sending when the session is gone', async () => {
+  it('runs a non-mail schedule without attaching a mail token', async () => {
     const { deps, runs } = makeDeps({ getMailToken: () => null })
     await runDueSamwooSchedules(deps)
-    expect(deps.send).not.toHaveBeenCalled()
-    expect(runs[0]).toMatchObject({ status: 'error', detail: 'signed-out' })
+    expect(deps.send).toHaveBeenCalledWith(
+      expect.objectContaining({ profile: 'ai_center', mailToken: null })
+    )
+    expect(runs[0]).toMatchObject({ status: 'ok' })
   })
 
   it('records a failed send without throwing', async () => {
@@ -127,7 +129,7 @@ describe('runDueSamwooSchedules', () => {
 
 describe('runSamwooScheduleNow', () => {
   it('returns a typed reason without sending while signed out', async () => {
-    const { deps } = makeDeps({ getMailToken: () => null })
+    const { deps } = makeDeps({ getProfile: () => null, getMailToken: () => null })
     await expect(runSamwooScheduleNow(schedule(), deps)).resolves.toEqual({
       ok: false,
       reason: 'signed-out'

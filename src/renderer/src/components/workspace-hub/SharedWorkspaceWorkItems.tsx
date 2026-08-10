@@ -170,7 +170,7 @@ export default function SharedWorkspaceWorkItems({
 
   const completedCount = items.filter((item) => item.completed).length
   return (
-    <section className="space-y-3 border-t border-border pt-5">
+    <section className="space-y-2 border-t border-border pt-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-xs font-medium">
           {translate('samwoo.workspaceHub.workItems', 'Work items')}
@@ -189,7 +189,7 @@ export default function SharedWorkspaceWorkItems({
           {items.map((item) => {
             const busy = busyItemId === item.id
             return (
-              <div key={item.id} className="flex min-h-9 items-center gap-2 rounded-md px-1">
+              <div key={item.id} className="flex min-h-8 items-center gap-2 rounded-md px-1">
                 <Checkbox
                   checked={item.completed}
                   disabled={!canEdit || busy}
@@ -255,6 +255,7 @@ export default function SharedWorkspaceWorkItems({
           }}
         >
           <Input
+            className="h-7 px-2 text-xs shadow-none"
             value={title}
             maxLength={300}
             disabled={creating}
@@ -268,7 +269,7 @@ export default function SharedWorkspaceWorkItems({
           />
           <Button
             type="submit"
-            size="icon-sm"
+            size="icon-xs"
             variant="outline"
             disabled={creating || !title.trim()}
             aria-label={translate('samwoo.workspaceHub.addWorkItem', 'Add work item')}

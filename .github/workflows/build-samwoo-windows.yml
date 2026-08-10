@@ -141,6 +141,7 @@ jobs:
             src/renderer/src/components/sidebar/SidebarNav.test.tsx `
             src/renderer/src/components/sidebar/SidebarToolbar.test.tsx `
             src/renderer/src/components/sidebar/ProfileMessageRow.test.ts `
+            src/renderer/src/components/sidebar/ProfileOnlineMembers.test.tsx `
             src/renderer/src/components/tab-bar/BrowserTab.test.tsx `
             src/renderer/src/components/tab-bar/SamwooServerConnectionIndicator.test.tsx `
             src/renderer/src/components/tab-group/tab-drop-zone.test.ts `

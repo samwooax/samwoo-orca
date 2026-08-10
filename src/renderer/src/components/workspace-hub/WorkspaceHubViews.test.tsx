@@ -95,7 +95,7 @@ describe('WorkspaceHubViews', () => {
     expect(onSelect).toHaveBeenCalledWith('share-1')
   })
 
-  it('groups cards by workspace status with a drag affordance for contributors', async () => {
+  it('uses the full workspace card as the drag activator for contributors', async () => {
     const onSelect = vi.fn()
     const container = await renderView('board', onSelect)
 
@@ -106,7 +106,9 @@ describe('WorkspaceHubViews', () => {
     expect(container.textContent).toContain('2/5')
     const card = container.querySelector('[data-workspace-draggable="true"]')
     expect(card).not.toBeNull()
-    expect(card?.querySelectorAll('button')).toHaveLength(2)
+    expect(card?.querySelectorAll('button')).toHaveLength(1)
+    expect(card?.querySelector('button')?.classList.contains('cursor-grab')).toBe(true)
+    expect(card?.querySelector('[aria-label="Board status"]')).toBeNull()
     await act(async () => card?.querySelector<HTMLButtonElement>('button')?.click())
     expect(onSelect).toHaveBeenCalledWith('share-1')
   })

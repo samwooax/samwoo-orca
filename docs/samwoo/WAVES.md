@@ -104,7 +104,7 @@
 ### W12 — 예약 지시 (v1.4.187 공개 완료·GUI 실측 대기)
 
 - 범위: 자연어 지시를 시각·요일로 등록해 앱 실행 중 팀 봇에게 자동 전송. 우측 사이드바 `예약` 탭에서 등록·중지·삭제·지금 실행.
-- 서버 변경 없음. 기존 세션 토큰과 기존 `sendHermesTeamChat` 경로를 그대로 쓴다.
+- 서버 변경 없음. 기존 `sendHermesTeamChat` 경로를 그대로 쓰되 메일 토큰은 있을 때만 전달한다. 일반 예약은 메일 토큰 없이 실행하고, 메일 작업은 실행 시 유효한 세션이 필요하다.
 - 신규: `src/shared/samwoo-schedule.ts`(발생 시각 계산·판정), `samwoo-schedule-store.ts`(localStorage), `samwoo-schedule-runner.ts`(30초 틱·중복 실행 방지), `SamwooSchedulePanel.tsx`, `samwoo-schedule-day-picker.tsx`, `useSamwooScheduleRunner.ts`.
 - 부수 수정: 프로젝트 루트가 없는 턴은 로컬 명령 승인 모달을 띄우지 않고 거절 결과를 반환한다(`hermes-local-project-tool-loop.ts`).
 - 검증: W12 핵심 6개 테스트 파일 41개, RPC·라우팅 포함 focused 8파일 87개, TypeScript 3종, 전체 oxlint·React 규칙, max-lines·신뢰성·스킬 번들·i18n 게이트와 Python 서버 87개가 통과했다. ko/en 33키를 추가했다.

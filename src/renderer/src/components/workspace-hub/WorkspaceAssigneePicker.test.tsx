@@ -30,7 +30,8 @@ describe('WorkspaceAssigneePicker', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '1 assignees' }))
     expect(await screen.findByText('Hermes profile members')).toBeTruthy()
-    fireEvent.click(screen.getByText('peer'))
+    expect(screen.queryByText('peer')).toBeNull()
+    fireEvent.click(screen.getByText('동료'))
     expect(onChange).toHaveBeenCalledWith(['kim', 'peer'])
   })
 
@@ -67,8 +68,8 @@ describe('WorkspaceAssigneePicker', () => {
       </TooltipProvider>
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'kim' }))
-    fireEvent.click(await screen.findByText('peer'))
+    fireEvent.click(screen.getByRole('button', { name: '김동훈' }))
+    fireEvent.click(await screen.findByText('동료'))
     expect(onChange).toHaveBeenCalledWith(['peer'])
   })
 

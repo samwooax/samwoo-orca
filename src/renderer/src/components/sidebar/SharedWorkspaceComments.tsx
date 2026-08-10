@@ -215,7 +215,7 @@ export default function SharedWorkspaceComments({
     <div className="border-t border-border pt-2">
       <Button
         type="button"
-        size="sm"
+        size="xs"
         variant="ghost"
         className="w-full justify-start"
         aria-expanded={expanded}
@@ -287,7 +287,7 @@ export default function SharedWorkspaceComments({
                   />
                   <div className="min-w-0 flex-1 space-y-1">
                     <p
-                      className={`whitespace-pre-wrap break-words text-sm ${comment.completed ? 'text-muted-foreground line-through' : 'text-foreground'}`}
+                      className={`whitespace-pre-wrap break-words text-xs ${comment.completed ? 'text-muted-foreground line-through' : 'text-foreground'}`}
                     >
                       {comment.body}
                     </p>
@@ -313,7 +313,7 @@ export default function SharedWorkspaceComments({
           {hasOlder ? (
             <Button
               type="button"
-              size="sm"
+              size="xs"
               variant="ghost"
               className="w-full"
               disabled={loadingOlder}
@@ -325,7 +325,7 @@ export default function SharedWorkspaceComments({
           ) : null}
           <form className="flex items-end gap-2" onSubmit={(event) => void createComment(event)}>
             <Textarea
-              className="min-h-16 resize-none"
+              className="min-h-14 resize-none text-xs"
               maxLength={2000}
               value={draft}
               placeholder={translate(
@@ -335,7 +335,7 @@ export default function SharedWorkspaceComments({
               aria-label={translate('samwoo.workspaceSharing.commentPlaceholder', 'Add a comment')}
               onChange={(event) => setDraft(event.target.value)}
             />
-            <Button type="submit" size="sm" disabled={submitting || !draft.trim()}>
+            <Button type="submit" size="xs" disabled={submitting || !draft.trim()}>
               {submitting ? <Loader2 className="animate-spin" /> : <Send />}
               {translate('samwoo.workspaceSharing.addComment', 'Add comment')}
             </Button>
