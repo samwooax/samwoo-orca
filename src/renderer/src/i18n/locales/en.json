@@ -861,7 +861,7 @@
         "automaticEffort": "Automatic",
         "newConversation": "New conversation",
         "startConversation": "Start a conversation with {{value0}}",
-        "emptyHint": "Enter a message or select a project file.",
+        "emptyHint": "Enter a message or select a project file. Prefix a terminal command with !.",
         "attachmentTooLarge": "Attachments must be 96 KB or smaller.",
         "attachmentLimit": "You can attach up to 5 files.",
         "imagePasteFailed": "Image paste failed.",

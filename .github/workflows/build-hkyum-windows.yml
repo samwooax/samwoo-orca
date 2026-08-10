@@ -1,0 +1,89 @@
+name: Build hkyum Windows package
+
+on:
+  push:
+    branches:
+      - hkyum
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hkyum-windows-package
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: package (windows)
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Cache Electron downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: electron-builder-win-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-builder-win-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify direct shell command feature
+        run: >-
+          pnpm exec vitest run --config config/vitest.config.ts
+          src/main/ipc/hermes-local-shell-command.test.ts
+          src/renderer/src/components/hermes-team-chat/hermes-team-chat-local-command.test.ts
+
+      - name: Build package inputs
+        run: pnpm run build:release
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Prepare Electron native runtime
+        shell: pwsh
+        run: |
+          node config/scripts/ensure-native-runtime.mjs --runtime=electron
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package unpacked Windows app
+        shell: pwsh
+        env:
+          ORCA_REUSE_PREPARED_NATIVE_RUNTIME: '1'
+        run: |
+          pnpm exec electron-builder --config config/electron-builder.config.cjs --win --dir --publish never
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path 'dist/win-unpacked/Orca.exe')) {
+            throw 'electron-builder did not produce dist/win-unpacked/Orca.exe'
+          }
+
+      - name: Smoke packaged CLI
+        run: node config/scripts/smoke-packaged-cli.mjs --app-dir=dist/win-unpacked
+
+      - name: Upload Windows app artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: orca-windows-hkyum-${{ github.sha }}
+          path: dist/win-unpacked
+          if-no-files-found: error
+          retention-days: 7
