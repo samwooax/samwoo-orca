@@ -28,6 +28,7 @@ import { readNotificationAuthorizationStatus } from './notification-authorizatio
 import { parsePaneKey } from '../../shared/stable-pane-id'
 import { setTrayAttention } from '../tray/system-tray'
 import { isMainWindowVisible } from '../window/main-window-visibility'
+import { createOrFocusMessengerPopout } from '../window/messenger-popout-window'
 
 const NOTIFICATION_COOLDOWN_MS = 5000
 const MAX_RECENT_NOTIFICATION_KEYS = 50
@@ -416,8 +417,8 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
       const notificationOptions = buildNotificationOptions(args)
 
       // Why: desktop focus only means this computer sees the worktree; the paired phone may still need the alert.
-      if (runtime && args.source !== 'test') {
-        const dedupeKey = args.worktreeId ?? args.worktreeLabel ?? 'global'
+      if (runtime && args.source !== 'test' && args.source !== 'samwoo-message') {
+        const dedupeKey = args.channelKey ?? args.worktreeId ?? args.worktreeLabel ?? 'global'
         if (reserveNotificationCooldown(recentMobileNotifications, dedupeKey, Date.now())) {
           runtime.dispatchMobileNotification({
             type: 'notification',
@@ -444,7 +445,7 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
       // Why: the Settings test button is an explicit, often-repeated user action, so it bypasses burst dedupe.
       if (args.source !== 'test') {
         // Dedupe by worktree, not source — agent-finish and terminal-bell often fire in one chunk; surface only the first.
-        const dedupeKey = args.worktreeId ?? args.worktreeLabel ?? 'global'
+        const dedupeKey = args.channelKey ?? args.worktreeId ?? args.worktreeLabel ?? 'global'
         if (!reserveNotificationCooldown(recentDesktopNotifications, dedupeKey, Date.now())) {
           return { delivered: false, reason: 'cooldown' }
         }
@@ -507,8 +508,14 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
         }
         notification.on('failed', failedHandler)
 
-        // Why: worktreeId is formatted "repoId::worktreePath"; without the separator we can't extract a repoId, so skip the click-to-navigate binding.
-        if (args.worktreeId && args.worktreeId.includes('::')) {
+        if (args.source === 'samwoo-message' && args.channelKey && args.channelKey.length <= 200) {
+          clickHandler = () => {
+            release()
+            createOrFocusMessengerPopout(store, args.channelKey)
+          }
+          notification.on('click', clickHandler)
+        } else if (args.worktreeId && args.worktreeId.includes('::')) {
+          // Why: worktreeId without the separator cannot resolve a repo for click-to-navigate.
           const repoId = getRepoIdFromWorktreeId(args.worktreeId)
           clickHandler = () => {
             release()

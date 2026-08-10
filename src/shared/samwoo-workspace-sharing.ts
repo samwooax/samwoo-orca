@@ -64,6 +64,7 @@ export type SamwooWorkspaceSyncPreview = {
   ok: boolean
   destinationPath?: string
   changes?: SamwooWorkspaceChange[]
+  errorCode?: 'workspace_empty'
   error?: string
 }
 

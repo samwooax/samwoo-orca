@@ -46,7 +46,6 @@ export default function ProfileMessageRow({
         {!message.isAuthor && startsGroup ? (
           <div className="mb-1 flex items-center gap-2">
             <span className="text-xs font-medium">{authorName}</span>
-            {online ? <span className="size-2 rounded-full bg-status-success" /> : null}
             <span className="text-[11px] text-muted-foreground">{time}</span>
           </div>
         ) : null}
@@ -83,6 +82,17 @@ export default function ProfileMessageRow({
         </div>
         {message.isAuthor ? (
           <div className="mt-1 flex justify-end gap-1 text-[11px] text-muted-foreground">
+            {!message.deliveryState && (message.unreadCount ?? 0) > 0 ? (
+              <span
+                aria-label={translate(
+                  'samwoo.profileMessages.unreadByCount',
+                  '{{count}} people have not read this message',
+                  { count: message.unreadCount }
+                )}
+              >
+                {message.unreadCount}
+              </span>
+            ) : null}
             {message.deliveryState === 'pending' ? (
               <span className="flex items-center gap-1">
                 <Clock3 className="size-3" />

@@ -138,11 +138,18 @@ export async function previewSamwooWorkspaceFiles(
   if (!args.localPath && (!args.destinationParent || !args.folderName)) {
     return { ok: false, error: 'workspace folder required' }
   }
+  const remoteFiles = await listSamwooWorkspaceRemoteFiles(args.token, args.shareId)
+  if (args.direction === 'pull' && !args.localPath && remoteFiles.length === 0) {
+    return {
+      ok: false,
+      errorCode: 'workspace_empty',
+      error: 'The shared workspace has no uploaded files yet.'
+    }
+  }
   await fs.mkdir(rootPath, { recursive: true })
-  const [manifest, local, remoteFiles] = await Promise.all([
+  const [manifest, local] = await Promise.all([
     readSamwooWorkspaceManifest(rootPath, args.shareId),
-    localHashes(rootPath),
-    listSamwooWorkspaceRemoteFiles(args.token, args.shareId)
+    localHashes(rootPath)
   ])
   const remote = new Map(remoteFiles.map((file) => [file.path, file.etag]))
   const changes =

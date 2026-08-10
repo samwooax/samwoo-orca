@@ -11,7 +11,7 @@ import uuid
 import profile_display_names
 import profile_event_stream
 import workspace_sharing
-from profile_login_identity import migrate_login_identities
+from profile_login_identity import canonical_login, migrate_login_identities
 
 MESSAGE_PAGE_SIZE = 100
 SEARCH_PAGE_SIZE = 50
@@ -126,14 +126,42 @@ def _cursor(body: dict) -> tuple[int, str] | None:
     return created_at, message_id
 
 
-def _serialize_message(row: sqlite3.Row, login: str) -> dict:
+def _message_unread_counts(
+    conn: sqlite3.Connection, profile: str, channel_key: str, rows: list[sqlite3.Row]
+) -> dict[str, int]:
+    members = {
+        canonical_login(member["login"])
+        for member in profile_display_names.profile_members(profile)
+        if canonical_login(member.get("login"))
+    }
+    read_rows = conn.execute(
+        """SELECT login,last_read_created_at,last_read_id FROM profile_message_reads
+        WHERE owner_profile=? AND channel_key=?""",
+        (profile, channel_key),
+    ).fetchall()
+    cursors = {
+        canonical_login(row["login"]): (row["last_read_created_at"], row["last_read_id"])
+        for row in read_rows
+    }
+    return {
+        row["id"]: sum(
+            1
+            for member in members
+            if member != canonical_login(row["author_login"])
+            and cursors.get(member, (-1, "")) < (row["created_at"], row["id"])
+        )
+        for row in rows
+    }
+
+
+def _serialize_message(row: sqlite3.Row, login: str, unread_count: int = 0) -> dict:
     result = {
         "id": row["id"], "channelKey": row["channel_key"],
         "channelKind": row["channel_kind"], "shareId": row["share_id"],
         "authorLogin": row["author_login"], "body": row["body"],
         "replyToId": row["reply_to_id"], "replyToAuthor": row["reply_author"],
         "replyToPreview": row["reply_preview"], "createdAt": row["created_at"],
-        "isAuthor": row["author_login"] == login,
+        "isAuthor": row["author_login"] == login, "unreadCount": unread_count,
     }
     result["authorDisplayName"] = profile_display_names.display_name(row["author_login"])
     result["replyToAuthorDisplayName"] = profile_display_names.display_name(row["reply_author"])
@@ -221,9 +249,13 @@ def list_messages(token: str, body: dict) -> dict:
             {cursor_clause} ORDER BY message.created_at DESC,message.id DESC LIMIT ?""",
             parameters,
         ).fetchall()
+        unread_counts = _message_unread_counts(conn, profile, key, rows)
     has_more = len(rows) > MESSAGE_PAGE_SIZE
     return {
-        "messages": [_serialize_message(row, login) for row in reversed(rows[:MESSAGE_PAGE_SIZE])],
+        "messages": [
+            _serialize_message(row, login, unread_counts.get(row["id"], 0))
+            for row in reversed(rows[:MESSAGE_PAGE_SIZE])
+        ],
         "hasMore": has_more,
     }
 
@@ -252,9 +284,13 @@ def search_messages(token: str, body: dict) -> dict:
             ORDER BY message.created_at DESC,message.id DESC LIMIT ?""",
             parameters,
         ).fetchall()
+        unread_counts = _message_unread_counts(conn, profile, key, rows)
     has_more = len(rows) > SEARCH_PAGE_SIZE
     return {
-        "messages": [_serialize_message(row, login) for row in reversed(rows[:SEARCH_PAGE_SIZE])],
+        "messages": [
+            _serialize_message(row, login, unread_counts.get(row["id"], 0))
+            for row in reversed(rows[:SEARCH_PAGE_SIZE])
+        ],
         "hasMore": has_more,
     }
 
@@ -277,7 +313,8 @@ def send_message(token: str, body: dict) -> dict:
                 (profile, key, login, client_message_id),
             ).fetchone()
             if existing:
-                return _serialize_message(existing, login)
+                unread_counts = _message_unread_counts(conn, profile, key, [existing])
+                return _serialize_message(existing, login, unread_counts.get(existing["id"], 0))
         if reply_to_id:
             reply = conn.execute(
                 "SELECT 1 FROM profile_messages WHERE id=? AND owner_profile=? AND channel_key=?",
@@ -308,7 +345,8 @@ def send_message(token: str, body: dict) -> dict:
         row = conn.execute(
             f"{_message_select()} WHERE message.id=?", (message_id,)
         ).fetchone() if created else row
-        result = _serialize_message(row, login)
+        unread_counts = _message_unread_counts(conn, profile, key, [row])
+        result = _serialize_message(row, login, unread_counts.get(row["id"], 0))
     if created:
         profile_event_stream.publish(
             profile, {"type": "message", "channelKey": key, "message": result}

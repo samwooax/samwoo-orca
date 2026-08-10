@@ -26,6 +26,7 @@ export type SamwooProfileMessage = {
   replyToPreview?: string | null
   createdAt: number
   isAuthor: boolean
+  unreadCount?: number
   /** Client-only delivery metadata; server responses omit these fields. */
   clientMessageId?: string
   deliveryState?: 'pending' | 'retrying' | 'failed'

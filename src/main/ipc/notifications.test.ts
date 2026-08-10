@@ -89,6 +89,11 @@ vi.mock('../tray/system-tray', () => ({
   setTrayAttention: setTrayAttentionMock
 }))
 
+const createOrFocusMessengerPopoutMock = vi.hoisted(() => vi.fn())
+vi.mock('../window/messenger-popout-window', () => ({
+  createOrFocusMessengerPopout: createOrFocusMessengerPopoutMock
+}))
+
 import {
   registerNotificationHandlers,
   triggerStartupNotificationRegistration
@@ -123,6 +128,7 @@ describe('registerNotificationHandlers', () => {
     getAllWindowsMock.mockReturnValue([])
     shellOpenExternalMock.mockClear()
     setTrayAttentionMock.mockClear()
+    createOrFocusMessengerPopoutMock.mockClear()
   })
 
   afterEach(() => {
@@ -203,6 +209,40 @@ describe('registerNotificationHandlers', () => {
 
     expect(removeHandlerMock).toHaveBeenCalledWith('notifications:dispatch')
     expect(handleMock).toHaveBeenCalledWith('notifications:dispatch', expect.any(Function))
+  })
+
+  it('delivers SAMWOO messages through Electron and opens their channel when clicked', async () => {
+    const store = {
+      getSettings: () => ({
+        notifications: {
+          enabled: true,
+          agentTaskComplete: true,
+          terminalBell: true,
+          suppressWhenFocused: true
+        }
+      })
+    }
+    registerNotificationHandlers(store as never)
+
+    const result = await getDispatchHandler()(
+      {},
+      {
+        source: 'samwoo-message',
+        notificationTitle: '팀 채팅',
+        notificationBody: '홍길동: 확인 부탁드립니다',
+        channelKey: 'team'
+      }
+    )
+
+    expect(result).toEqual({ delivered: true })
+    expect(notificationCtorMock).toHaveBeenCalledWith(
+      expectedNativeNotificationOptions({
+        title: '팀 채팅',
+        body: '홍길동: 확인 부탁드립니다'
+      })
+    )
+    getNotificationEventHandler('click')()
+    expect(createOrFocusMessengerPopoutMock).toHaveBeenCalledWith(store, 'team')
   })
 
   it('opens the current macOS app notification settings entry', async () => {

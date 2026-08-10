@@ -18,6 +18,7 @@ import workspace_sharing
 OWNER_TOKEN = "message-owner-token-0123456789"
 PEER_TOKEN = "message-peer-token-01234567890"
 OTHER_TOKEN = "message-other-token-0123456789"
+THIRD_TOKEN = "message-third-token-0123456789"
 
 
 class ProfileMessagingTest(unittest.TestCase):
@@ -81,6 +82,35 @@ class ProfileMessagingTest(unittest.TestCase):
         self.assertEqual("홍길동", reply["replyToAuthorDisplayName"])
         self.assertEqual("peer", channel["lastMessageAuthor"])
         self.assertIsNone(channel["lastMessageAuthorDisplayName"])
+
+    def test_sender_sees_how_many_profile_members_have_not_read_each_message(self):
+        workspace_sharing.bind_session(THIRD_TOKEN, "third", "ai_center")
+        members = [
+            {"login": "owner", "name": "소유자"},
+            {"login": "peer", "name": "동료"},
+            {"login": "third", "name": "세 번째"},
+        ]
+        with mock.patch.object(profile_display_names, "profile_members", return_value=members):
+            sent = profile_messaging.send_message(
+                OWNER_TOKEN, {"channelKind": "team", "body": "읽음 확인"}
+            )
+            self.assertEqual(2, sent["unreadCount"])
+
+            profile_messaging.mark_read(
+                PEER_TOKEN, {"channelKind": "team", "messageId": sent["id"]}
+            )
+            after_one_read = profile_messaging.list_messages(
+                OWNER_TOKEN, {"channelKind": "team"}
+            )["messages"][0]
+            self.assertEqual(1, after_one_read["unreadCount"])
+
+            profile_messaging.mark_read(
+                THIRD_TOKEN, {"channelKind": "team", "messageId": sent["id"]}
+            )
+            after_all_read = profile_messaging.list_messages(
+                OWNER_TOKEN, {"channelKind": "team"}
+            )["messages"][0]
+            self.assertEqual(0, after_all_read["unreadCount"])
 
     def test_member_route_derives_profile_from_session(self):
         with mock.patch.object(

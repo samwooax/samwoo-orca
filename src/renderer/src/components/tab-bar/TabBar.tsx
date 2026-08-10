@@ -1140,6 +1140,7 @@ function TabBarInner({
                       hermesRoute ? hermesProfileLabel(hermesRoute.profile) : undefined
                     }
                     leadingIndicator={hermesRoute ? <SamwooServerConnectionIndicator /> : undefined}
+                    showLoadingIndicator={!hermesRoute}
                     dragData={dragData}
                     dropIndicator={dropIndicatorByVisibleId.get(item.id) ?? null}
                     includeTopTabBorder={includeTopTabBorder}

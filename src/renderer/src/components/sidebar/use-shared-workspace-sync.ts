@@ -92,8 +92,16 @@ export function useSharedWorkspaceSync({ share, login, localName, onRefresh }: A
     setSyncing(null)
     if (!result.ok || !result.destinationPath) {
       toast.error(
-        result.error ??
-          translate('samwoo.workspaceSharing.previewFailed', 'Could not preview workspace changes.')
+        result.errorCode === 'workspace_empty'
+          ? translate(
+              'samwoo.workspaceSharing.emptyRemoteWorkspace',
+              'No files have been uploaded to this workspace yet. Ask the owner to upload files, then try again.'
+            )
+          : (result.error ??
+              translate(
+                'samwoo.workspaceSharing.previewFailed',
+                'Could not preview workspace changes.'
+              ))
       )
       return
     }

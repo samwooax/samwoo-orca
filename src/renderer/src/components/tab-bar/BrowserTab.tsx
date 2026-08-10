@@ -128,6 +128,7 @@ export default function BrowserTab({
   onTogglePin,
   labelOverride,
   leadingIndicator,
+  showLoadingIndicator = true,
   dragData,
   dropIndicator,
   includeTopTabBorder = true
@@ -147,6 +148,7 @@ export default function BrowserTab({
   onTogglePin: () => void
   labelOverride?: string
   leadingIndicator?: ReactNode
+  showLoadingIndicator?: boolean
   dragData: TabDragItemData
   dropIndicator?: DropIndicator
   includeTopTabBorder?: boolean
@@ -229,7 +231,7 @@ export default function BrowserTab({
       }}
     >
       {isActive && <span className={ACTIVE_TAB_INDICATOR_CLASSES} aria-hidden />}
-      {tab.loading && !tab.loadError && !isBlankBrowserTab(tab) && (
+      {showLoadingIndicator && tab.loading && !tab.loadError && !isBlankBrowserTab(tab) && (
         <span className="mr-1 size-1.5 rounded-full bg-sky-500/80 shrink-0" />
       )}
       <BrowserTabFavicon tabId={tab.id} faviconUrl={tab.faviconUrl} />

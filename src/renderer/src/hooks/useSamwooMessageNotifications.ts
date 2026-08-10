@@ -8,18 +8,7 @@ import {
   type SamwooChannelSeenState
 } from '@/lib/samwoo-message-notification-decision'
 import { samwooMessagePollingCadence } from '@/lib/samwoo-message-polling-cadence'
-
-function showOsNotification(title: string, body: string, channelKey: string): void {
-  if (typeof Notification === 'undefined') {
-    return
-  }
-  try {
-    const notification = new Notification(title, { body, silent: false })
-    notification.onclick = () => void window.api.messenger.openPopout(channelKey)
-  } catch {
-    // Notification delivery must not interrupt inbox polling.
-  }
-}
+import { dispatchSamwooMessageNotification } from '@/lib/samwoo-message-native-notification'
 
 export function useSamwooMessageNotifications(): void {
   const token = useSamwooAuthStore((state) => state.auth?.token)
@@ -65,7 +54,12 @@ export function useSamwooMessageNotifications(): void {
       // Why: main receives the companion window's real focus state over IPC.
       if (!inbox.messengerOpen) {
         for (const notification of notifications) {
-          showOsNotification(notification.title, notification.body, notification.channelKey)
+          void dispatchSamwooMessageNotification(
+            window.api.notifications,
+            notification.title,
+            notification.body,
+            notification.channelKey
+          )
         }
       }
     }

@@ -40,6 +40,13 @@ export function buildNotificationOptions(args: NotificationDispatchRequest): {
     }
   }
 
+  if (args.source === 'samwoo-message') {
+    return {
+      title: normalizeNotificationText(args.notificationTitle, 80) || 'New message',
+      body: normalizeNotificationText(args.notificationBody, NOTIFICATION_BODY_PREVIEW_MAX_LENGTH)
+    }
+  }
+
   const richOptions = buildAgentTaskCompleteNotificationOptions(args)
   if (richOptions) {
     return richOptions

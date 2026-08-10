@@ -28,6 +28,31 @@ afterEach(async () => {
 })
 
 describe('SAMWOO workspace file sync', () => {
+  it('rejects an empty initial download without creating a local workspace', async () => {
+    const destinationParent = path.join(testRoot, 'downloads')
+    vi.mocked(postSamwooWorkspaceShare).mockImplementation(async () => ({
+      ok: true,
+      entries: []
+    }))
+
+    const result = await previewSamwooWorkspaceFiles({
+      token: TOKEN,
+      shareId: SHARE_ID,
+      direction: 'pull',
+      destinationParent,
+      folderName: 'Empty project'
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      errorCode: 'workspace_empty',
+      error: 'The shared workspace has no uploaded files yet.'
+    })
+    await expect(fs.stat(path.join(destinationParent, 'Empty project'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    })
+  })
+
   it('uploads project files while excluding generated, secret, and symlink content', async () => {
     const sourcePath = path.join(testRoot, 'source')
     await fs.mkdir(path.join(sourcePath, '.git'), { recursive: true })

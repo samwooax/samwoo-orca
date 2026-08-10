@@ -163,7 +163,11 @@ function baseBrowserTab(overrides: Partial<BrowserTabState> = {}): BrowserTabSta
   }
 }
 
-async function renderBrowserTab(tab: BrowserTabState, labelOverride?: string): Promise<unknown> {
+async function renderBrowserTab(
+  tab: BrowserTabState,
+  labelOverride?: string,
+  showLoadingIndicator?: boolean
+): Promise<unknown> {
   reactHookRuntime.index = 0
   const module = await import('./BrowserTab')
   return module.default({
@@ -181,6 +185,7 @@ async function renderBrowserTab(tab: BrowserTabState, labelOverride?: string): P
     onDuplicate: () => {},
     onTogglePin: () => {},
     labelOverride,
+    showLoadingIndicator,
     dragData: {
       kind: 'tab',
       worktreeId: tab.worktreeId,
@@ -238,9 +243,10 @@ function findElementsByType(node: unknown, typeName: string): ReactElementLike[]
 
 async function renderExpandedBrowserTab(
   tab: BrowserTabState,
-  labelOverride?: string
+  labelOverride?: string,
+  showLoadingIndicator?: boolean
 ): Promise<unknown> {
-  return expandNode(await renderBrowserTab(tab, labelOverride))
+  return expandNode(await renderBrowserTab(tab, labelOverride, showLoadingIndicator))
 }
 
 function browserTabRootChildren(node: unknown): ReactElementLike[] {
@@ -370,5 +376,18 @@ describe('BrowserTab favicon', { timeout: 30_000 }, () => {
     expect(findElementsByType(element, 'img')).toHaveLength(0)
     expect(loadingIndex).toBeGreaterThanOrEqual(0)
     expect(loadingIndex).toBeLessThan(labelIndex)
+  })
+
+  it('hides the browser loading dot when the host surface supplies its own status', async () => {
+    const element = await renderExpandedBrowserTab(
+      baseBrowserTab({ loading: true }),
+      undefined,
+      false
+    )
+    const children = browserTabRootChildren(element)
+
+    expect(
+      children.some((child) => String(child.props.className ?? '').includes('bg-sky-500/80'))
+    ).toBe(false)
   })
 })

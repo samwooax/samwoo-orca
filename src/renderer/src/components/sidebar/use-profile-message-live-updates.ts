@@ -93,11 +93,15 @@ export function useProfileMessageLiveUpdates(options: Options): void {
             )
             void latestRef.current.refreshMessages(false)
           }
-        } else if (
-          event.type === 'read' &&
-          canonicalSamwooLogin(event.login) === canonicalSamwooLogin(latestRef.current.ownLogin)
-        ) {
-          void latestRef.current.refreshChannels(false)
+        } else if (event.type === 'read') {
+          if (event.channelKey === activeChannelKeyRef.current) {
+            void latestRef.current.refreshMessages(false)
+          }
+          if (
+            canonicalSamwooLogin(event.login) === canonicalSamwooLogin(latestRef.current.ownLogin)
+          ) {
+            void latestRef.current.refreshChannels(false)
+          }
         }
       }),
     [activeChannelKeyRef, setMessages]

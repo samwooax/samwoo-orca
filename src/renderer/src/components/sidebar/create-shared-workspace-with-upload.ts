@@ -84,11 +84,25 @@ export async function createSharedWorkspaceWithUpload({
       conflicts
     }
   }
+  const transferredFiles = uploaded.transferredFiles ?? 0
+  const skippedFiles = uploaded.skippedFiles ?? 0
+  if (transferredFiles + skippedFiles === 0) {
+    return {
+      ok: false,
+      phase: 'upload',
+      share: created.share,
+      error: translate(
+        'samwoo.workspaceSharing.initialUploadEmpty',
+        'No project files were eligible for upload. Check the selected folder and excluded-file rules.'
+      ),
+      conflicts: []
+    }
+  }
 
   return {
     ok: true,
     share: created.share,
-    transferredFiles: uploaded.transferredFiles ?? 0,
-    skippedFiles: uploaded.skippedFiles ?? 0
+    transferredFiles,
+    skippedFiles
   }
 }

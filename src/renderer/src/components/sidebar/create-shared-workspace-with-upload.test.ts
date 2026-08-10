@@ -116,4 +116,31 @@ describe('createSharedWorkspaceWithUpload', () => {
       conflicts: ['README.md']
     })
   })
+
+  it('does not report success when the initial upload contains no eligible files', async () => {
+    const result = await createSharedWorkspaceWithUpload({
+      api: {
+        create: vi.fn(async () => ({ ok: true, share })),
+        pushFiles: vi.fn(async () => ({
+          ok: true,
+          transferredFiles: 0,
+          skippedFiles: 0,
+          conflicts: []
+        }))
+      },
+      token: 'session-token-long-enough',
+      displayName: 'Project Alpha',
+      permission: 'download',
+      sourcePath: '/work/empty-project'
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      phase: 'upload',
+      share,
+      error:
+        'No project files were eligible for upload. Check the selected folder and excluded-file rules.',
+      conflicts: []
+    })
+  })
 })
