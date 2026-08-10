@@ -795,6 +795,17 @@ export type PreflightApi = {
     history: { role: 'user' | 'assistant'; content: string }[]
     attachments: TeamChatAttachment[]
   }) => Promise<{ ok: boolean; reply?: string; error?: string }>
+  runHermesLocalShellCommand: (args: {
+    requestId: string
+    command: string
+    cwd?: string
+  }) => Promise<{
+    ok: boolean
+    status?: 'completed' | 'cancelled'
+    exitCode?: number | null
+    output?: string
+    error?: string
+  }>
   cancelHermesTeamChat: (requestId: string) => Promise<{ ok: boolean; cancelled: boolean }>
   closeHermesTeamChatConversation: (
     conversationId: string
