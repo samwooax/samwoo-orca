@@ -3,6 +3,8 @@ import {
   shouldApplyProfileMessageResponse,
   shouldMarkProfileMessagesRead,
   shouldPollProfileMessages,
+  shouldRefreshProfileMessagesOnFocus,
+  shouldRefreshProfileMessagesOnScroll,
   shouldSubmitProfileMessageKey
 } from './profile-message-interaction-admission'
 
@@ -64,5 +66,28 @@ describe('profile message interaction admission', () => {
         backgroundRefreshMs: 30_000
       })
     ).toBe(true)
+  })
+
+  it('refreshes read admission immediately when the window becomes visible or reaches bottom', () => {
+    expect(
+      shouldRefreshProfileMessagesOnFocus({ documentHidden: false, documentHasFocus: true })
+    ).toBe(true)
+    expect(
+      shouldRefreshProfileMessagesOnFocus({ documentHidden: true, documentHasFocus: true })
+    ).toBe(false)
+    expect(
+      shouldRefreshProfileMessagesOnScroll({
+        wasAtBottom: false,
+        isAtBottom: true,
+        documentHasFocus: true
+      })
+    ).toBe(true)
+    expect(
+      shouldRefreshProfileMessagesOnScroll({
+        wasAtBottom: true,
+        isAtBottom: true,
+        documentHasFocus: true
+      })
+    ).toBe(false)
   })
 })

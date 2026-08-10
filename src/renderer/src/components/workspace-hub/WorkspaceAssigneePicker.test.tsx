@@ -28,7 +28,7 @@ describe('WorkspaceAssigneePicker', () => {
       </TooltipProvider>
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '1 assignees' }))
+    fireEvent.click(screen.getByRole('button', { name: '김동훈' }))
     expect(await screen.findByText('Hermes profile members')).toBeTruthy()
     expect(screen.queryByText('peer')).toBeNull()
     fireEvent.click(screen.getByText('동료'))
@@ -49,7 +49,7 @@ describe('WorkspaceAssigneePicker', () => {
       </TooltipProvider>
     )
 
-    expect(screen.getByRole('button', { name: '1 assignees' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: '동료' }).hasAttribute('disabled')).toBe(true)
   })
 
   it('replaces the selected login in single-assignee mode', async () => {

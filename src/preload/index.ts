@@ -2229,6 +2229,11 @@ const api = {
     samwooProfileMembers: {
       list: (token) => ipcRenderer.invoke('samwooProfileMembers:list', token)
     },
+    samwooHermesCron: {
+      list: (profile) => ipcRenderer.invoke('samwooHermesCron:list', profile),
+      upsert: (args) => ipcRenderer.invoke('samwooHermesCron:upsert', args),
+      action: (args) => ipcRenderer.invoke('samwooHermesCron:action', args)
+    },
     samwooConnectionHealth: (): Promise<{
       ok: boolean
       latencyMs?: number

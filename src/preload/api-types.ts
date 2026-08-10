@@ -61,6 +61,12 @@ import type {
   SendSamwooProfileMessageArgs
 } from '../shared/samwoo-profile-messaging'
 import type { SamwooProfileMembersResult } from '../shared/samwoo-profile-members'
+import type {
+  RunSamwooHermesCronActionArgs,
+  SamwooHermesCronMutationResult,
+  SamwooHermesCronStatus,
+  UpsertSamwooHermesCronArgs
+} from '../shared/samwoo-hermes-cron'
 import type { ReleaseChannel } from '../shared/release-channel'
 import type {
   HostQualifiedDetectedWorktreeResult,
@@ -846,6 +852,11 @@ export type PreflightApi = {
   }
   samwooProfileMembers: {
     list: (token: string) => Promise<SamwooProfileMembersResult>
+  }
+  samwooHermesCron: {
+    list: (profile: string) => Promise<SamwooHermesCronStatus>
+    upsert: (args: UpsertSamwooHermesCronArgs) => Promise<SamwooHermesCronMutationResult>
+    action: (args: RunSamwooHermesCronActionArgs) => Promise<SamwooHermesCronMutationResult>
   }
   samwooConnectionHealth: () => Promise<{
     ok: boolean

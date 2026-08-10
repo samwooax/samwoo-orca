@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildHermesCronSchedule,
   evaluateSamwooSchedule,
   isSamwooSchedule,
   nextOccurrenceAt,
@@ -46,6 +47,36 @@ describe('normalizeScheduleDays', () => {
 
   it('collapses all seven days to the every-day form', () => {
     expect(normalizeScheduleDays([0, 1, 2, 3, 4, 5, 6])).toEqual([])
+  })
+})
+
+describe('Hermes cron schedule conversion', () => {
+  it('supports five-minute and hourly recurring jobs without duplicate reservations', () => {
+    expect(buildHermesCronSchedule(schedule({ frequency: 'minutes', interval: 5 }))).toBe(
+      'every 5m'
+    )
+    expect(buildHermesCronSchedule(schedule({ frequency: 'hours', interval: 1 }))).toBe('every 1h')
+  })
+
+  it('converts daily weekday selection to a five-field cron expression', () => {
+    expect(
+      buildHermesCronSchedule(
+        schedule({ frequency: 'daily', interval: 1, time: '08:30', days: [1, 3, 5] })
+      )
+    ).toBe('30 8 * * 1,3,5')
+  })
+
+  it('converts Korean local time and weekdays to Hermes UTC', () => {
+    expect(
+      buildHermesCronSchedule(
+        schedule({ frequency: 'daily', interval: 1, time: '08:00', days: [1, 3] }),
+        -9 * 60
+      )
+    ).toBe('0 23 * * 0,2')
+  })
+
+  it('rejects intervals below the supported five-minute floor', () => {
+    expect(buildHermesCronSchedule(schedule({ frequency: 'minutes', interval: 4 }))).toBeNull()
   })
 })
 

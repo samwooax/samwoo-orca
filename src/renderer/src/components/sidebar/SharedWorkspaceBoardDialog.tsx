@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
+import { useSamwooProfileMemberStore } from '@/lib/samwoo-profile-member-store'
 import { isSamwooSessionError } from '@/lib/samwoo-session-validation'
 import {
   readSharedWorkspaceLocalPath,
@@ -75,6 +76,7 @@ export default function SharedWorkspaceBoardDialog({
   const [displayName, setDisplayName] = useState('')
   const [permission, setPermission] = useState<SamwooWorkspacePermission>('download')
   const logout = useSamwooAuthStore((state) => state.logout)
+  const loadMembers = useSamwooProfileMemberStore((state) => state.load)
   const [refreshing, setRefreshing] = useState(false)
   const [createStage, setCreateStage] = useState<'create' | 'upload' | null>(null)
   const busy = refreshing || createStage !== null
@@ -159,8 +161,11 @@ export default function SharedWorkspaceBoardDialog({
       // Why: projects discovered after startup must be available to the share picker.
       void fetchReposForAllHosts()
       void refresh()
+      if (auth?.token && auth.login) {
+        void loadMembers(auth.token, auth.login)
+      }
     }
-  }, [fetchReposForAllHosts, open, refresh])
+  }, [auth?.login, auth?.token, fetchReposForAllHosts, loadMembers, open, refresh])
 
   useEffect(() => {
     if (!open) {

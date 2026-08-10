@@ -25,7 +25,9 @@ const share: SamwooWorkspaceShare = {
   isOwner: true,
   commentCount: 3,
   workItemCount: 5,
-  completedWorkItemCount: 2
+  completedWorkItemCount: 2,
+  boardStatusUpdatedBy: 'peer',
+  boardStatusUpdatedAt: 2
 }
 const roots: Root[] = []
 
@@ -88,6 +90,8 @@ describe('WorkspaceHubViews', () => {
     expect(container.textContent).toContain('Due date')
     expect(container.querySelector('.text-destructive')).not.toBeNull()
     expect(container.textContent).toContain('2/5 work items complete')
+    expect(container.textContent).toContain('동료 ·')
+    expect(container.textContent).not.toContain('peer ·')
 
     await act(async () => {
       container.querySelector<HTMLElement>('[role="button"]')?.click()

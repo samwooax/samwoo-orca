@@ -6,6 +6,7 @@ import {
   SAMWOO_SCHEDULE_MAX_COUNT,
   SAMWOO_SCHEDULE_PROMPT_MAX_CHARS,
   type SamwooSchedule,
+  type SamwooScheduleFrequency,
   type SamwooScheduleRun
 } from '../../../shared/samwoo-schedule'
 
@@ -21,8 +22,17 @@ type PersistedState = {
 }
 
 type SamwooScheduleState = PersistedState & {
-  addSchedule: (input: { prompt: string; time: string; days: number[] }) => SamwooSchedule | null
-  updateSchedule: (id: string, patch: Partial<Pick<SamwooSchedule, 'enabled'>>) => void
+  addSchedule: (input: {
+    prompt: string
+    time: string
+    days: number[]
+    frequency: SamwooScheduleFrequency
+    interval: number
+  }) => SamwooSchedule | null
+  updateSchedule: (
+    id: string,
+    patch: Partial<Pick<SamwooSchedule, 'enabled' | 'remoteJobId'>>
+  ) => void
   removeSchedule: (id: string) => void
   recordRun: (run: SamwooScheduleRun) => void
 }
@@ -37,7 +47,15 @@ function load(): PersistedState {
     }
     const parsed = JSON.parse(raw) as Partial<PersistedState>
     const schedules = Array.isArray(parsed.schedules)
-      ? parsed.schedules.filter(isSamwooSchedule).slice(0, SAMWOO_SCHEDULE_MAX_COUNT)
+      ? parsed.schedules
+          .filter(isSamwooSchedule)
+          .slice(0, SAMWOO_SCHEDULE_MAX_COUNT)
+          .map((schedule) => ({
+            ...schedule,
+            frequency: schedule.frequency ?? 'daily',
+            interval: schedule.interval ?? 1,
+            remoteJobId: schedule.remoteJobId ?? null
+          }))
       : []
     const runs: Record<string, SamwooScheduleRun> = {}
     const known = new Set(schedules.map((schedule) => schedule.id))
@@ -70,13 +88,16 @@ function newScheduleId(): string {
 
 export const useSamwooScheduleStore = create<SamwooScheduleState>((set, get) => ({
   ...load(),
-  addSchedule: ({ prompt, time, days }) => {
+  addSchedule: ({ prompt, time, days, frequency, interval }) => {
     const trimmed = prompt.trim().slice(0, SAMWOO_SCHEDULE_PROMPT_MAX_CHARS)
     const schedule: SamwooSchedule = {
       id: newScheduleId(),
       prompt: trimmed,
       time: time.trim(),
       days: normalizeScheduleDays(days),
+      frequency,
+      interval,
+      remoteJobId: null,
       enabled: true,
       createdAt: Date.now()
     }

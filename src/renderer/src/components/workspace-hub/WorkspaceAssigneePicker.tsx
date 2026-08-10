@@ -12,7 +12,11 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
-import { profileMemberDisplayName, profileMemberInitial } from '@/lib/profile-member-display'
+import {
+  profileMemberDisplayName,
+  profileMemberInitial,
+  profileMemberNameMap
+} from '@/lib/profile-member-display'
 import { canonicalSamwooLogin } from '../../../../shared/samwoo-login-identity'
 import type { SamwooProfileMember } from '../../../../shared/samwoo-profile-members'
 
@@ -62,16 +66,12 @@ export default function WorkspaceAssigneePicker({
   selectionMode?: 'multiple' | 'single'
   onChange: (logins: string[]) => void
 }): React.JSX.Element {
-  const memberNames = new Map(
-    members.map((member) => [canonicalSamwooLogin(member.login), member.name])
-  )
+  const memberNames = profileMemberNameMap(members)
   const selected = new Set(selectedLogins.map(canonicalSamwooLogin))
   const selectedLabel = selectedLogins.length
-    ? selectionMode === 'single'
-      ? profileMemberDisplayName(selectedLogins[0], undefined, memberNames)
-      : translate('samwoo.workspaceHub.assigneeCount', '{{count}} assignees', {
-          count: selectedLogins.length
-        })
+    ? selectedLogins
+        .map((login) => profileMemberDisplayName(login, undefined, memberNames))
+        .join(', ')
     : translate('samwoo.workspaceHub.unassigned', 'Unassigned')
   const toggle = (login: string): void => {
     const key = canonicalSamwooLogin(login)

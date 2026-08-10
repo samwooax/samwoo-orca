@@ -3021,6 +3021,36 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
         )
       })
     },
+    samwooHermesCron: {
+      list: async () => ({
+        ok: false,
+        schedulerHealthy: false,
+        heartbeatAt: null,
+        jobs: [],
+        error: translate(
+          'samwoo.schedules.webUnavailable',
+          'Hermes cron is unavailable in the web client.'
+        )
+      }),
+      upsert: async () => ({
+        ok: false,
+        schedulerHealthy: false,
+        heartbeatAt: null,
+        error: translate(
+          'samwoo.schedules.webUnavailable',
+          'Hermes cron is unavailable in the web client.'
+        )
+      }),
+      action: async () => ({
+        ok: false,
+        schedulerHealthy: false,
+        heartbeatAt: null,
+        error: translate(
+          'samwoo.schedules.webUnavailable',
+          'Hermes cron is unavailable in the web client.'
+        )
+      })
+    },
     samwooConnectionHealth: () =>
       Promise.resolve({
         ok: false,

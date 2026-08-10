@@ -1,4 +1,5 @@
 import { translate } from '@/i18n/i18n'
+import { profileMemberDisplayName } from '@/lib/profile-member-display'
 
 const AUDIT_COPY = {
   assignee: {
@@ -18,11 +19,13 @@ const AUDIT_COPY = {
 export default function WorkspaceDetailAuditLine({
   kind,
   name,
-  updatedAt
+  updatedAt,
+  memberNames
 }: {
   kind: keyof typeof AUDIT_COPY
   name?: string | null
   updatedAt?: number | null
+  memberNames: ReadonlyMap<string, string>
 }): React.JSX.Element | null {
   if (!name) {
     return null
@@ -31,7 +34,7 @@ export default function WorkspaceDetailAuditLine({
   return (
     <p className="mt-1 truncate text-[11px] text-muted-foreground">
       {translate(copy.key, copy.fallback, {
-        name,
+        name: profileMemberDisplayName(name, undefined, memberNames),
         time: new Date(updatedAt ?? 0).toLocaleString()
       })}
     </p>

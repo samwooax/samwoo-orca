@@ -6,12 +6,14 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
+import { profileMemberDisplayName } from '@/lib/profile-member-display'
 import type { SamwooWorkspaceComment } from '../../../../shared/samwoo-workspace-sharing'
 
 type Props = {
   shareId: string
   token: string
   initialCount: number
+  memberNames: ReadonlyMap<string, string>
 }
 
 // Why: the central catalog has no push channel, so refresh open threads without user action.
@@ -21,7 +23,8 @@ const COMMENT_LABEL_LENGTH = 80
 export default function SharedWorkspaceComments({
   shareId,
   token,
-  initialCount
+  initialCount,
+  memberNames
 }: Props): React.JSX.Element {
   const [expanded, setExpanded] = useState(false)
   const [comments, setComments] = useState<SamwooWorkspaceComment[]>([])
@@ -292,12 +295,19 @@ export default function SharedWorkspaceComments({
                       {comment.body}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {comment.authorLogin} · {formatCommentTime(comment.createdAt)}
+                      {profileMemberDisplayName(comment.authorLogin, undefined, memberNames)} ·{' '}
+                      {formatCommentTime(comment.createdAt)}
                       {comment.completed && comment.completedBy
                         ? ` · ${translate(
                             'samwoo.workspaceSharing.completedBy',
                             'Completed by {{name}}',
-                            { name: comment.completedBy }
+                            {
+                              name: profileMemberDisplayName(
+                                comment.completedBy,
+                                undefined,
+                                memberNames
+                              )
+                            }
                           )}`
                         : ''}
                     </p>

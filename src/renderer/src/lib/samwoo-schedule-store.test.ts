@@ -75,16 +75,36 @@ describe('SAMWOO schedule store', () => {
   it('rejects a blank prompt and an invalid time', async () => {
     const { useSamwooScheduleStore } = await import('./samwoo-schedule-store')
     const store = useSamwooScheduleStore.getState()
-    expect(store.addSchedule({ prompt: '   ', time: '08:00', days: [] })).toBeNull()
-    expect(store.addSchedule({ prompt: 'ok', time: '8:00', days: [] })).toBeNull()
+    expect(
+      store.addSchedule({
+        prompt: '   ',
+        time: '08:00',
+        days: [],
+        frequency: 'daily',
+        interval: 1
+      })
+    ).toBeNull()
+    expect(
+      store.addSchedule({
+        prompt: 'ok',
+        time: '8:00',
+        days: [],
+        frequency: 'daily',
+        interval: 1
+      })
+    ).toBeNull()
     expect(useSamwooScheduleStore.getState().schedules).toEqual([])
   })
 
   it('persists an added schedule and removes it with its run record', async () => {
     const { useSamwooScheduleStore } = await import('./samwoo-schedule-store')
-    const created = useSamwooScheduleStore
-      .getState()
-      .addSchedule({ prompt: 'daily report', time: '09:30', days: [0, 1, 2, 3, 4, 5, 6] })
+    const created = useSamwooScheduleStore.getState().addSchedule({
+      prompt: 'daily report',
+      time: '09:30',
+      days: [0, 1, 2, 3, 4, 5, 6],
+      frequency: 'daily',
+      interval: 1
+    })
     expect(created).not.toBeNull()
     // All seven days collapse to the every-day form.
     expect(created?.days).toEqual([])
@@ -113,14 +133,20 @@ describe('SAMWOO schedule store', () => {
         useSamwooScheduleStore.getState().addSchedule({
           prompt: `job ${index}`,
           time: '08:00',
-          days: []
+          days: [],
+          frequency: 'daily',
+          interval: 1
         })
       ).not.toBeNull()
     }
     expect(
-      useSamwooScheduleStore
-        .getState()
-        .addSchedule({ prompt: 'one too many', time: '08:00', days: [] })
+      useSamwooScheduleStore.getState().addSchedule({
+        prompt: 'one too many',
+        time: '08:00',
+        days: [],
+        frequency: 'daily',
+        interval: 1
+      })
     ).toBeNull()
     expect(useSamwooScheduleStore.getState().schedules).toHaveLength(SAMWOO_SCHEDULE_MAX_COUNT)
   })

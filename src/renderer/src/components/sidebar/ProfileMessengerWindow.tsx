@@ -20,7 +20,9 @@ import ProfileOnlineMembers from './ProfileOnlineMembers'
 import { mergeProfileMessages } from './ProfileMessageRow'
 import {
   shouldApplyProfileMessageResponse,
-  shouldMarkProfileMessagesRead
+  shouldMarkProfileMessagesRead,
+  shouldRefreshProfileMessagesOnFocus,
+  shouldRefreshProfileMessagesOnScroll
 } from './profile-message-interaction-admission'
 import { useProfileMessagePolling } from './use-profile-message-polling'
 import { useProfileMessageLiveUpdates } from './use-profile-message-live-updates'
@@ -202,6 +204,25 @@ export default function ProfileMessengerWindow({
     refreshMessages
   })
 
+  useEffect(() => {
+    const markVisibleMessages = (): void => {
+      if (
+        shouldRefreshProfileMessagesOnFocus({
+          documentHidden: document.hidden,
+          documentHasFocus: document.hasFocus()
+        })
+      ) {
+        void refreshMessages(false)
+      }
+    }
+    window.addEventListener('focus', markVisibleMessages)
+    document.addEventListener('visibilitychange', markVisibleMessages)
+    return () => {
+      window.removeEventListener('focus', markVisibleMessages)
+      document.removeEventListener('visibilitychange', markVisibleMessages)
+    }
+  }, [refreshMessages])
+
   useEffect(() => window.api.messenger.onSelectChannel(selectChannel), [selectChannel])
   useEffect(() => {
     if (stickToBottomRef.current) {
@@ -311,10 +332,7 @@ export default function ProfileMessengerWindow({
                 : selectedChannel?.label}
             </h2>
             {visibleOnlineLogins ? (
-              <ProfileOnlineMembers
-                onlineLogins={visibleOnlineLogins}
-                memberNames={memberNames}
-              />
+              <ProfileOnlineMembers onlineLogins={visibleOnlineLogins} memberNames={memberNames} />
             ) : null}
           </div>
         </header>
@@ -323,8 +341,19 @@ export default function ProfileMessengerWindow({
           className="min-h-0 flex-1 overflow-y-auto px-5 py-3 scrollbar-sleek"
           onScroll={(event) => {
             const viewport = event.currentTarget
-            stickToBottomRef.current =
+            const wasAtBottom = stickToBottomRef.current
+            const isAtBottom =
               viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 80
+            stickToBottomRef.current = isAtBottom
+            if (
+              shouldRefreshProfileMessagesOnScroll({
+                wasAtBottom,
+                isAtBottom,
+                documentHasFocus: document.hasFocus()
+              })
+            ) {
+              void refreshMessages(false)
+            }
           }}
         >
           {hasOlder ? (

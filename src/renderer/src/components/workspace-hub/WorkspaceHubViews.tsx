@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { translate } from '@/i18n/i18n'
+import { profileMemberDisplayName, profileMemberNameMap } from '@/lib/profile-member-display'
 import { cn } from '@/lib/utils'
 import type { WorkspaceStatusDefinition } from '../../../../shared/types'
 import type { SamwooWorkspaceShare } from '../../../../shared/samwoo-workspace-sharing'
@@ -81,6 +82,7 @@ function WorkspaceListRow({
   selected: boolean
 }): React.JSX.Element {
   const name = getSharedWorkspaceDisplayName(share, login)
+  const memberNames = profileMemberNameMap(members)
   return (
     <div
       role="button"
@@ -155,7 +157,9 @@ function WorkspaceListRow({
         {getSamwooWorkspacePermissionLabel(share.permission)}
       </span>
       <span className="text-xs text-muted-foreground">
-        {share.boardStatusUpdatedBy ? `${share.boardStatusUpdatedBy} · ` : ''}
+        {share.boardStatusUpdatedBy
+          ? `${profileMemberDisplayName(share.boardStatusUpdatedBy, undefined, memberNames)} · `
+          : ''}
         {formatSharedWorkspaceUpdatedAt(share.boardStatusUpdatedAt ?? share.updatedAt)}
       </span>
       <DropdownMenu>

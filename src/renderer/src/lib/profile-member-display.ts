@@ -1,3 +1,17 @@
+import { canonicalSamwooLogin } from '../../../shared/samwoo-login-identity'
+import type { SamwooProfileMember } from '../../../shared/samwoo-profile-members'
+
+export function profileMemberNameMap(
+  members: readonly SamwooProfileMember[]
+): ReadonlyMap<string, string> {
+  return new Map(
+    members.map((member) => [
+      canonicalSamwooLogin(member.login),
+      member.name.trim() || member.login
+    ])
+  )
+}
+
 export function profileMemberDisplayName(
   login: string,
   directName?: string | null,
@@ -17,4 +31,3 @@ export function profileMemberInitial(
     '#'
   )
 }
-import { canonicalSamwooLogin } from '../../../shared/samwoo-login-identity'

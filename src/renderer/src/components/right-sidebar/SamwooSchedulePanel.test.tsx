@@ -2,7 +2,7 @@
 
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useSamwooScheduleStore } from '@/lib/samwoo-schedule-store'
@@ -21,6 +21,39 @@ describe('SamwooSchedulePanel', () => {
     useSamwooScheduleStore.setState({ schedules: [], runs: {} })
     useSamwooAuthStore.setState({
       auth: { login: 'member', name: 'Member', role: 'planning', label: 'Planning', token: 'tok' }
+    })
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      value: {
+        preflight: {
+          samwooHermesCron: {
+            list: vi.fn(async () => ({
+              ok: true,
+              schedulerHealthy: true,
+              heartbeatAt: new Date().toISOString(),
+              jobs: []
+            })),
+            upsert: vi.fn(async ({ schedule }) => ({
+              ok: true,
+              schedulerHealthy: true,
+              heartbeatAt: new Date().toISOString(),
+              job: {
+                id: 'job-1',
+                name: `SAMWOO-ORCA:${schedule.id}`,
+                prompt: schedule.prompt,
+                scheduleDisplay: 'daily',
+                enabled: true,
+                state: 'scheduled',
+                nextRunAt: new Date(Date.now() + 60_000).toISOString(),
+                lastRunAt: null,
+                lastStatus: null,
+                lastError: null
+              }
+            })),
+            action: vi.fn()
+          }
+        }
+      }
     })
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -52,12 +85,10 @@ describe('SamwooSchedulePanel', () => {
     expect(container.querySelector('textarea')).toBeNull()
   })
 
-  it('states the app-only limitation up front', async () => {
+  it('states the server execution contract and verified scheduler state', async () => {
     await render()
-    // Why assert this: it is the one behaviour a scheduling UI is expected to
-    // have and this one deliberately does not — it must never be discovered by
-    // a missed run.
-    expect(textOf(container)).toContain('only while this app is open')
+    expect(textOf(container)).toContain('runs even when this app is closed')
+    expect(textOf(container)).toContain('Hermes cron scheduler is running')
   })
 
   it('shows the empty state until a schedule exists, then renders the row', async () => {
@@ -65,9 +96,13 @@ describe('SamwooSchedulePanel', () => {
     expect(textOf(container)).toContain('No schedules yet')
 
     await act(async () => {
-      useSamwooScheduleStore
-        .getState()
-        .addSchedule({ prompt: '아침 메일 요약', time: '08:00', days: [1, 2, 3, 4, 5] })
+      useSamwooScheduleStore.getState().addSchedule({
+        prompt: '아침 메일 요약',
+        time: '08:00',
+        days: [1, 2, 3, 4, 5],
+        frequency: 'daily',
+        interval: 1
+      })
       await Promise.resolve()
     })
 
@@ -76,15 +111,19 @@ describe('SamwooSchedulePanel', () => {
     expect(textOf(container)).not.toContain('No schedules yet')
   })
 
-  it('renders a paused schedule without claiming a next run time', async () => {
+  it('renders a locally paused legacy schedule as unregistered until migration confirms it', async () => {
     await act(async () => {
-      const created = useSamwooScheduleStore
-        .getState()
-        .addSchedule({ prompt: '주간 리포트', time: '17:00', days: [5] })
+      const created = useSamwooScheduleStore.getState().addSchedule({
+        prompt: '주간 리포트',
+        time: '17:00',
+        days: [5],
+        frequency: 'daily',
+        interval: 1
+      })
       useSamwooScheduleStore.getState().updateSchedule(created!.id, { enabled: false })
       await Promise.resolve()
     })
     await render()
-    expect(textOf(container)).toContain('Paused')
+    expect(textOf(container)).toContain('Hermes cron')
   })
 })

@@ -48,13 +48,22 @@ describe('SharedWorkspaceComments refresh ordering', () => {
       }
     })
 
-    render(<SharedWorkspaceComments shareId="share-1" token="token-123" initialCount={0} />)
+    render(
+      <SharedWorkspaceComments
+        shareId="share-1"
+        token="token-123"
+        initialCount={0}
+        memberNames={new Map([['peer', '동료']])}
+      />
+    )
     fireEvent.click(screen.getByRole('button', { name: /Comments/ }))
     await waitFor(() => expect(listComments).toHaveBeenCalledOnce())
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '새 작업' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add comment' }))
     await screen.findByText('새 작업')
+    expect(screen.getByText(/동료 ·/)).toBeInTheDocument()
+    expect(screen.queryByText(/peer ·/)).not.toBeInTheDocument()
 
     await act(async () => {
       resolvePoll({

@@ -16,6 +16,8 @@ export const SAMWOO_SCHEDULE_MAX_COUNT = 20
  *  morning, but a week-old occurrence firing on launch would surprise the user. */
 export const SAMWOO_SCHEDULE_CATCH_UP_WINDOW_MS = 12 * 60 * 60 * 1000
 
+export type SamwooScheduleFrequency = 'minutes' | 'hours' | 'daily'
+
 export type SamwooSchedule = {
   id: string
   /** Natural-language instruction handed to the team bot verbatim. */
@@ -24,6 +26,12 @@ export type SamwooSchedule = {
   time: string
   /** Local weekdays (0=Sunday … 6=Saturday). Empty means every day. */
   days: number[]
+  /** Missing on v1 schedules; those records migrate as daily schedules. */
+  frequency?: SamwooScheduleFrequency
+  /** Used by minute/hour schedules. Daily schedules keep this at 1. */
+  interval?: number
+  /** Verified Hermes cron job id. Missing until a legacy local schedule is migrated. */
+  remoteJobId?: string | null
   enabled: boolean
   createdAt: number
 }
@@ -48,6 +56,54 @@ export type SamwooScheduleEvaluation = {
 }
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
+const REMOTE_JOB_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/
+
+export function scheduleFrequency(schedule: SamwooSchedule): SamwooScheduleFrequency {
+  return schedule.frequency ?? 'daily'
+}
+
+export function isValidScheduleInterval(
+  frequency: SamwooScheduleFrequency,
+  interval: number
+): boolean {
+  if (!Number.isInteger(interval)) {
+    return false
+  }
+  if (frequency === 'minutes') {
+    return interval >= 5 && interval <= 59
+  }
+  if (frequency === 'hours') {
+    return interval >= 1 && interval <= 24
+  }
+  return interval === 1
+}
+
+export function buildHermesCronSchedule(
+  schedule: SamwooSchedule,
+  timezoneOffsetMinutes = 0
+): string | null {
+  const frequency = scheduleFrequency(schedule)
+  const interval = schedule.interval ?? 1
+  if (!isValidScheduleInterval(frequency, interval)) {
+    return null
+  }
+  if (frequency === 'minutes') {
+    return `every ${interval}m`
+  }
+  if (frequency === 'hours') {
+    return `every ${interval}h`
+  }
+  const parsed = parseScheduleTime(schedule.time)
+  if (!parsed || !Number.isInteger(timezoneOffsetMinutes)) {
+    return null
+  }
+  const weekdays = normalizeScheduleDays(schedule.days)
+  const utcMinutes = parsed.hour * 60 + parsed.minute + timezoneOffsetMinutes
+  const dayShift = Math.floor(utcMinutes / (24 * 60))
+  const normalizedMinutes = ((utcMinutes % (24 * 60)) + 24 * 60) % (24 * 60)
+  const utcWeekdays = weekdays.map((day) => (day + dayShift + 7) % 7).sort((a, b) => a - b)
+  return `${normalizedMinutes % 60} ${Math.floor(normalizedMinutes / 60)} * * ${utcWeekdays.length === 0 ? '*' : utcWeekdays.join(',')}`
+}
 
 export function parseScheduleTime(time: string): { hour: number; minute: number } | null {
   const match = TIME_RE.exec(time.trim())
@@ -81,6 +137,16 @@ export function isSamwooSchedule(value: unknown): value is SamwooSchedule {
     parseScheduleTime(candidate.time) !== null &&
     Array.isArray(candidate.days) &&
     candidate.days.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
+    (candidate.frequency === undefined ||
+      candidate.frequency === 'minutes' ||
+      candidate.frequency === 'hours' ||
+      candidate.frequency === 'daily') &&
+    (candidate.interval === undefined ||
+      isValidScheduleInterval(candidate.frequency ?? 'daily', candidate.interval)) &&
+    (candidate.remoteJobId === undefined ||
+      candidate.remoteJobId === null ||
+      (typeof candidate.remoteJobId === 'string' &&
+        REMOTE_JOB_ID_RE.test(candidate.remoteJobId))) &&
     typeof candidate.enabled === 'boolean' &&
     typeof candidate.createdAt === 'number' &&
     Number.isFinite(candidate.createdAt)
@@ -144,6 +210,15 @@ export function previousOccurrenceAt(schedule: SamwooSchedule, nowMs: number): n
 
 /** Earliest occurrence strictly after `fromMs`, or null when the time is invalid. */
 export function nextOccurrenceAt(schedule: SamwooSchedule, fromMs: number): number | null {
+  const frequency = scheduleFrequency(schedule)
+  if (frequency !== 'daily') {
+    const interval = schedule.interval ?? 1
+    if (!isValidScheduleInterval(frequency, interval)) {
+      return null
+    }
+    const unitMs = frequency === 'minutes' ? 60_000 : 3_600_000
+    return fromMs + interval * unitMs
+  }
   const parsed = parseScheduleTime(schedule.time)
   if (!parsed) {
     return null

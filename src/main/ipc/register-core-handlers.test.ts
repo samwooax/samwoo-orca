@@ -13,6 +13,7 @@ const {
   registerSamwooWorkspaceSharingHandlersMock,
   registerSamwooConnectionHealthHandlersMock,
   registerSamwooEventStreamHandlersMock,
+  registerSamwooHermesCronHandlersMock,
   registerClaudeUsageHandlersMock,
   registerCodexUsageHandlersMock,
   registerOpenCodeUsageHandlersMock,
@@ -86,6 +87,7 @@ const {
   registerSamwooWorkspaceSharingHandlersMock: vi.fn(),
   registerSamwooConnectionHealthHandlersMock: vi.fn(),
   registerSamwooEventStreamHandlersMock: vi.fn(),
+  registerSamwooHermesCronHandlersMock: vi.fn(),
   registerClaudeUsageHandlersMock: vi.fn(),
   registerCodexUsageHandlersMock: vi.fn(),
   registerOpenCodeUsageHandlersMock: vi.fn(),
@@ -218,6 +220,9 @@ vi.mock('./samwoo-event-stream', () => ({
 }))
 vi.mock('./samwoo-connection-health', () => ({
   registerSamwooConnectionHealthHandlers: registerSamwooConnectionHealthHandlersMock
+}))
+vi.mock('./samwoo-hermes-cron', () => ({
+  registerSamwooHermesCronHandlers: registerSamwooHermesCronHandlersMock
 }))
 
 vi.mock('./claude-usage', () => ({
@@ -605,6 +610,7 @@ describe('registerCoreHandlers', () => {
     expect(registerSamwooWorkspaceSharingHandlersMock).toHaveBeenCalled()
     expect(registerSamwooConnectionHealthHandlersMock).toHaveBeenCalled()
     expect(registerSamwooEventStreamHandlersMock).toHaveBeenCalled()
+    expect(registerSamwooHermesCronHandlersMock).toHaveBeenCalled()
     expect(registerShellHandlersMock).toHaveBeenCalledWith(store)
     expect(registerClipboardHandlersMock).toHaveBeenCalledWith(store)
     expect(registerUpdaterHandlersMock).toHaveBeenCalled()

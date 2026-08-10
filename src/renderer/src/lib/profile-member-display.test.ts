@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { profileMemberDisplayName, profileMemberInitial } from './profile-member-display'
+import {
+  profileMemberDisplayName,
+  profileMemberInitial,
+  profileMemberNameMap
+} from './profile-member-display'
 
 describe('profile member display', () => {
   const members = new Map([
@@ -19,5 +23,11 @@ describe('profile member display', () => {
   it('uses the first Unicode character of the resolved name', () => {
     expect(profileMemberInitial('alpha', null, members)).toBe('멤')
     expect(profileMemberInitial('beta', null, members)).toBe('B')
+  })
+
+  it('builds a canonical name directory for workspace audit identities', () => {
+    const directory = profileMemberNameMap([{ login: 'ALPHA@Company.Test', name: '김동훈' }])
+
+    expect(profileMemberDisplayName('alpha', undefined, directory)).toBe('김동훈')
   })
 })

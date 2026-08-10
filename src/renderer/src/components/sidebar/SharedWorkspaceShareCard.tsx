@@ -12,7 +12,9 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { translate } from '@/i18n/i18n'
+import { profileMemberDisplayName, profileMemberNameMap } from '@/lib/profile-member-display'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
+import { useSamwooProfileMemberStore } from '@/lib/samwoo-profile-member-store'
 import {
   readSharedWorkspaceAlias,
   writeSharedWorkspaceAlias
@@ -56,6 +58,8 @@ export default function SharedWorkspaceShareCard({
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const token = useSamwooAuthStore((state) => state.auth?.token)
   const workspaceStatuses = useAppStore((state) => state.workspaceStatuses)
+  const members = useSamwooProfileMemberStore((state) => state.members)
+  const memberNames = profileMemberNameMap(members)
   const localName = alias.trim() || share.displayName
   const sync = useSharedWorkspaceSync({ share, login, localName, onRefresh })
   const hasCentralBoardStatus = typeof share.boardStatus === 'string'
@@ -207,7 +211,11 @@ export default function SharedWorkspaceShareCard({
                   'samwoo.workspaceSharing.boardStatusAudit',
                   'Updated by {{name}} · {{time}}',
                   {
-                    name: share.boardStatusUpdatedBy,
+                    name: profileMemberDisplayName(
+                      share.boardStatusUpdatedBy,
+                      undefined,
+                      memberNames
+                    ),
                     time: new Date(share.boardStatusUpdatedAt ?? 0).toLocaleString()
                   }
                 )}
@@ -240,6 +248,7 @@ export default function SharedWorkspaceShareCard({
             shareId={share.id}
             token={token}
             initialCount={share.commentCount ?? 0}
+            memberNames={memberNames}
           />
         ) : null}
         <div className="flex justify-end gap-2">

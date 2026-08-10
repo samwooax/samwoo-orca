@@ -29,3 +29,18 @@ export function shouldPollProfileMessages(args: {
 }): boolean {
   return !args.documentHidden || args.elapsedMs >= args.backgroundRefreshMs
 }
+
+export function shouldRefreshProfileMessagesOnFocus(args: {
+  documentHidden: boolean
+  documentHasFocus: boolean
+}): boolean {
+  return !args.documentHidden && args.documentHasFocus
+}
+
+export function shouldRefreshProfileMessagesOnScroll(args: {
+  wasAtBottom: boolean
+  isAtBottom: boolean
+  documentHasFocus: boolean
+}): boolean {
+  return !args.wasAtBottom && args.isAtBottom && args.documentHasFocus
+}

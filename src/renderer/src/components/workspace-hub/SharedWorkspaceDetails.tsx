@@ -12,6 +12,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { translate } from '@/i18n/i18n'
+import { profileMemberNameMap } from '@/lib/profile-member-display'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useSamwooMessageInboxStore } from '@/lib/samwoo-message-inbox-store'
 import {
@@ -75,6 +76,7 @@ export default function SharedWorkspaceDetails({
   const canUpdateStatus =
     typeof share.boardStatus === 'string' && (share.isOwner || share.permission === 'contribute')
   const hasLocalBoardStatus = workspaceStatuses.some((status) => status.id === boardStatus)
+  const memberNames = profileMemberNameMap(members)
 
   useEffect(() => setName(share.displayName), [share.displayName])
   useEffect(() => setAlias(readSharedWorkspaceAlias(login, share.id)), [login, share.id])
@@ -193,6 +195,7 @@ export default function SharedWorkspaceDetails({
                 kind="assignee"
                 name={share.assigneesUpdatedBy}
                 updatedAt={share.assigneesUpdatedAt}
+                memberNames={memberNames}
               />
             </div>
           </div>
@@ -215,6 +218,7 @@ export default function SharedWorkspaceDetails({
                 kind="dueDate"
                 name={share.dueDateUpdatedBy}
                 updatedAt={share.dueDateUpdatedAt}
+                memberNames={memberNames}
               />
             </div>
           </div>
@@ -294,6 +298,7 @@ export default function SharedWorkspaceDetails({
                 kind="boardStatus"
                 name={share.boardStatusUpdatedBy}
                 updatedAt={share.boardStatusUpdatedAt}
+                memberNames={memberNames}
               />
             </div>
           </div>
@@ -356,6 +361,7 @@ export default function SharedWorkspaceDetails({
             shareId={share.id}
             token={token}
             initialCount={share.commentCount ?? 0}
+            memberNames={memberNames}
           />
         ) : null}
         {share.isOwner ? (

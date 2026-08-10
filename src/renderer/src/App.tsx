@@ -98,7 +98,6 @@ import { useDashboardPopoutBridge } from './components/dashboard/useDashboardPop
 import { useUnreadDockBadge } from './hooks/useUnreadDockBadge'
 import { useSamwooMessageNotifications } from './hooks/useSamwooMessageNotifications'
 import { useSamwooEventStream } from './hooks/useSamwooEventStream'
-import { useSamwooScheduleRunner } from './hooks/useSamwooScheduleRunner'
 import { useMessengerPopoutBridge } from './hooks/useMessengerPopoutBridge'
 import {
   resolvePrimarySelectionMiddleClickPaste,
@@ -445,7 +444,6 @@ function App(): React.JSX.Element {
   const clearUnreadDockBadge = useUnreadDockBadge()
   useSamwooEventStream(true)
   useSamwooMessageNotifications()
-  useSamwooScheduleRunner()
   useMessengerPopoutBridge()
   useRadixBodyPointerEventsRecovery()
   useWebSessionTabsSync()
