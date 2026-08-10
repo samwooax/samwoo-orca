@@ -73,8 +73,8 @@ jobs:
         run: |
           pnpm exec electron-builder --config config/electron-builder.config.cjs --win --dir --publish never
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not (Test-Path 'dist/win-unpacked/Orca.exe')) {
-            throw 'electron-builder did not produce dist/win-unpacked/Orca.exe'
+          if (-not (Test-Path 'dist/win-unpacked/SAMWOO-ORCA.exe')) {
+            throw 'electron-builder did not produce dist/win-unpacked/SAMWOO-ORCA.exe'
           }
 
       - name: Smoke packaged CLI
