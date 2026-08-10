@@ -417,6 +417,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `edff354cf` | `v1.4.186` 릴리스 전 결정 로그·아이콘·고아 로케일 항목 정리 |
 | `12ffde36d` | W12 인앱 예약 지시·우측 사이드탭·무인 턴 로컬 도구 거절 |
 | `5eb6dd155` | W12 공개용 패키지 버전 `1.4.187` 반영 |
+| `663d6c626` | `v1.4.188` 워크스페이스 카드 드래그·담당자 실명·상세 패널, 온라인 실명 명단, 일반 예약의 메일 토큰 선택 전달 |
 
 ### 14.1 릴리스 이력 (2026-08-10)
 
@@ -426,7 +427,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.184` | 공개 유지 | 크래시 수정 + 허브 2단계(담당자·마감일·작업 항목) |
 | `v1.4.185` | 공개 유지 | one-click 전체 사용자 설치기 |
 | `v1.4.186` | 공개 유지 | login 정규화·기존 DB 멱등 마이그레이션·프로필 채팅과 워크스페이스 UI 정리. Actions run `31318757576` |
-| `v1.4.187` | **공개 — 최신** | W12 인앱 예약 지시·우측 예약 탭·무인 턴 로컬 도구 거절. Actions run `31341733681` |
+| `v1.4.187` | 공개 유지 | W12 인앱 예약 지시·우측 예약 탭·무인 턴 로컬 도구 거절. Actions run `31341733681` |
+| `v1.4.188` | **공개 — 최신** | 워크스페이스·메신저 UI 보완과 일반 예약의 메일 토큰 의존성 분리. Actions run `31346008860` |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
@@ -489,6 +491,13 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 - 공개 EXE 크기는 `185696728`, SHA-256은 `7c1b55e47c0cadd773acac624d59c18d09a55074c383a021eae7452e059e0257`이며 GitHub 자산 digest와 독립 다운로드 결과가 일치한다.
 - 공개 `latest.yml`은 버전 `1.4.187`, `isAdminRightsRequired: true`, EXE SHA-512 `gqLn34mwwDBLa8SuX6BzaREdXuCXn3MSEVw4DPTL/V3b8AsvErXxA53yHAjtgjLPpv/6U2Szn8xzc5hweG0WoA==`와 실제 크기를 반환한다.
 - 기존 `v1.4.186`은 공개 상태로 유지한다. 사용자 앱의 업데이트 버튼으로 `v1.4.187`을 설치한 뒤 예약 등록·재시작 catch-up·지금 실행을 GUI에서 실측한다.
+
+### 17.5 v1.4.188 협업 UI 보완 Windows 공개 — 2026-08-10
+
+- 커밋 `663d6c626`에서 워크스페이스 카드 전체 드래그, 담당자 실명 표시, 상세 패널 밀도 조정, 메신저 온라인 실명 명단과 일반 예약의 메일 토큰 선택 전달을 반영했다.
+- Actions run `31346008860`에서 SAMWOO 통합·설치기 계약·Python 서버 테스트, 앱 빌드, 내부 코드서명 NSIS 패키징과 자산 검증·draft 업로드를 모두 통과했다.
+- 공개 EXE 크기는 `185698032`, SHA-256은 `c7ac8f24ab0c2137ecec1bb323b5040df88fce6211949cfb07deebc9342b0264`이며 blockmap과 함께 공개했다.
+- 공개 `latest.yml`은 버전 `1.4.188`, `isAdminRightsRequired: true`, EXE SHA-512 `EmgxjR2CUxtX+2bvzVlhjUviOW/ilz5/cursPv9ZY3Cd9sFaRTfxEcmUnnPgLSmr+b7DfRInueQgCKqa+N13yA==`를 반환한다.
 
 ## 18. 공통 금지 사항
 
