@@ -36,7 +36,18 @@ describe('Windows one-click launch contract', () => {
       '[Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine'
     )
     expect(installer).toContain('Install-SamwooPublisherTrust `')
-    expect(installer).toContain('Start-Process -FilePath $setup -ArgumentList "/S" -PassThru')
+    expect(installer).toContain('Start-SamwooInstallerProcess $setup')
+    expect(installer).toContain('$startInfo.UseShellExecute = $false')
+    expect(installer).not.toContain(
+      'Start-Process -FilePath $setup -ArgumentList "/S" -PassThru'
+    )
+  })
+
+  it('keeps elevated-phase diagnostics separate from the parent transcript', () => {
+    expect(installer).toContain('"samwoo-orca-install-admin.log"')
+    expect(installer).toContain(
+      "(상세 로그: $(Join-Path $env:TEMP 'samwoo-orca-install-admin.log'))"
+    )
   })
 
   it('installs the matching Git for Windows build only when Git is unavailable', () => {

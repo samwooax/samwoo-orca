@@ -39,7 +39,12 @@ try {
 } catch {}
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$log = Join-Path $env:TEMP "samwoo-orca-install.log"
+$logName = if ($AdminPhase) {
+  "samwoo-orca-install-admin.log"
+} else {
+  "samwoo-orca-install.log"
+}
+$log = Join-Path $env:TEMP $logName
 try { Start-Transcript -Path $log -Append | Out-Null } catch {}
 
 $results = [ordered]@{}
@@ -195,6 +200,22 @@ function Test-IsAdministrator {
   return $principal.IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator
   )
+}
+function Start-SamwooInstallerProcess($path) {
+  $startInfo = [Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = $path
+  $startInfo.Arguments = "/S"
+  $startInfo.WorkingDirectory = Split-Path -Parent $path
+  # Why: an already elevated parent must launch the signed NSIS installer directly, without a second ShellExecute/UAC path.
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $process = [Diagnostics.Process]::new()
+  $process.StartInfo = $startInfo
+  if (-not $process.Start()) {
+    $process.Dispose()
+    throw "SAMWOO-ORCA 설치 프로세스를 시작하지 못했습니다"
+  }
+  return $process
 }
 function Get-AdminPhaseRequirements {
   Write-Output "SAMWOO-ORCA 앱 설치"
@@ -451,7 +472,7 @@ if (-not $AdminPhase) {
       $adminProcess.WaitForExit()
       if ($adminProcess.ExitCode -ne 0) {
         $adminPhaseFailed = $true
-        throw "관리자 설치 단계 종료 코드: $($adminProcess.ExitCode)"
+        throw "관리자 설치 단계 종료 코드: $($adminProcess.ExitCode) (상세 로그: $(Join-Path $env:TEMP 'samwoo-orca-install-admin.log'))"
       }
     } catch {
       $adminPhaseFailed = $true
@@ -503,13 +524,17 @@ try {
   Get-Process "SAMWOO-ORCA", "samwoo-orca-terminal-daemon" `
     -ErrorAction SilentlyContinue | Stop-Process -Force
   Start-Sleep -Seconds 2
-  $process = Start-Process -FilePath $setup -ArgumentList "/S" -PassThru
-  if (-not $process.WaitForExit(180000)) {
-    try { $process.Kill() } catch {}
-    throw "설치가 3분을 초과했습니다"
-  }
-  if ($process.ExitCode -ne 0) {
-    throw "설치 프로그램 종료 코드: $($process.ExitCode)"
+  $process = Start-SamwooInstallerProcess $setup
+  try {
+    if (-not $process.WaitForExit(180000)) {
+      try { $process.Kill() } catch {}
+      throw "설치가 3분을 초과했습니다"
+    }
+    if ($process.ExitCode -ne 0) {
+      throw "설치 프로그램 종료 코드: $($process.ExitCode)"
+    }
+  } finally {
+    $process.Dispose()
   }
   $installedApp = Find-SamwooInstalledApp
   if (-not $installedApp) {
