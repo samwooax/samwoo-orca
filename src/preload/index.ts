@@ -2170,6 +2170,15 @@ const api = {
     }> => ipcRenderer.invoke('hermes:ensureChatServer'),
     sendHermesTeamChat: (args): Promise<{ ok: boolean; reply?: string; error?: string }> =>
       ipcRenderer.invoke('hermes:sendTeamChat', args),
+    runHermesLocalShellCommand: (
+      args
+    ): Promise<{
+      ok: boolean
+      status?: 'completed' | 'cancelled'
+      exitCode?: number | null
+      output?: string
+      error?: string
+    }> => ipcRenderer.invoke('hermes:runLocalShellCommand', args),
     cancelHermesTeamChat: (requestId: string): Promise<{ ok: boolean; cancelled: boolean }> =>
       ipcRenderer.invoke('hermes:cancelTeamChat', requestId),
     closeHermesTeamChatConversation: (

@@ -21,6 +21,7 @@ import { SAMWOO_HERMES_SSH_HOST } from '../../shared/samwoo-service-endpoints'
 import type { TeamChatAttachment } from '../../shared/hermes-team-chat-attachments'
 import { registerHermesTeamChatAppCleanup } from './hermes-team-chat-app-cleanup'
 import { isValidTeamChatSshHost } from './hermes-team-chat-ssh-process'
+import { registerHermesLocalShellCommandHandlers } from './hermes-local-shell-command-ipc'
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
 const MAIL_TOKEN_RE = /^[A-Za-z0-9._-]{1,256}$/
@@ -202,7 +203,6 @@ async function handleCancel(req: IncomingMessage, res: ServerResponse): Promise<
     })
   }
 }
-
 async function handleCloseConversation(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const parsed = JSON.parse(await readRequestBody(req)) as { conversationId?: unknown }
@@ -218,7 +218,6 @@ async function handleCloseConversation(req: IncomingMessage, res: ServerResponse
     })
   }
 }
-
 function ensureServer(
   store: Store
 ): Promise<{ ok: boolean; port?: number; token?: string; error?: string }> {
@@ -291,13 +290,6 @@ export function registerHermesChatServerHandlers(store: Store): void {
         })
       : { ok: false, error: 'invalid request' }
   )
-  ipcMain.handle('hermes:cancelTeamChat', async (_event, requestId: unknown) => {
-    const cancelled =
-      typeof requestId === 'string' && NAME_RE.test(requestId)
-        ? await cancelTeamChatMessage(requestId)
-        : false
-    return { ok: true, cancelled }
-  })
   ipcMain.handle('hermes:closeTeamChatConversation', async (_event, conversationId: unknown) => {
     const closed =
       typeof conversationId === 'string' && NAME_RE.test(conversationId)
@@ -306,6 +298,6 @@ export function registerHermesChatServerHandlers(store: Store): void {
     return { ok: true, closed }
   })
   registerHermesTeamChatAppCleanup(app, closeAllTeamChatConversations)
-  // Why: restored chat tabs load before profile launch can start the server lazily.
+  registerHermesLocalShellCommandHandlers(store, cancelTeamChatMessage)
   void ensureServer(store)
 }

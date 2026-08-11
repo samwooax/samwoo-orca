@@ -25,6 +25,10 @@ import { readStoredTeamChat } from './hermes-team-chat-stored-session'
 import { useHermesTeamChatAttachments } from './use-hermes-team-chat-attachments'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { resolveHermesTeamChatMailToken } from './hermes-team-chat-mail-token'
+import {
+  formatDirectShellCommandReply,
+  parseDirectShellCommand
+} from './hermes-team-chat-local-command'
 
 function nativeMessages(messages: TeamChatHistoryMessage[]): NativeChatMessage[] {
   return messages.map((message, index) => ({
@@ -153,7 +157,24 @@ export function HermesTeamChatView({
     requestIdRef.current = requestId
     resetProgress()
     setBusy(true)
+    const directCommand = parseDirectShellCommand(text)
     try {
+      if (directCommand) {
+        const result = await window.api.preflight.runHermesLocalShellCommand({
+          requestId,
+          command: directCommand,
+          cwd: route.cwd
+        })
+        if (requestIdRef.current !== requestId) {
+          return
+        }
+        finishProgress(result.ok ? 'completed' : 'failed')
+        setMessages((current) => [
+          ...current,
+          { role: 'assistant', content: formatDirectShellCommandReply(directCommand, result) }
+        ])
+        return
+      }
       const result = await window.api.preflight.sendHermesTeamChat({
         requestId,
         conversationId,
