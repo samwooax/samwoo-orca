@@ -9,23 +9,34 @@ const installer = readFileSync(
 const launcher = readFileSync(resolve(import.meta.dirname, '../../deploy/install.bat'), 'utf8')
 
 describe('Windows one-click launch contract', () => {
-  it('allows the user phase to continue when Windows already elevated the launcher', () => {
+  it('installs per-user tools before the elevated machine-wide app phase', () => {
     const appInstallIndex = installer.indexOf('Step "SAMWOO-ORCA 앱 설치..."')
     const gitInstallIndex = installer.indexOf('Step "Git $GIT_VERSION 설치..."')
     const pythonInstallIndex = installer.indexOf('Step "Python $PYTHON_VERSION 설치..."')
+    const adminGuardIndex = installer.indexOf('if (-not $isAdmin)')
 
     expect(appInstallIndex).toBeGreaterThan(0)
-    expect(gitInstallIndex).toBeGreaterThan(appInstallIndex)
+    expect(gitInstallIndex).toBeLessThan(appInstallIndex)
     expect(pythonInstallIndex).toBeGreaterThan(gitInstallIndex)
+    expect(appInstallIndex).toBeGreaterThan(adminGuardIndex)
     expect(installer).not.toContain('exit 64')
     expect(installer).not.toContain('install.bat을 관리자 권한으로 실행하면 안 됩니다')
   })
 
   it('requests elevation only when the machine-wide admin phase still needs it', () => {
+    expect(installer).toContain('Write-Output "SAMWOO-ORCA 앱 설치"')
     expect(installer).toContain('if (-not (Test-IsAdministrator))')
     expect(installer).toContain('$adminStartParameters["Verb"] = "RunAs"')
     expect(installer).toContain('Start-Process @adminStartParameters')
     expect(installer).toContain('"-AdminPhase"')
+  })
+
+  it('trusts and launches the per-machine installer from the elevated phase', () => {
+    expect(installer).toContain(
+      '[Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine'
+    )
+    expect(installer).toContain('Install-SamwooPublisherTrust `')
+    expect(installer).toContain('Start-Process -FilePath $setup -ArgumentList "/S" -PassThru')
   })
 
   it('installs the matching Git for Windows build only when Git is unavailable', () => {

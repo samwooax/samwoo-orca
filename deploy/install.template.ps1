@@ -3,7 +3,7 @@
 )
 
 # SAMWOO-ORCA one-click setup.
-# User phase: ORCA + Git + Python + uv. Admin phase: Tailscale + outbound SSH client.
+# User phase: Git + Python + uv. Admin phase: ORCA + Tailscale + outbound SSH client.
 
 $TS_AUTHKEY = "REPLACE_ME"
 $TS_TAILNET = "samwooax.github"
@@ -146,11 +146,11 @@ function Assert-SamwooInstallerSignature($path) {
     throw "SAMWOO-ORCA 설치 파일 서명자가 올바르지 않습니다: $($signature.SignerCertificate.Subject)"
   }
 }
-function Add-SamwooCertificateToCurrentUserStore($path, $storeName) {
+function Add-SamwooCertificateToStore($path, $storeName, $storeLocation) {
   $certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new($path)
   $store = [Security.Cryptography.X509Certificates.X509Store]::new(
     $storeName,
-    [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+    $storeLocation
   )
   try {
     $store.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
@@ -160,7 +160,7 @@ function Add-SamwooCertificateToCurrentUserStore($path, $storeName) {
     $certificate.Dispose()
   }
 }
-function Install-SamwooPublisherTrust {
+function Install-SamwooPublisherTrust($storeLocation) {
   $rootCertificate = Join-Path $here "samwoo-internal-root-ca.cer"
   $publisherCertificate = Join-Path $here "samwoo-internal-code-signing.cer"
   if (-not (Test-Path $rootCertificate) -or -not (Test-Path $publisherCertificate)) {
@@ -175,10 +175,10 @@ function Install-SamwooPublisherTrust {
   if ($publisher.Thumbprint -ne $SAMWOO_SIGNER_THUMBPRINT) {
     throw "SAMWOO 코드서명 인증서 지문이 올바르지 않습니다"
   }
-  Add-SamwooCertificateToCurrentUserStore $rootCertificate `
-    ([Security.Cryptography.X509Certificates.StoreName]::Root)
-  Add-SamwooCertificateToCurrentUserStore $publisherCertificate `
-    ([Security.Cryptography.X509Certificates.StoreName]::TrustedPublisher)
+  Add-SamwooCertificateToStore $rootCertificate `
+    ([Security.Cryptography.X509Certificates.StoreName]::Root) $storeLocation
+  Add-SamwooCertificateToStore $publisherCertificate `
+    ([Security.Cryptography.X509Certificates.StoreName]::TrustedPublisher) $storeLocation
 }
 function Assert-TrustedPublisherSignature($path, $publisherName) {
   $signature = Get-AuthenticodeSignature -LiteralPath $path
@@ -197,6 +197,8 @@ function Test-IsAdministrator {
   )
 }
 function Get-AdminPhaseRequirements {
+  Write-Output "SAMWOO-ORCA 앱 설치"
+
   $tailscaleExe = Join-Path $env:ProgramFiles "Tailscale\tailscale.exe"
   if (-not (Test-Path $tailscaleExe)) {
     Write-Output "Tailscale 설치"
@@ -269,34 +271,6 @@ if (-not $AdminPhase) {
   Write-Host ""
 
   # Install per-user software before elevation so it lands in the employee profile.
-  Step "SAMWOO-ORCA 앱 설치..."
-  try {
-    $setup = Join-Path $here "samwoo-orca-windows-setup.exe"
-    if (-not (Test-Path $setup)) {
-      throw "설치 파일이 옆에 없습니다: samwoo-orca-windows-setup.exe"
-    }
-    Install-SamwooPublisherTrust
-    Assert-SamwooInstallerSignature $setup
-    Get-Process "SAMWOO-ORCA", "samwoo-orca-terminal-daemon" `
-      -ErrorAction SilentlyContinue | Stop-Process -Force
-    Start-Sleep -Seconds 2
-    $process = Start-Process -FilePath $setup -ArgumentList "/S" -PassThru
-    if (-not $process.WaitForExit(180000)) {
-      try { $process.Kill() } catch {}
-      throw "설치가 3분을 초과했습니다"
-    }
-    if ($process.ExitCode -ne 0) {
-      throw "설치 프로그램 종료 코드: $($process.ExitCode)"
-    }
-    $installedApp = Find-SamwooInstalledApp
-    if (-not $installedApp) {
-      throw "설치 완료 후 SAMWOO-ORCA 실행 파일을 찾을 수 없습니다"
-    }
-    Ok "앱 설치"
-  } catch {
-    Fail "앱 설치" $_
-  }
-
   $architecture = Get-WindowsArchitecture
 
   Step "Git $GIT_VERSION 설치..."
@@ -515,6 +489,36 @@ if (-not $isAdmin) {
 Write-Host ""
 Write-Host "  시스템 연결 구성요소를 설치합니다. (로그: $log)" -ForegroundColor White
 Write-Host ""
+
+Step "SAMWOO-ORCA 앱 설치..."
+try {
+  $setup = Join-Path $here "samwoo-orca-windows-setup.exe"
+  if (-not (Test-Path $setup)) {
+    throw "설치 파일이 옆에 없습니다: samwoo-orca-windows-setup.exe"
+  }
+  # Why: per-machine NSIS elevation validates trust from the machine stores, not the employee store.
+  Install-SamwooPublisherTrust `
+    ([Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+  Assert-SamwooInstallerSignature $setup
+  Get-Process "SAMWOO-ORCA", "samwoo-orca-terminal-daemon" `
+    -ErrorAction SilentlyContinue | Stop-Process -Force
+  Start-Sleep -Seconds 2
+  $process = Start-Process -FilePath $setup -ArgumentList "/S" -PassThru
+  if (-not $process.WaitForExit(180000)) {
+    try { $process.Kill() } catch {}
+    throw "설치가 3분을 초과했습니다"
+  }
+  if ($process.ExitCode -ne 0) {
+    throw "설치 프로그램 종료 코드: $($process.ExitCode)"
+  }
+  $installedApp = Find-SamwooInstalledApp
+  if (-not $installedApp) {
+    throw "설치 완료 후 SAMWOO-ORCA 실행 파일을 찾을 수 없습니다"
+  }
+  Ok "앱 설치"
+} catch {
+  Fail "앱 설치" $_
+}
 
 Step "Tailscale 설치..."
 $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
