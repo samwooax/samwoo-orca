@@ -67,6 +67,10 @@ import type {
   SamwooHermesCronStatus,
   UpsertSamwooHermesCronArgs
 } from '../shared/samwoo-hermes-cron'
+import type {
+  WriteSamwooScheduleResultArgs,
+  WriteSamwooScheduleResultResult
+} from '../shared/samwoo-schedule'
 import type { ReleaseChannel } from '../shared/release-channel'
 import type {
   HostQualifiedDetectedWorktreeResult,
@@ -857,6 +861,9 @@ export type PreflightApi = {
     list: (profile: string) => Promise<SamwooHermesCronStatus>
     upsert: (args: UpsertSamwooHermesCronArgs) => Promise<SamwooHermesCronMutationResult>
     action: (args: RunSamwooHermesCronActionArgs) => Promise<SamwooHermesCronMutationResult>
+  }
+  samwooScheduleResults: {
+    write: (args: WriteSamwooScheduleResultArgs) => Promise<WriteSamwooScheduleResultResult>
   }
   samwooConnectionHealth: () => Promise<{
     ok: boolean

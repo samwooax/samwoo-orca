@@ -7,6 +7,7 @@ import { SAMWOO_HERMES_SSH_HOST } from '../../../shared/samwoo-service-endpoints
 import { getSamwooAuth } from './samwoo-auth-store'
 import { readSamwooSchedulesSnapshot, useSamwooScheduleStore } from './samwoo-schedule-store'
 import { resolveTeamChatModel } from '../../../shared/hermes-team-chat-models'
+import { translate } from '../i18n/i18n'
 
 /** Why 30s: the schedule granularity is one minute, and a 30s tick guarantees a
  *  minute boundary is never missed without polling the store aggressively. */
@@ -17,6 +18,7 @@ const DEFAULT_EFFORT = 'medium'
 export type ScheduleSendResult = {
   ok: boolean
   reply?: string
+  outputPath?: string
   error?: string
   reason?: 'signed-out' | 'already-running'
 }
@@ -31,6 +33,12 @@ export type ScheduleRunnerDeps = {
     mailToken: string | null
     occurrenceAt: number
   }) => Promise<ScheduleSendResult>
+  saveResult: (args: {
+    schedule: SamwooSchedule
+    profile: string
+    occurrenceAt: number
+    reply: string
+  }) => Promise<{ ok: true; outputPath: string } | { ok: false; error: string }>
   recordRun: (run: SamwooScheduleRun) => void
   listSchedules: () => SamwooSchedule[]
   lastOccurrenceAt: (scheduleId: string) => number | null
@@ -38,6 +46,47 @@ export type ScheduleRunnerDeps = {
 
 /** Schedules already firing this tick. A slow bot turn must not be started twice. */
 const inFlight = new Set<string>()
+
+async function sendAndSave(
+  deps: ScheduleRunnerDeps,
+  args: {
+    schedule: SamwooSchedule
+    profile: string
+    mailToken: string | null
+    occurrenceAt: number
+  }
+): Promise<ScheduleSendResult> {
+  if (!args.schedule.worktreeId || !args.schedule.worktreePath) {
+    return {
+      ok: false,
+      error: translate(
+        'samwoo.schedules.localProjectUnavailableError',
+        'The connected local project is unavailable.'
+      )
+    }
+  }
+  const sent = await deps.send(args)
+  if (!sent.ok) {
+    return sent
+  }
+  const reply = sent.reply?.trim()
+  if (!reply) {
+    return {
+      ok: false,
+      error: translate(
+        'samwoo.schedules.emptyResultError',
+        'The team bot returned no result to save.'
+      )
+    }
+  }
+  const saved = await deps.saveResult({
+    schedule: args.schedule,
+    profile: args.profile,
+    occurrenceAt: args.occurrenceAt,
+    reply
+  })
+  return saved.ok ? { ...sent, outputPath: saved.outputPath } : saved
+}
 
 function requestIdFor(schedule: SamwooSchedule, occurrenceAt: number): string {
   // Why derived and not random: the id doubles as the dedupe key for a retry of
@@ -85,13 +134,14 @@ export async function runDueSamwooSchedules(deps: ScheduleRunnerDeps): Promise<v
     }
     inFlight.add(schedule.id)
     try {
-      const result = await deps.send({ schedule, profile, mailToken, occurrenceAt })
+      const result = await sendAndSave(deps, { schedule, profile, mailToken, occurrenceAt })
       deps.recordRun({
         scheduleId: schedule.id,
         occurrenceAt,
         finishedAt: deps.now(),
         status: result.ok ? 'ok' : 'error',
-        detail: result.ok ? '' : (result.error ?? 'failed').slice(0, 500)
+        detail: result.ok ? '' : (result.error ?? 'failed').slice(0, 500),
+        ...(result.outputPath ? { outputPath: result.outputPath } : {})
       })
     } catch (error) {
       deps.recordRun({
@@ -126,7 +176,8 @@ function sendThroughTeamChat(args: {
     effort: DEFAULT_EFFORT,
     message: args.schedule.prompt,
     history: [],
-    attachments: []
+    attachments: [],
+    cwd: args.schedule.worktreePath
   })
 }
 
@@ -135,10 +186,21 @@ export function createDefaultScheduleRunnerDeps(): ScheduleRunnerDeps {
     now: () => Date.now(),
     getProfile: () => getSamwooAuth()?.role?.trim() || null,
     getMailToken: () => getSamwooAuth()?.token?.trim() || null,
-    listSchedules: () => readSamwooSchedulesSnapshot().schedules,
+    // Why: an old server job must be deleted before its local replacement can run, or both fire.
+    listSchedules: () =>
+      readSamwooSchedulesSnapshot().schedules.filter((schedule) => !schedule.remoteJobId),
     lastOccurrenceAt: (scheduleId) =>
       readSamwooSchedulesSnapshot().runs[scheduleId]?.occurrenceAt ?? null,
     recordRun: (run) => useSamwooScheduleStore.getState().recordRun(run),
+    saveResult: ({ schedule, profile, occurrenceAt, reply }) =>
+      window.api.preflight.samwooScheduleResults.write({
+        worktreePath: schedule.worktreePath ?? '',
+        scheduleId: schedule.id,
+        occurrenceAt,
+        profile,
+        prompt: schedule.prompt,
+        reply
+      }),
     send: ({ schedule, profile, mailToken, occurrenceAt }) =>
       sendThroughTeamChat({
         schedule,
@@ -175,13 +237,14 @@ export async function runSamwooScheduleNow(
   const occurrenceAt = evaluation.verdict === 'idle' ? nowMs : (evaluation.occurrenceAt ?? nowMs)
   inFlight.add(schedule.id)
   try {
-    const result = await deps.send({ schedule, profile, mailToken, occurrenceAt })
+    const result = await sendAndSave(deps, { schedule, profile, mailToken, occurrenceAt })
     deps.recordRun({
       scheduleId: schedule.id,
       occurrenceAt,
       finishedAt: deps.now(),
       status: result.ok ? 'ok' : 'error',
-      detail: result.ok ? '' : (result.error ?? 'failed').slice(0, 500)
+      detail: result.ok ? '' : (result.error ?? 'failed').slice(0, 500),
+      ...(result.outputPath ? { outputPath: result.outputPath } : {})
     })
     return result
   } catch (error) {

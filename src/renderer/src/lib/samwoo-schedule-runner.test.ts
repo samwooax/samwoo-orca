@@ -8,7 +8,7 @@ import type { SamwooSchedule, SamwooScheduleRun } from '../../../shared/samwoo-s
 import { SAMWOO_SCHEDULE_CATCH_UP_WINDOW_MS } from '../../../shared/samwoo-schedule'
 
 const MONDAY_0800 = new Date(2026, 7, 10, 8, 0, 0, 0).getTime()
-const MONDAY_0900 = new Date(2026, 7, 10, 9, 0, 0, 0).getTime()
+const MONDAY_0800_30 = MONDAY_0800 + 30_000
 
 function schedule(overrides: Partial<SamwooSchedule> = {}): SamwooSchedule {
   return {
@@ -18,6 +18,8 @@ function schedule(overrides: Partial<SamwooSchedule> = {}): SamwooSchedule {
     days: [],
     enabled: true,
     createdAt: new Date(2026, 7, 1).getTime(),
+    worktreeId: 'repo::/workspace/project',
+    worktreePath: '/workspace/project',
     ...overrides
   }
 }
@@ -28,13 +30,17 @@ function makeDeps(overrides: Partial<ScheduleRunnerDeps> = {}): {
 } {
   const runs: SamwooScheduleRun[] = []
   const deps: ScheduleRunnerDeps = {
-    now: () => MONDAY_0900,
+    now: () => MONDAY_0800_30,
     getProfile: () => 'ai_center',
     getMailToken: () => 'token-123',
     listSchedules: () => [schedule()],
     lastOccurrenceAt: () => null,
     recordRun: (run) => runs.push(run),
     send: vi.fn(async () => ({ ok: true, reply: 'done' })),
+    saveResult: vi.fn(async () => ({
+      ok: true as const,
+      outputPath: '/workspace/project/SAMWOO-예약결과/sch_a/result.md'
+    })),
     ...overrides
   }
   return { deps, runs }
@@ -59,9 +65,10 @@ describe('runDueSamwooSchedules', () => {
       {
         scheduleId: 'sch_a',
         occurrenceAt: MONDAY_0800,
-        finishedAt: MONDAY_0900,
+        finishedAt: MONDAY_0800_30,
         status: 'ok',
-        detail: ''
+        detail: '',
+        outputPath: '/workspace/project/SAMWOO-예약결과/sch_a/result.md'
       }
     ])
   })
@@ -99,6 +106,14 @@ describe('runDueSamwooSchedules', () => {
     })
     await runDueSamwooSchedules(deps)
     expect(runs[0]).toMatchObject({ status: 'error', detail: 'ssh down' })
+  })
+
+  it('records a local write failure after Hermes returns a result', async () => {
+    const { deps, runs } = makeDeps({
+      saveResult: vi.fn(async () => ({ ok: false as const, error: 'disk full' }))
+    })
+    await runDueSamwooSchedules(deps)
+    expect(runs[0]).toMatchObject({ status: 'error', detail: 'disk full' })
   })
 
   it('skips a disabled schedule entirely', async () => {
@@ -156,6 +171,8 @@ describe('runSamwooScheduleNow', () => {
   it('uses a fresh id when manually rerunning an occurrence already settled', async () => {
     const { deps } = makeDeps({ lastOccurrenceAt: () => MONDAY_0800 })
     await runSamwooScheduleNow(schedule(), deps)
-    expect(deps.send).toHaveBeenCalledWith(expect.objectContaining({ occurrenceAt: MONDAY_0900 }))
+    expect(deps.send).toHaveBeenCalledWith(
+      expect.objectContaining({ occurrenceAt: MONDAY_0800_30 })
+    )
   })
 })

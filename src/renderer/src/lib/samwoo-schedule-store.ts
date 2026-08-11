@@ -28,10 +28,12 @@ type SamwooScheduleState = PersistedState & {
     days: number[]
     frequency: SamwooScheduleFrequency
     interval: number
+    worktreeId: string
+    worktreePath: string
   }) => SamwooSchedule | null
   updateSchedule: (
     id: string,
-    patch: Partial<Pick<SamwooSchedule, 'enabled' | 'remoteJobId'>>
+    patch: Partial<Pick<SamwooSchedule, 'enabled' | 'remoteJobId' | 'worktreeId' | 'worktreePath'>>
   ) => void
   removeSchedule: (id: string) => void
   recordRun: (run: SamwooScheduleRun) => void
@@ -88,7 +90,7 @@ function newScheduleId(): string {
 
 export const useSamwooScheduleStore = create<SamwooScheduleState>((set, get) => ({
   ...load(),
-  addSchedule: ({ prompt, time, days, frequency, interval }) => {
+  addSchedule: ({ prompt, time, days, frequency, interval, worktreeId, worktreePath }) => {
     const trimmed = prompt.trim().slice(0, SAMWOO_SCHEDULE_PROMPT_MAX_CHARS)
     const schedule: SamwooSchedule = {
       id: newScheduleId(),
@@ -98,6 +100,8 @@ export const useSamwooScheduleStore = create<SamwooScheduleState>((set, get) => 
       frequency,
       interval,
       remoteJobId: null,
+      worktreeId: worktreeId.trim(),
+      worktreePath: worktreePath.trim(),
       enabled: true,
       createdAt: Date.now()
     }

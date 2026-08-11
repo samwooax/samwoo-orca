@@ -3051,6 +3051,15 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
         )
       })
     },
+    samwooScheduleResults: {
+      write: async () => ({
+        ok: false,
+        error: translate(
+          'samwoo.schedules.localOnly',
+          'Schedule results can only be saved by the desktop app.'
+        )
+      })
+    },
     samwooConnectionHealth: () =>
       Promise.resolve({
         ok: false,

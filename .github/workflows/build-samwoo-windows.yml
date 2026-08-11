@@ -125,6 +125,7 @@ jobs:
             src/main/ipc/samwoo-event-stream-client.test.ts `
             src/main/ipc/samwoo-event-stream-parser.test.ts `
             src/main/ipc/samwoo-hermes-cron-client.test.ts `
+            src/main/ipc/samwoo-schedule-results.test.ts `
             src/main/ipc/samwoo-service-http-client.test.ts `
             src/main/window/messenger-popout-window.test.ts `
             src/main/updater-install-flags.test.ts `

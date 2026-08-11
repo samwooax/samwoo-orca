@@ -13,6 +13,11 @@ const VALID = {
   createdAt: 1_770_000_000_000
 }
 
+const TARGET = {
+  worktreeId: 'repo::/workspace/project',
+  worktreePath: '/workspace/project'
+}
+
 describe('SAMWOO schedule store', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -81,7 +86,8 @@ describe('SAMWOO schedule store', () => {
         time: '08:00',
         days: [],
         frequency: 'daily',
-        interval: 1
+        interval: 1,
+        ...TARGET
       })
     ).toBeNull()
     expect(
@@ -90,7 +96,8 @@ describe('SAMWOO schedule store', () => {
         time: '8:00',
         days: [],
         frequency: 'daily',
-        interval: 1
+        interval: 1,
+        ...TARGET
       })
     ).toBeNull()
     expect(useSamwooScheduleStore.getState().schedules).toEqual([])
@@ -103,7 +110,8 @@ describe('SAMWOO schedule store', () => {
       time: '09:30',
       days: [0, 1, 2, 3, 4, 5, 6],
       frequency: 'daily',
-      interval: 1
+      interval: 1,
+      ...TARGET
     })
     expect(created).not.toBeNull()
     // All seven days collapse to the every-day form.
@@ -135,7 +143,8 @@ describe('SAMWOO schedule store', () => {
           time: '08:00',
           days: [],
           frequency: 'daily',
-          interval: 1
+          interval: 1,
+          ...TARGET
         })
       ).not.toBeNull()
     }
@@ -145,7 +154,8 @@ describe('SAMWOO schedule store', () => {
         time: '08:00',
         days: [],
         frequency: 'daily',
-        interval: 1
+        interval: 1,
+        ...TARGET
       })
     ).toBeNull()
     expect(useSamwooScheduleStore.getState().schedules).toHaveLength(SAMWOO_SCHEDULE_MAX_COUNT)

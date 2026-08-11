@@ -14,6 +14,7 @@ const {
   registerSamwooConnectionHealthHandlersMock,
   registerSamwooEventStreamHandlersMock,
   registerSamwooHermesCronHandlersMock,
+  registerSamwooScheduleResultHandlersMock,
   registerClaudeUsageHandlersMock,
   registerCodexUsageHandlersMock,
   registerOpenCodeUsageHandlersMock,
@@ -88,6 +89,7 @@ const {
   registerSamwooConnectionHealthHandlersMock: vi.fn(),
   registerSamwooEventStreamHandlersMock: vi.fn(),
   registerSamwooHermesCronHandlersMock: vi.fn(),
+  registerSamwooScheduleResultHandlersMock: vi.fn(),
   registerClaudeUsageHandlersMock: vi.fn(),
   registerCodexUsageHandlersMock: vi.fn(),
   registerOpenCodeUsageHandlersMock: vi.fn(),
@@ -223,6 +225,9 @@ vi.mock('./samwoo-connection-health', () => ({
 }))
 vi.mock('./samwoo-hermes-cron', () => ({
   registerSamwooHermesCronHandlers: registerSamwooHermesCronHandlersMock
+}))
+vi.mock('./samwoo-schedule-results', () => ({
+  registerSamwooScheduleResultHandlers: registerSamwooScheduleResultHandlersMock
 }))
 
 vi.mock('./claude-usage', () => ({
@@ -442,6 +447,8 @@ describe('registerCoreHandlers', () => {
     registerPreflightHandlersMock.mockReset()
     registerSamwooConnectionHealthHandlersMock.mockReset()
     registerSamwooEventStreamHandlersMock.mockReset()
+    registerSamwooHermesCronHandlersMock.mockReset()
+    registerSamwooScheduleResultHandlersMock.mockReset()
     registerClaudeUsageHandlersMock.mockReset()
     registerCodexUsageHandlersMock.mockReset()
     registerOpenCodeUsageHandlersMock.mockReset()
@@ -611,6 +618,7 @@ describe('registerCoreHandlers', () => {
     expect(registerSamwooConnectionHealthHandlersMock).toHaveBeenCalled()
     expect(registerSamwooEventStreamHandlersMock).toHaveBeenCalled()
     expect(registerSamwooHermesCronHandlersMock).toHaveBeenCalled()
+    expect(registerSamwooScheduleResultHandlersMock).toHaveBeenCalledWith(store)
     expect(registerShellHandlersMock).toHaveBeenCalledWith(store)
     expect(registerClipboardHandlersMock).toHaveBeenCalledWith(store)
     expect(registerUpdaterHandlersMock).toHaveBeenCalled()

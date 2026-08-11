@@ -2234,6 +2234,9 @@ const api = {
       upsert: (args) => ipcRenderer.invoke('samwooHermesCron:upsert', args),
       action: (args) => ipcRenderer.invoke('samwooHermesCron:action', args)
     },
+    samwooScheduleResults: {
+      write: (args) => ipcRenderer.invoke('samwooScheduleResults:write', args)
+    },
     samwooConnectionHealth: (): Promise<{
       ok: boolean
       latencyMs?: number

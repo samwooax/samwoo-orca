@@ -10,6 +10,7 @@ import { registerSamwooWorkspaceSharingHandlers } from './samwoo-workspace-shari
 import { registerSamwooConnectionHealthHandlers } from './samwoo-connection-health'
 import { registerSamwooEventStreamHandlers } from './samwoo-event-stream'
 import { registerSamwooHermesCronHandlers } from './samwoo-hermes-cron'
+import { registerSamwooScheduleResultHandlers } from './samwoo-schedule-results'
 import type { Store } from '../persistence'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { StatsCollector } from '../stats/collector'
@@ -158,6 +159,7 @@ export function registerCoreHandlers(
   registerSamwooConnectionHealthHandlers()
   registerSamwooEventStreamHandlers()
   registerSamwooHermesCronHandlers()
+  registerSamwooScheduleResultHandlers(store)
   registerClaudeUsageHandlers(claudeUsage)
   registerCodexUsageHandlers(codexUsage)
   registerOpenCodeUsageHandlers(openCodeUsage)

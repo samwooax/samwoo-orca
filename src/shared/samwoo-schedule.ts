@@ -1,20 +1,10 @@
-/** SAMWOO-ORCA: in-app scheduled team-bot prompts.
- *
- *  Why in-app and not a server cron: the bot reaches this employee's mail and
- *  messages with the opaque session token the desktop app holds, and that token
- *  only exists while the app is signed in. Running the schedule inside the app
- *  keeps the existing token lifetime and needs no long-lived delegated
- *  credential on the VPS. The trade-off is explicit: a schedule whose time
- *  passes while the app is closed does not fire then — it is caught up on the
- *  next launch inside CATCH_UP_WINDOW_MS, and skipped (not silently dropped)
- *  when it is older than that. */
+/** SAMWOO-ORCA: in-app scheduled team-bot prompts bound to a local project. */
 
 export const SAMWOO_SCHEDULE_PROMPT_MAX_CHARS = 2_000
 export const SAMWOO_SCHEDULE_MAX_COUNT = 20
 
-/** Why 12h: an overnight schedule should still run when the laptop opens in the
- *  morning, but a week-old occurrence firing on launch would surprise the user. */
-export const SAMWOO_SCHEDULE_CATCH_UP_WINDOW_MS = 12 * 60 * 60 * 1000
+/** Why 90s: tolerate one delayed 30s timer tick without replaying work missed while Orca was closed. */
+export const SAMWOO_SCHEDULE_CATCH_UP_WINDOW_MS = 90_000
 
 export type SamwooScheduleFrequency = 'minutes' | 'hours' | 'daily'
 
@@ -32,6 +22,9 @@ export type SamwooSchedule = {
   interval?: number
   /** Verified Hermes cron job id. Missing until a legacy local schedule is migrated. */
   remoteJobId?: string | null
+  /** Project selected when the schedule was created. Legacy records may be unbound. */
+  worktreeId?: string
+  worktreePath?: string
   enabled: boolean
   createdAt: number
 }
@@ -45,7 +38,21 @@ export type SamwooScheduleRun = {
   finishedAt: number
   status: SamwooScheduleRunStatus
   detail: string
+  outputPath?: string
 }
+
+export type WriteSamwooScheduleResultArgs = {
+  worktreePath: string
+  scheduleId: string
+  occurrenceAt: number
+  profile: string
+  prompt: string
+  reply: string
+}
+
+export type WriteSamwooScheduleResultResult =
+  | { ok: true; outputPath: string }
+  | { ok: false; error: string }
 
 export type SamwooScheduleVerdict = 'idle' | 'due' | 'stale'
 
@@ -147,6 +154,10 @@ export function isSamwooSchedule(value: unknown): value is SamwooSchedule {
       candidate.remoteJobId === null ||
       (typeof candidate.remoteJobId === 'string' &&
         REMOTE_JOB_ID_RE.test(candidate.remoteJobId))) &&
+    (candidate.worktreeId === undefined ||
+      (typeof candidate.worktreeId === 'string' && candidate.worktreeId.length > 0)) &&
+    (candidate.worktreePath === undefined ||
+      (typeof candidate.worktreePath === 'string' && candidate.worktreePath.trim().length > 0)) &&
     typeof candidate.enabled === 'boolean' &&
     typeof candidate.createdAt === 'number' &&
     Number.isFinite(candidate.createdAt)
@@ -166,7 +177,8 @@ export function isSamwooScheduleRun(value: unknown): value is SamwooScheduleRun 
     typeof candidate.finishedAt === 'number' &&
     Number.isFinite(candidate.finishedAt) &&
     (candidate.status === 'ok' || candidate.status === 'error' || candidate.status === 'skipped') &&
-    typeof candidate.detail === 'string'
+    typeof candidate.detail === 'string' &&
+    (candidate.outputPath === undefined || typeof candidate.outputPath === 'string')
   )
 }
 
@@ -194,6 +206,16 @@ function occurrenceOnLocalDay(
 
 /** Latest occurrence at or before `nowMs`, or null when none exists in the last week. */
 export function previousOccurrenceAt(schedule: SamwooSchedule, nowMs: number): number | null {
+  const frequency = scheduleFrequency(schedule)
+  if (frequency !== 'daily') {
+    const interval = schedule.interval ?? 1
+    if (!isValidScheduleInterval(frequency, interval) || nowMs <= schedule.createdAt) {
+      return null
+    }
+    const intervalMs = interval * (frequency === 'minutes' ? 60_000 : 3_600_000)
+    const completedIntervals = Math.floor((nowMs - schedule.createdAt) / intervalMs)
+    return completedIntervals > 0 ? schedule.createdAt + completedIntervals * intervalMs : null
+  }
   const parsed = parseScheduleTime(schedule.time)
   if (!parsed) {
     return null
@@ -216,8 +238,9 @@ export function nextOccurrenceAt(schedule: SamwooSchedule, fromMs: number): numb
     if (!isValidScheduleInterval(frequency, interval)) {
       return null
     }
-    const unitMs = frequency === 'minutes' ? 60_000 : 3_600_000
-    return fromMs + interval * unitMs
+    const intervalMs = interval * (frequency === 'minutes' ? 60_000 : 3_600_000)
+    const completedIntervals = Math.floor(Math.max(0, fromMs - schedule.createdAt) / intervalMs)
+    return schedule.createdAt + (completedIntervals + 1) * intervalMs
   }
   const parsed = parseScheduleTime(schedule.time)
   if (!parsed) {

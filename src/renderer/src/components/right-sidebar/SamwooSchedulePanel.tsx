@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarClock, Loader2, RefreshCw } from 'lucide-react'
+import { CalendarClock, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,29 +11,26 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
 import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useSamwooScheduleStore } from '@/lib/samwoo-schedule-store'
-import type { SamwooHermesCronJob } from '../../../../shared/samwoo-hermes-cron'
+import { useActiveWorktree } from '@/store/selectors'
+import { getFileExplorerOperationOwner } from './file-explorer-operation-owner'
 import {
   isValidScheduleInterval,
+  nextOccurrenceAt,
   SAMWOO_SCHEDULE_MAX_COUNT,
   SAMWOO_SCHEDULE_PROMPT_MAX_CHARS,
-  type SamwooSchedule,
   type SamwooScheduleFrequency
 } from '../../../../shared/samwoo-schedule'
 import { SamwooScheduleDayPicker } from './samwoo-schedule-day-picker'
 import { SamwooScheduleRow } from './SamwooScheduleRow'
 
-function matchingJob(schedule: SamwooSchedule, jobs: SamwooHermesCronJob[]) {
-  const expectedName = `SAMWOO-ORCA:${schedule.id}`
-  return jobs.find((job) => job.id === schedule.remoteJobId || job.name === expectedName)
-}
-
 export default function SamwooSchedulePanel(): React.JSX.Element {
   const auth = useSamwooAuthStore((state) => state.auth)
+  const activeWorktree = useActiveWorktree()
   const schedules = useSamwooScheduleStore((state) => state.schedules)
+  const runs = useSamwooScheduleStore((state) => state.runs)
   const addSchedule = useSamwooScheduleStore((state) => state.addSchedule)
   const updateSchedule = useSamwooScheduleStore((state) => state.updateSchedule)
   const [prompt, setPrompt] = useState('')
@@ -41,64 +38,80 @@ export default function SamwooSchedulePanel(): React.JSX.Element {
   const [interval, setIntervalValue] = useState(5)
   const [time, setTime] = useState('08:00')
   const [days, setDays] = useState<number[]>([])
-  const [jobs, setJobs] = useState<SamwooHermesCronJob[]>([])
-  const [schedulerHealthy, setSchedulerHealthy] = useState(false)
-  const [checked, setChecked] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const migratedProfileRef = useRef<string | null>(null)
+  const [migrating, setMigrating] = useState(false)
+  const remoteJobsInFlight = useRef(new Set<string>())
   const profile = auth?.role?.trim() || null
+  const projectOwner = activeWorktree
+    ? getFileExplorerOperationOwner(activeWorktree.id)
+    : { kind: 'unresolved' as const }
+  const localProject = projectOwner.kind === 'local' ? activeWorktree : null
 
-  const refresh = useCallback(async () => {
-    if (!profile) {
+  useEffect(() => {
+    if (!localProject) {
       return
     }
-    setBusy(true)
-    const listed = await window.api.preflight.samwooHermesCron.list(profile)
-    setChecked(true)
-    setSchedulerHealthy(listed.schedulerHealthy)
-    if (!listed.ok) {
-      setBusy(false)
-      toast.error(
-        listed.error ?? translate('samwoo.schedules.refreshFailed', 'Cron status failed.')
-      )
-      return
-    }
-    let currentJobs = listed.jobs
     for (const schedule of schedules) {
-      const existing = matchingJob(schedule, currentJobs)
-      if (existing) {
-        if (schedule.remoteJobId !== existing.id || schedule.enabled !== existing.enabled) {
-          updateSchedule(schedule.id, {
-            remoteJobId: existing.id,
-            enabled: existing.enabled
-          })
-        }
-        continue
-      }
-      const registered = await window.api.preflight.samwooHermesCron.upsert({
-        profile,
-        schedule
-      })
-      setSchedulerHealthy(registered.schedulerHealthy)
-      if (registered.ok && registered.job) {
-        currentJobs = [...currentJobs, registered.job]
+      if (!schedule.worktreeId || !schedule.worktreePath) {
         updateSchedule(schedule.id, {
-          remoteJobId: registered.job.id,
-          enabled: registered.job.enabled
+          worktreeId: localProject.id,
+          worktreePath: localProject.path
         })
       }
     }
-    setJobs(currentJobs)
-    setBusy(false)
-  }, [profile, schedules, updateSchedule])
+  }, [localProject, schedules, updateSchedule])
 
   useEffect(() => {
-    if (!profile || migratedProfileRef.current === profile) {
+    if (!profile) {
       return
     }
-    migratedProfileRef.current = profile
-    void refresh()
-  }, [profile, refresh])
+    const remoteSchedules = schedules.filter(
+      (schedule) => schedule.remoteJobId && !remoteJobsInFlight.current.has(schedule.remoteJobId)
+    )
+    if (remoteSchedules.length === 0) {
+      return
+    }
+    let cancelled = false
+    setMigrating(true)
+    for (const schedule of remoteSchedules) {
+      remoteJobsInFlight.current.add(schedule.remoteJobId!)
+    }
+    void Promise.all(
+      remoteSchedules.map(async (schedule) => {
+        const jobId = schedule.remoteJobId!
+        try {
+          const result = await window.api.preflight.samwooHermesCron.action({
+            profile,
+            jobId,
+            action: 'delete'
+          })
+          if (!cancelled && result.ok) {
+            updateSchedule(schedule.id, { remoteJobId: null })
+          }
+          return result.ok
+        } catch {
+          return false
+        } finally {
+          remoteJobsInFlight.current.delete(jobId)
+        }
+      })
+    ).then((results) => {
+      if (cancelled) {
+        return
+      }
+      setMigrating(false)
+      if (results.some((ok) => !ok)) {
+        toast.error(
+          translate(
+            'samwoo.schedules.migrationFailed',
+            'Some old server schedules could not be disabled. Try again while connected.'
+          )
+        )
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [profile, schedules, updateSchedule])
 
   const atCapacity = schedules.length >= SAMWOO_SCHEDULE_MAX_COUNT
   const effectiveInterval = frequency === 'daily' ? 1 : interval
@@ -106,21 +119,22 @@ export default function SamwooSchedulePanel(): React.JSX.Element {
     prompt.trim().length > 0 &&
     !atCapacity &&
     isValidScheduleInterval(frequency, effectiveInterval) &&
-    Boolean(profile)
+    Boolean(profile && localProject)
 
-  const sorted = useMemo(
-    () =>
-      [...schedules].sort(
-        (a, b) =>
-          (matchingJob(a, jobs)?.nextRunAt ?? '').localeCompare(
-            matchingJob(b, jobs)?.nextRunAt ?? ''
-          ) || a.createdAt - b.createdAt
-      ),
-    [jobs, schedules]
-  )
+  const sorted = useMemo(() => {
+    const now = Date.now()
+    return [...schedules].sort(
+      (a, b) =>
+        (nextOccurrenceAt(a, now) ?? Number.MAX_SAFE_INTEGER) -
+          (nextOccurrenceAt(b, now) ?? Number.MAX_SAFE_INTEGER) || a.createdAt - b.createdAt
+    )
+  }, [schedules])
 
-  const handleAdd = useCallback(async () => {
-    if (!profile) {
+  const handleAdd = useCallback(() => {
+    if (!localProject) {
+      toast.error(
+        translate('samwoo.schedules.localProjectRequired', 'Select a local project first.')
+      )
       return
     }
     const schedule = addSchedule({
@@ -128,33 +142,22 @@ export default function SamwooSchedulePanel(): React.JSX.Element {
       time,
       days,
       frequency,
-      interval: effectiveInterval
+      interval: effectiveInterval,
+      worktreeId: localProject.id,
+      worktreePath: localProject.path
     })
     if (!schedule) {
       toast.error(translate('samwoo.schedules.addFailed', 'Check the schedule and try again.'))
       return
     }
-    setBusy(true)
-    const result = await window.api.preflight.samwooHermesCron.upsert({ profile, schedule })
-    setBusy(false)
-    setSchedulerHealthy(result.schedulerHealthy)
-    if (!result.ok || !result.job) {
-      toast.error(
-        result.error ??
-          translate('samwoo.schedules.registrationFailed', 'Cron registration failed.')
-      )
-      return
-    }
-    const registeredJob = result.job
-    updateSchedule(schedule.id, { remoteJobId: registeredJob.id, enabled: registeredJob.enabled })
-    setJobs((current) => [...current.filter((job) => job.id !== registeredJob.id), registeredJob])
     setPrompt('')
     toast.success(
-      translate('samwoo.schedules.registered', 'Hermes cron registered · Job {{id}}', {
-        id: result.job.id
-      })
+      translate(
+        'samwoo.schedules.localRegistered',
+        'Saved on this PC. Results will be written to the connected project.'
+      )
     )
-  }, [addSchedule, days, effectiveInterval, frequency, profile, prompt, time, updateSchedule])
+  }, [addSchedule, days, effectiveInterval, frequency, localProject, prompt, time])
 
   if (!profile) {
     return (
@@ -172,45 +175,19 @@ export default function SamwooSchedulePanel(): React.JSX.Element {
           <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
             {translate('samwoo.schedules.title', 'Scheduled prompts')}
           </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                disabled={busy}
-                aria-label={translate('samwoo.schedules.refresh', 'Refresh cron status')}
-                onClick={() => void refresh()}
-              >
-                <RefreshCw className={busy ? 'size-3.5 animate-spin' : 'size-3.5'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              {translate('samwoo.schedules.refresh', 'Refresh cron status')}
-            </TooltipContent>
-          </Tooltip>
+          {migrating ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : null}
         </div>
         <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
           {translate(
-            'samwoo.schedules.serverNotice',
-            'Registered on the connected Hermes profile and runs even when this app is closed.'
+            'samwoo.schedules.localNotice',
+            'Runs only while Orca is open. Results are saved under SAMWOO-예약결과 in this project.'
           )}
         </p>
-        <div
-          className={
-            schedulerHealthy
-              ? 'mt-1 text-[11px] text-muted-foreground'
-              : 'mt-1 text-[11px] text-destructive'
-          }
-        >
-          {checked
-            ? schedulerHealthy
-              ? translate('samwoo.schedules.schedulerOnline', 'Hermes cron scheduler is running')
-              : translate(
-                  'samwoo.schedules.schedulerOffline',
-                  'Hermes cron scheduler is not responding'
-                )
-            : translate('samwoo.schedules.schedulerChecking', 'Checking Hermes cron scheduler…')}
-        </div>
+        {!localProject ? (
+          <p className="mt-1 text-[11px] text-destructive">
+            {translate('samwoo.schedules.localProjectRequired', 'Select a local project first.')}
+          </p>
+        ) : null}
       </div>
 
       <div className="border-b border-border px-3 py-2">
@@ -271,8 +248,7 @@ export default function SamwooSchedulePanel(): React.JSX.Element {
                 })
               : ''}
           </span>
-          <Button size="xs" disabled={!canSubmit || busy} onClick={() => void handleAdd()}>
-            {busy ? <Loader2 className="mr-1 size-3 animate-spin" /> : null}
+          <Button size="xs" disabled={!canSubmit} onClick={handleAdd}>
             {translate('samwoo.schedules.add', 'Add schedule')}
           </Button>
         </div>
@@ -287,13 +263,7 @@ export default function SamwooSchedulePanel(): React.JSX.Element {
       ) : (
         <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-2">
           {sorted.map((schedule) => (
-            <SamwooScheduleRow
-              key={schedule.id}
-              schedule={schedule}
-              job={matchingJob(schedule, jobs)}
-              profile={profile}
-              onRefresh={refresh}
-            />
+            <SamwooScheduleRow key={schedule.id} schedule={schedule} run={runs[schedule.id]} />
           ))}
         </div>
       )}

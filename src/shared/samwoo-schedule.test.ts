@@ -15,6 +15,7 @@ import {
 // 2026-08-10 is a Monday in local time.
 const MONDAY_0800 = new Date(2026, 7, 10, 8, 0, 0, 0).getTime()
 const MONDAY_0900 = new Date(2026, 7, 10, 9, 0, 0, 0).getTime()
+const MONDAY_0800_30 = MONDAY_0800 + 30_000
 const SUNDAY_0900 = new Date(2026, 7, 9, 9, 0, 0, 0).getTime()
 
 function schedule(overrides: Partial<SamwooSchedule> = {}): SamwooSchedule {
@@ -123,12 +124,23 @@ describe('occurrence maths', () => {
     expect(nextOccurrenceAt(schedule({ time: 'nope' }), MONDAY_0900)).toBeNull()
     expect(previousOccurrenceAt(schedule({ time: 'nope' }), MONDAY_0900)).toBeNull()
   })
+
+  it('anchors minute and hour repetition to creation without timer drift', () => {
+    const createdAt = MONDAY_0800
+    const everyFive = schedule({ frequency: 'minutes', interval: 5, createdAt })
+    expect(previousOccurrenceAt(everyFive, createdAt + 16 * 60_000)).toBe(createdAt + 15 * 60_000)
+    expect(nextOccurrenceAt(everyFive, createdAt + 16 * 60_000)).toBe(createdAt + 20 * 60_000)
+  })
 })
 
 describe('evaluateSamwooSchedule', () => {
   it('is due when the occurrence has not been run yet', () => {
     expect(
-      evaluateSamwooSchedule({ schedule: schedule(), lastOccurrenceAt: null, nowMs: MONDAY_0900 })
+      evaluateSamwooSchedule({
+        schedule: schedule(),
+        lastOccurrenceAt: null,
+        nowMs: MONDAY_0800_30
+      })
     ).toEqual({ verdict: 'due', occurrenceAt: MONDAY_0800 })
   })
 

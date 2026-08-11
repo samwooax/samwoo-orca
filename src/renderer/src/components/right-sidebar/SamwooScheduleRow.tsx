@@ -4,9 +4,14 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
+import { runSamwooScheduleNow } from '@/lib/samwoo-schedule-runner'
 import { useSamwooScheduleStore } from '@/lib/samwoo-schedule-store'
-import type { SamwooHermesCronJob } from '../../../../shared/samwoo-hermes-cron'
-import { scheduleFrequency, type SamwooSchedule } from '../../../../shared/samwoo-schedule'
+import {
+  nextOccurrenceAt,
+  scheduleFrequency,
+  type SamwooSchedule,
+  type SamwooScheduleRun
+} from '../../../../shared/samwoo-schedule'
 import { weekdayLabels } from './samwoo-schedule-day-picker'
 
 function cadenceLabel(schedule: SamwooSchedule): string {
@@ -23,75 +28,56 @@ function cadenceLabel(schedule: SamwooSchedule): string {
   return `${schedule.time} · ${weekdayLabels(schedule.days)}`
 }
 
-function remoteSummary(job: SamwooHermesCronJob | undefined): string {
-  if (!job) {
-    return translate('samwoo.schedules.notRegistered', 'Not registered on Hermes cron')
+function runSummary(run: SamwooScheduleRun | undefined): string | null {
+  if (!run) {
+    return null
   }
-  if (job.lastRunAt) {
-    const status = job.lastStatus ?? translate('samwoo.schedules.statusUnknown', 'unknown')
-    return translate('samwoo.schedules.lastRemoteRun', 'Last: {{when}} · {{status}}', {
-      when: new Date(job.lastRunAt).toLocaleString(),
-      status
-    })
+  if (run.status === 'skipped') {
+    return translate('samwoo.schedules.missedWhileClosed', 'Missed while Orca was closed')
   }
-  return translate('samwoo.schedules.registeredJob', 'Registered · Job {{id}}', { id: job.id })
+  if (run.status === 'error') {
+    return run.detail
+  }
+  return translate('samwoo.schedules.savedResult', 'Saved: {{path}}', {
+    path: run.outputPath ?? ''
+  })
 }
 
 export function SamwooScheduleRow({
   schedule,
-  job,
-  profile,
-  onRefresh
+  run
 }: {
   schedule: SamwooSchedule
-  job: SamwooHermesCronJob | undefined
-  profile: string
-  onRefresh: () => Promise<void>
+  run: SamwooScheduleRun | undefined
 }): React.JSX.Element {
   const updateSchedule = useSamwooScheduleStore((state) => state.updateSchedule)
   const removeSchedule = useSamwooScheduleStore((state) => state.removeSchedule)
   const [pending, setPending] = useState(false)
+  const nextRunAt = nextOccurrenceAt(schedule, Date.now())
 
-  const runAction = useCallback(
-    async (action: 'pause' | 'resume' | 'run' | 'delete') => {
-      if (!job) {
-        if (action === 'delete') {
-          removeSchedule(schedule.id)
-          return
-        }
-        toast.error(translate('samwoo.schedules.notRegistered', 'Not registered on Hermes cron'))
-        return
-      }
-      setPending(true)
-      const result = await window.api.preflight.samwooHermesCron.action({
-        profile,
-        jobId: job.id,
-        action
-      })
-      setPending(false)
-      if (!result.ok) {
-        toast.error(
-          result.error ?? translate('samwoo.schedules.actionFailed', 'Cron action failed.')
+  const runNow = useCallback(async () => {
+    if (schedule.remoteJobId) {
+      toast.error(
+        translate(
+          'samwoo.schedules.migrationPending',
+          'The old server schedule must be disabled before local execution.'
         )
-        return
-      }
-      if (action === 'delete') {
-        removeSchedule(schedule.id)
-        toast.success(translate('samwoo.schedules.removedRemote', 'Hermes cron job deleted.'))
-        return
-      }
-      if (action === 'pause' || action === 'resume') {
-        updateSchedule(schedule.id, { enabled: action === 'resume' })
-      }
-      toast.success(
-        action === 'run'
-          ? translate('samwoo.schedules.runQueued', 'Queued for the next Hermes cron tick.')
-          : translate('samwoo.schedules.actionVerified', 'Hermes cron state verified.')
       )
-      await onRefresh()
-    },
-    [job, onRefresh, profile, removeSchedule, schedule.id, updateSchedule]
-  )
+      return
+    }
+    setPending(true)
+    const result = await runSamwooScheduleNow(schedule)
+    setPending(false)
+    if (!result.ok) {
+      toast.error(result.error ?? translate('samwoo.schedules.actionFailed', 'Schedule failed.'))
+      return
+    }
+    toast.success(
+      translate('samwoo.schedules.resultSaved', 'Result saved: {{path}}', {
+        path: result.outputPath ?? ''
+      })
+    )
+  }, [schedule])
 
   return (
     <div className="rounded-md border border-border px-3 py-2">
@@ -99,18 +85,23 @@ export function SamwooScheduleRow({
         <div className="min-w-0 flex-1">
           <div className="line-clamp-2 text-xs leading-5 text-foreground">{schedule.prompt}</div>
           <div className="mt-1 text-[11px] text-muted-foreground">{cadenceLabel(schedule)}</div>
-          <div className="text-[11px] text-muted-foreground">
-            {job?.nextRunAt
-              ? translate('samwoo.schedules.nextRun', 'Next: {{when}}', {
-                  when: new Date(job.nextRunAt).toLocaleString()
-                })
-              : remoteSummary(job)}
-          </div>
-          {job?.nextRunAt ? (
-            <div className="text-[11px] text-muted-foreground">{remoteSummary(job)}</div>
+          {nextRunAt ? (
+            <div className="text-[11px] text-muted-foreground">
+              {translate('samwoo.schedules.nextRun', 'Next: {{when}}', {
+                when: new Date(nextRunAt).toLocaleString()
+              })}
+            </div>
           ) : null}
-          {job?.lastError ? (
-            <div className="mt-1 line-clamp-2 text-[11px] text-destructive">{job.lastError}</div>
+          {runSummary(run) ? (
+            <div
+              className={
+                run?.status === 'error'
+                  ? 'mt-1 line-clamp-2 text-[11px] text-destructive'
+                  : 'mt-1 line-clamp-2 text-[11px] text-muted-foreground'
+              }
+            >
+              {runSummary(run)}
+            </div>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -119,9 +110,9 @@ export function SamwooScheduleRow({
               <Button
                 size="icon-xs"
                 variant="ghost"
-                disabled={pending || !job}
+                disabled={pending || Boolean(schedule.remoteJobId)}
                 aria-label={translate('samwoo.schedules.runNow', 'Run now')}
-                onClick={() => void runAction('run')}
+                onClick={() => void runNow()}
               >
                 {pending ? (
                   <Loader2 className="size-3.5 animate-spin" />
@@ -136,12 +127,12 @@ export function SamwooScheduleRow({
           </Tooltip>
           <Button
             size="xs"
-            variant={job?.enabled ? 'secondary' : 'outline'}
-            disabled={pending || !job}
-            aria-pressed={job?.enabled ?? false}
-            onClick={() => void runAction(job?.enabled ? 'pause' : 'resume')}
+            variant={schedule.enabled ? 'secondary' : 'outline'}
+            disabled={pending || Boolean(schedule.remoteJobId)}
+            aria-pressed={schedule.enabled}
+            onClick={() => updateSchedule(schedule.id, { enabled: !schedule.enabled })}
           >
-            {job?.enabled
+            {schedule.enabled
               ? translate('samwoo.schedules.on', 'On')
               : translate('samwoo.schedules.off', 'Off')}
           </Button>
@@ -150,9 +141,9 @@ export function SamwooScheduleRow({
               <Button
                 size="icon-xs"
                 variant="ghost"
-                disabled={pending}
+                disabled={pending || Boolean(schedule.remoteJobId)}
                 aria-label={translate('samwoo.schedules.remove', 'Delete schedule')}
-                onClick={() => void runAction('delete')}
+                onClick={() => removeSchedule(schedule.id)}
               >
                 <Trash2 className="size-3.5" />
               </Button>

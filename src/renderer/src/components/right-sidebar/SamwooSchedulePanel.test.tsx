@@ -8,6 +8,20 @@ import { useSamwooAuthStore } from '@/lib/samwoo-auth-store'
 import { useSamwooScheduleStore } from '@/lib/samwoo-schedule-store'
 import SamwooSchedulePanel from './SamwooSchedulePanel'
 
+const { activeWorktree } = vi.hoisted(() => ({
+  activeWorktree: {
+    id: 'repo::/workspace/project',
+    repoId: 'repo',
+    path: '/workspace/project',
+    displayName: 'Project'
+  }
+}))
+
+vi.mock('@/store/selectors', () => ({ useActiveWorktree: () => activeWorktree }))
+vi.mock('./file-explorer-operation-owner', () => ({
+  getFileExplorerOperationOwner: () => ({ kind: 'local' })
+}))
+
 function textOf(container: HTMLElement): string {
   return container.textContent ?? ''
 }
@@ -15,6 +29,7 @@ function textOf(container: HTMLElement): string {
 describe('SamwooSchedulePanel', () => {
   let root: Root
   let container: HTMLDivElement
+  let remoteAction: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     localStorage.clear()
@@ -22,38 +37,10 @@ describe('SamwooSchedulePanel', () => {
     useSamwooAuthStore.setState({
       auth: { login: 'member', name: 'Member', role: 'planning', label: 'Planning', token: 'tok' }
     })
+    remoteAction = vi.fn(async () => ({ ok: true }))
     Object.defineProperty(window, 'api', {
       configurable: true,
-      value: {
-        preflight: {
-          samwooHermesCron: {
-            list: vi.fn(async () => ({
-              ok: true,
-              schedulerHealthy: true,
-              heartbeatAt: new Date().toISOString(),
-              jobs: []
-            })),
-            upsert: vi.fn(async ({ schedule }) => ({
-              ok: true,
-              schedulerHealthy: true,
-              heartbeatAt: new Date().toISOString(),
-              job: {
-                id: 'job-1',
-                name: `SAMWOO-ORCA:${schedule.id}`,
-                prompt: schedule.prompt,
-                scheduleDisplay: 'daily',
-                enabled: true,
-                state: 'scheduled',
-                nextRunAt: new Date(Date.now() + 60_000).toISOString(),
-                lastRunAt: null,
-                lastStatus: null,
-                lastError: null
-              }
-            })),
-            action: vi.fn()
-          }
-        }
-      }
+      value: { preflight: { samwooHermesCron: { action: remoteAction } } }
     })
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -85,13 +72,14 @@ describe('SamwooSchedulePanel', () => {
     expect(container.querySelector('textarea')).toBeNull()
   })
 
-  it('states the server execution contract and verified scheduler state', async () => {
+  it('states the app-only execution and local result contract', async () => {
     await render()
-    expect(textOf(container)).toContain('runs even when this app is closed')
-    expect(textOf(container)).toContain('Hermes cron scheduler is running')
+    expect(textOf(container)).toContain('Runs only while Orca is open')
+    expect(textOf(container)).toContain('SAMWOO-예약결과')
+    expect(textOf(container)).not.toContain('Hermes cron scheduler')
   })
 
-  it('shows the empty state until a schedule exists, then renders the row', async () => {
+  it('renders a locally bound schedule without registering server cron', async () => {
     await render()
     expect(textOf(container)).toContain('No schedules yet')
 
@@ -101,29 +89,39 @@ describe('SamwooSchedulePanel', () => {
         time: '08:00',
         days: [1, 2, 3, 4, 5],
         frequency: 'daily',
-        interval: 1
+        interval: 1,
+        worktreeId: activeWorktree.id,
+        worktreePath: activeWorktree.path
       })
       await Promise.resolve()
     })
 
     expect(textOf(container)).toContain('아침 메일 요약')
     expect(textOf(container)).toContain('08:00')
-    expect(textOf(container)).not.toContain('No schedules yet')
+    expect(remoteAction).not.toHaveBeenCalled()
   })
 
-  it('renders a locally paused legacy schedule as unregistered until migration confirms it', async () => {
-    await act(async () => {
-      const created = useSamwooScheduleStore.getState().addSchedule({
-        prompt: '주간 리포트',
-        time: '17:00',
-        days: [5],
-        frequency: 'daily',
-        interval: 1
-      })
-      useSamwooScheduleStore.getState().updateSchedule(created!.id, { enabled: false })
-      await Promise.resolve()
+  it('deletes an old remote job before enabling its local replacement', async () => {
+    const created = useSamwooScheduleStore.getState().addSchedule({
+      prompt: '주간 리포트',
+      time: '17:00',
+      days: [5],
+      frequency: 'daily',
+      interval: 1,
+      worktreeId: activeWorktree.id,
+      worktreePath: activeWorktree.path
     })
+    useSamwooScheduleStore.getState().updateSchedule(created!.id, { remoteJobId: 'job-legacy' })
+
     await render()
-    expect(textOf(container)).toContain('Hermes cron')
+    await vi.waitFor(() => expect(remoteAction).toHaveBeenCalledTimes(1))
+    expect(remoteAction).toHaveBeenCalledWith({
+      profile: 'planning',
+      jobId: 'job-legacy',
+      action: 'delete'
+    })
+    await vi.waitFor(() =>
+      expect(useSamwooScheduleStore.getState().schedules[0]?.remoteJobId).toBeNull()
+    )
   })
 })
