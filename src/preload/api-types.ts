@@ -17,6 +17,7 @@ import type {
 } from '../shared/terminal-preview'
 import type { TeamChatProgressEvent } from '../shared/hermes-team-chat-progress'
 import type { TeamChatAttachment } from '../shared/hermes-team-chat-attachments'
+import type { HermesTeamChatResult } from '../shared/hermes-team-chat-result'
 import type {
   TerminalTabCloseRequest,
   TerminalTabCloseResponse
@@ -798,7 +799,7 @@ export type PreflightApi = {
     message: string
     history: { role: 'user' | 'assistant'; content: string }[]
     attachments: TeamChatAttachment[]
-  }) => Promise<{ ok: boolean; reply?: string; error?: string }>
+  }) => Promise<HermesTeamChatResult>
   runHermesLocalShellCommand: (args: {
     requestId: string
     command: string

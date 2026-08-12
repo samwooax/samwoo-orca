@@ -29,6 +29,7 @@ import {
   formatDirectShellCommandReply,
   parseDirectShellCommand
 } from './hermes-team-chat-local-command'
+import { formatTeamChatToolExecutionSummary } from './hermes-team-chat-tool-execution-summary'
 
 function nativeMessages(messages: TeamChatHistoryMessage[]): NativeChatMessage[] {
   return messages.map((message, index) => ({
@@ -192,13 +193,16 @@ export function HermesTeamChatView({
         return
       }
       finishProgress(result.ok ? 'completed' : 'failed')
+      const executionSummary = formatTeamChatToolExecutionSummary(result.toolExecutions)
       setMessages((current) => [
         ...current,
         {
           role: 'assistant',
           content: result.ok
             ? result.reply || '응답이 비어 있습니다.'
-            : `오류: ${result.error || '응답을 받지 못했습니다.'}`
+            : [`오류: ${result.error || '응답을 받지 못했습니다.'}`, executionSummary]
+                .filter(Boolean)
+                .join('\n\n')
         }
       ])
     } catch (error) {

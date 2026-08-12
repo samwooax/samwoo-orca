@@ -123,7 +123,17 @@ describe('runTeamChatMessage local file bridge', () => {
       store: {} as never
     })
 
-    expect(result).toEqual({ ok: true, reply: '수정을 완료했습니다.' })
+    expect(result).toMatchObject({
+      ok: true,
+      reply: '수정을 완료했습니다.',
+      toolExecutions: [
+        {
+          sequence: 1,
+          kind: 'local_file',
+          operations: [{ id: 'read-1', kind: 'read', ok: true, target: 'src/a.ts' }]
+        }
+      ]
+    })
     expect(spawnMock).toHaveBeenCalledTimes(1)
     expect(executeLocalFileRequestMock).toHaveBeenCalledWith(
       expect.objectContaining({ cwd: 'C:\\selected' })
@@ -224,9 +234,16 @@ describe('runTeamChatMessage local file bridge', () => {
       store: {} as never
     })
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
-      reply: '실행했습니다: http://localhost:8501'
+      reply: '실행했습니다: http://localhost:8501',
+      toolExecutions: [
+        {
+          sequence: 1,
+          kind: 'local_command',
+          operations: [{ id: 'serve', kind: 'run', ok: true, status: 'running' }]
+        }
+      ]
     })
     expect(executeLocalCommandRequestMock).toHaveBeenCalledWith(
       expect.objectContaining({ cwd: 'C:\\selected' })
@@ -260,11 +277,152 @@ describe('runTeamChatMessage local file bridge', () => {
       store: {} as never
     })
 
-    expect(result).toEqual({ ok: true, reply: '실행하지 않았습니다.' })
+    expect(result).toMatchObject({
+      ok: true,
+      reply: '실행하지 않았습니다.',
+      toolExecutions: [
+        {
+          sequence: 1,
+          kind: 'local_command',
+          operations: [{ id: 'run', kind: 'run', ok: false }]
+        }
+      ]
+    })
     expect(executeLocalCommandRequestMock).not.toHaveBeenCalled()
     expect(String(runHermesAcpProcessMock.mock.calls[1]?.[0].message)).toContain(
       'user denied local command execution'
     )
+  })
+
+  it('reserves a final response after eight local tool executions', async () => {
+    const toolRequest =
+      '<orca_local_files>{"version":1,"operations":[{"id":"list","kind":"list","path":"."}]}</orca_local_files>'
+    spawnMock.mockReturnValue(fakeProcess(''))
+    for (let index = 0; index < 8; index += 1) {
+      runHermesAcpProcessMock.mockResolvedValueOnce({ ok: true, reply: toolRequest })
+    }
+    runHermesAcpProcessMock.mockResolvedValueOnce({ ok: true, reply: '최종 답변' })
+    executeLocalFileRequestMock.mockResolvedValue([{ id: 'list', ok: true, entries: [] }])
+
+    const result = await runTeamChatMessage({
+      requestId: 'request-final-reserve',
+      conversationId: 'conversation-final-reserve',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: '여덟 단계 작업',
+      imageAttachments: [],
+      history: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    })
+
+    expect(result).toMatchObject({ ok: true, reply: '최종 답변' })
+    expect(result.toolExecutions).toHaveLength(8)
+    expect(executeLocalFileRequestMock).toHaveBeenCalledTimes(8)
+    expect(runHermesAcpProcessMock).toHaveBeenCalledTimes(9)
+    expect(String(runHermesAcpProcessMock.mock.calls[8]?.[0].message)).toContain(
+      '추가 도구를 요청하지 말고'
+    )
+  })
+
+  it('does not execute a ninth local tool request', async () => {
+    const toolRequest =
+      '<orca_local_files>{"version":1,"operations":[{"id":"list","kind":"list","path":"."}]}</orca_local_files>'
+    spawnMock.mockReturnValue(fakeProcess(''))
+    for (let index = 0; index < 9; index += 1) {
+      runHermesAcpProcessMock.mockResolvedValueOnce({ ok: true, reply: toolRequest })
+    }
+    executeLocalFileRequestMock.mockResolvedValue([{ id: 'list', ok: true, entries: [] }])
+
+    const result = await runTeamChatMessage({
+      requestId: 'request-tool-limit',
+      conversationId: 'conversation-tool-limit',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: '한도 초과 작업',
+      imageAttachments: [],
+      history: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      errorCode: 'local_tool_limit_exceeded',
+      error: expect.stringContaining('additional request was not executed')
+    })
+    expect(result.toolExecutions).toHaveLength(8)
+    expect(executeLocalFileRequestMock).toHaveBeenCalledTimes(8)
+  })
+
+  it('returns a protocol error instead of exposing a malformed tool envelope', async () => {
+    const malformed =
+      '<orca_local_commands>{"version":1,"operations":[{"id":"run","kind":"run","command":"uv","args":["run","app.py"],"foreground":true,"timeoutMs":120000}]}</orca_local_commands>'
+    spawnMock.mockReturnValue(fakeProcess(''))
+    runHermesAcpProcessMock.mockResolvedValueOnce({ ok: true, reply: malformed })
+
+    const result = await runTeamChatMessage({
+      requestId: 'request-invalid-protocol',
+      conversationId: 'conversation-invalid-protocol',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: '실행',
+      imageAttachments: [],
+      history: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      errorCode: 'local_tool_protocol_invalid',
+      error: 'invalid local command envelope; use mode and timeoutSeconds fields'
+    })
+    expect(executeLocalCommandRequestMock).not.toHaveBeenCalled()
+  })
+
+  it('preserves completed local work when the follow-up model request fails', async () => {
+    const toolRequest =
+      '<orca_local_files>{"version":1,"operations":[{"id":"write","kind":"write","path":"dashboard.py","contentBase64":"cHJpbnQoMSk=","expectedSha256":null}]}</orca_local_files>'
+    spawnMock.mockReturnValue(fakeProcess(''))
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: toolRequest })
+      .mockResolvedValueOnce({ ok: false, error: 'upstream unavailable' })
+    executeLocalFileRequestMock.mockResolvedValue([
+      { id: 'write', ok: true, path: 'dashboard.py', sha256: 'a'.repeat(64) }
+    ])
+
+    const result = await runTeamChatMessage({
+      requestId: 'request-preserve-results',
+      conversationId: 'conversation-preserve-results',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: '파일 생성',
+      imageAttachments: [],
+      history: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: 'upstream unavailable',
+      toolExecutions: [
+        {
+          sequence: 1,
+          kind: 'local_file',
+          operations: [{ id: 'write', kind: 'write', ok: true, target: 'dashboard.py' }]
+        }
+      ]
+    })
   })
 
   it('reuses the tab session and only rehydrates history when it is first created', async () => {

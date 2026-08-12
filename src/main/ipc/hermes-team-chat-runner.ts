@@ -27,16 +27,20 @@ import {
   cleanupTeamChatClipboardImages,
   uploadTeamChatClipboardImages
 } from './hermes-team-chat-image-transfer'
-import {
-  executeLocalProjectToolReply,
-  LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT
-} from './hermes-local-project-tool-loop'
+import { LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT } from './hermes-local-project-tool-loop'
 import { stopRemoteTeamChat, teamChatSshArgs } from './hermes-team-chat-ssh-process'
+import type {
+  HermesTeamChatResult,
+  TeamChatLocalToolExecution
+} from '../../shared/hermes-team-chat-result'
+import {
+  advanceTeamChatLocalToolTurn,
+  attachTeamChatToolExecutions,
+  MAX_LOCAL_TOOL_EXECUTIONS
+} from './hermes-team-chat-local-tool-turn'
 
 const ACP_CANCEL_GRACE_MS = 5_000
-const MAX_LOCAL_TOOL_ROUNDS = 8
 
-type TeamChatResult = { ok: boolean; reply?: string; error?: string }
 type RunningProcess = ReturnType<typeof spawn>
 type InFlightController = {
   proc: RunningProcess | null
@@ -60,7 +64,7 @@ async function runOneShotRemoteTeamChat(args: {
   message: string
   controller: InFlightController
   onProgress?: (event: TeamChatProgressEvent) => void
-}): Promise<TeamChatResult> {
+}): Promise<HermesTeamChatResult> {
   const remote = buildTeamChatRemoteCommand(args)
   const proc = spawn('ssh', teamChatSshArgs(args.host, remote), {
     stdio: ['pipe', 'pipe', 'pipe']
@@ -81,7 +85,9 @@ async function runOneShotRemoteTeamChat(args: {
   return result
 }
 
-function cancellationResult(reason: InFlightController['cancelledReason']): TeamChatResult | null {
+function cancellationResult(
+  reason: InFlightController['cancelledReason']
+): HermesTeamChatResult | null {
   if (!reason) {
     return null
   }
@@ -105,7 +111,7 @@ export async function runTeamChatMessage(args: {
   store: Store
   mailToken?: string
   onProgress?: (event: TeamChatProgressEvent) => void
-}): Promise<TeamChatResult> {
+}): Promise<HermesTeamChatResult> {
   const controller: InFlightController = {
     proc: null,
     stage: null,
@@ -142,6 +148,7 @@ export async function runTeamChatMessage(args: {
     void controller.stop('timeout')
   }, TEAM_CHAT_MESSAGE_TIMEOUT_MS)
   let sessionHandle: TeamChatSessionHandle | null = null
+  const toolExecutions: TeamChatLocalToolExecution[] = []
 
   try {
     const remoteImages = await uploadTeamChatClipboardImages({
@@ -197,10 +204,10 @@ export async function runTeamChatMessage(args: {
       }
     }
     let conversationMessage = appendRemoteImageInstructions(args.message, remoteImages)
-    for (let round = 0; round < MAX_LOCAL_TOOL_ROUNDS; round += 1) {
+    for (let round = 0; round <= MAX_LOCAL_TOOL_EXECUTIONS; round += 1) {
       const cancelled = cancellationResult(controller.cancelledReason)
       if (cancelled) {
-        return cancelled
+        return attachTeamChatToolExecutions(cancelled, toolExecutions)
       }
       const fullMessage = formatTeamChatMessage({
         contextLine:
@@ -231,32 +238,43 @@ export async function runTeamChatMessage(args: {
           })
       const stopped = cancellationResult(controller.cancelledReason)
       if (stopped) {
-        return stopped
+        return attachTeamChatToolExecutions(stopped, toolExecutions)
       }
       if (!result.ok || !result.reply) {
-        return result
+        return attachTeamChatToolExecutions(result, toolExecutions)
       }
-      const toolReply = await executeLocalProjectToolReply({
+      const toolTurn = await advanceTeamChatLocalToolTurn({
         reply: result.reply,
         cwd: args.cwd,
         store: args.store,
         requestId: args.requestId,
+        toolExecutions,
         onProgress: args.onProgress
       })
-      if (toolReply === null) {
-        return result
+      if (toolTurn.kind === 'complete') {
+        return attachTeamChatToolExecutions(result, toolExecutions)
       }
-      conversationMessage = [
-        `Orca 로컬 프로젝트 도구 결과:\n${toolReply}`,
-        '위 결과를 사용하세요. 추가 작업이 필요하면 해당 로컬 도구 형식만 출력하세요. 사용자 판단이 필요하면 질문한 뒤 이번 턴을 종료하고, 완료됐으면 최종 답변하세요.'
-      ].join('\n\n')
+      if (toolTurn.kind === 'failed') {
+        return toolTurn.result
+      }
+      conversationMessage = toolTurn.message
     }
-    return { ok: false, error: 'local project tool request limit exceeded' }
+    return attachTeamChatToolExecutions(
+      {
+        ok: false,
+        errorCode: 'local_tool_limit_exceeded',
+        error: 'local project tool response limit reached'
+      },
+      toolExecutions
+    )
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : String(error)
-    }
+    return attachTeamChatToolExecutions(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error)
+      },
+      toolExecutions
+    )
   } finally {
     clearTimeout(timer)
     if (controller.hardStopTimer) {

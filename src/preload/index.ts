@@ -23,6 +23,7 @@ import type {
 import type { MobileRelayStatus } from '../shared/mobile-relay-status'
 import type { MobilePairingConnectionMode } from '../shared/mobile-pairing-connection-mode'
 import type { RuntimePairingReach } from '../shared/runtime-pairing-reach'
+import type { HermesTeamChatResult } from '../shared/hermes-team-chat-result'
 import type { MobileRelayMintFailure } from '../shared/mobile-relay-mint-failure'
 import type { VerifyAndAddRuntimeEnvironmentResult } from '../shared/remote-pairing-verification'
 import type {
@@ -2168,7 +2169,7 @@ const api = {
       token?: string
       error?: string
     }> => ipcRenderer.invoke('hermes:ensureChatServer'),
-    sendHermesTeamChat: (args): Promise<{ ok: boolean; reply?: string; error?: string }> =>
+    sendHermesTeamChat: (args): Promise<HermesTeamChatResult> =>
       ipcRenderer.invoke('hermes:sendTeamChat', args),
     runHermesLocalShellCommand: (
       args

@@ -22,6 +22,7 @@ import type { TeamChatAttachment } from '../../shared/hermes-team-chat-attachmen
 import { registerHermesTeamChatAppCleanup } from './hermes-team-chat-app-cleanup'
 import { isValidTeamChatSshHost } from './hermes-team-chat-ssh-process'
 import { registerHermesLocalShellCommandHandlers } from './hermes-local-shell-command-ipc'
+import type { HermesTeamChatResult } from '../../shared/hermes-team-chat-result'
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
 const MAIL_TOKEN_RE = /^[A-Za-z0-9._-]{1,256}$/
@@ -52,8 +53,6 @@ function loadOrCreateToken(): string {
 }
 
 const token = loadOrCreateToken()
-
-type TeamChatResult = { ok: boolean; reply?: string; error?: string }
 
 function normalizeAttachments(value: unknown): TeamChatAttachment[] {
   if (!Array.isArray(value)) {
@@ -146,7 +145,7 @@ async function handleTeamChatRequest(
   parsed: Record<string, unknown>,
   store: Store,
   onProgress?: (event: TeamChatProgressEvent) => void
-): Promise<TeamChatResult> {
+): Promise<HermesTeamChatResult> {
   const profile = typeof parsed.profile === 'string' ? parsed.profile : ''
   const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : ''
   const conversationId =
