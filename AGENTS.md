@@ -1,5 +1,9 @@
 # Product Spec — 제품·아키텍처·기준은 [docs/samwoo/SPEC.md](./docs/samwoo/SPEC.md), 실행 현황은 [docs/samwoo/WAVES.md](./docs/samwoo/WAVES.md)가 단일 진실이다. 문서 지도는 [docs/samwoo/README.md](./docs/samwoo/README.md). 작업·감사 전 반드시 읽을 것.
 
+# System Architecture
+
+Before analyzing or changing system-wide behavior, read [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md). Update it when process boundaries, state ownership, execution hosts, Runtime RPC, PTY, SSH, SAMWOO, or Hermes architecture changes.
+
 # Design System
 
 All UI work — layout, color, typography, spacing, component selection, UX behavior — must follow [`docs/STYLEGUIDE.md`](./docs/STYLEGUIDE.md). Use the tokens defined in `src/renderer/src/assets/main.css` (the canonical source) and the shadcn primitives in `src/renderer/src/components/ui/`. Don't invent new color values, font sizes, or shadow tiers when a documented one already covers the role. When STYLEGUIDE.md is silent, follow the resolution order in its final section.
