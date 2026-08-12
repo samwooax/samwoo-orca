@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목 | 현재 상태 |
 |---|---|
-| 로컬 패키지 버전 | `1.4.192` |
+| 로컬 패키지 버전 | `1.4.193` |
 | 작업 브랜치 | `samwoo/upstream-v1.4.168` |
 | SAMWOO 원격 | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격 | `https://github.com/stablyai/orca.git` |
@@ -438,6 +438,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.190` | draft 유지 | 서버 예약·협업 실명 보완 빌드. 관리자 검증 전 공개하지 않음 |
 | `v1.4.191` | **공개 — 최신** | Hermes 채팅 로컬 셸 명령 실행과 웹 터미널 fallback 문구 보완 |
 | `v1.4.192` | draft 검증 완료 | PC 로컬 예약 실행·프로젝트 결과 저장과 Windows 원클릭 관리자 설치 복구. Actions run `31452996632`, 오프라인 원클릭 키트 `r24` 무결성 확인 |
+| `v1.4.193` | 빌드 준비 | Hermes 로컬 도구 프로토콜 검증·라운드 경계 수정·실행 결과 보존 |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
