@@ -136,6 +136,10 @@ module.exports = {
     // Why: bundled plugins ship via extraResources to resources/plugins/launch;
     // packing the source tree into app.asar would duplicate those exact bytes.
     '!resources/plugins/launch/**',
+    // Why: the frozen document worker ships once through Windows extraResources;
+    // its build source and temporary virtualenv are not runtime inputs.
+    '!resources/hermes-excel-artifact-worker{,/**/*}',
+    '!resources/hermes-excel-artifact-worker-src{,/**/*}',
     // Why: the Windows CLI shim ships via extraResources to resources/bin/orca.cmd
     // (beside the native resources/bin/orca.exe). Packing the source tree into
     // app.asar too lets asarUnpack:['resources/**'] extract a second copy at

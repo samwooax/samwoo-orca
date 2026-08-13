@@ -10,6 +10,10 @@ describe('Excel Artifact packaging contract', () => {
       from: 'resources/hermes-excel-artifact-worker/win32-x64/orca-excel-artifact-worker',
       to: 'hermes-excel-artifact-worker'
     })
+    expect(electronBuilderConfig.files).toContain('!resources/hermes-excel-artifact-worker{,/**/*}')
+    expect(electronBuilderConfig.files).toContain(
+      '!resources/hermes-excel-artifact-worker-src{,/**/*}'
+    )
     expect(electronBuilderConfig.afterSign).toBeTypeOf('function')
   })
 
