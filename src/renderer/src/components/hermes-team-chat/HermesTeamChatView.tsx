@@ -30,6 +30,7 @@ import {
   parseDirectShellCommand
 } from './hermes-team-chat-local-command'
 import { formatTeamChatToolExecutionSummary } from './hermes-team-chat-tool-execution-summary'
+import { teamChatAttachmentKey } from './hermes-team-chat-attachment-key'
 
 function nativeMessages(messages: TeamChatHistoryMessage[]): NativeChatMessage[] {
   return messages.map((message, index) => ({
@@ -70,7 +71,6 @@ export function HermesTeamChatView({
   const [busy, setBusy] = useState(false)
   const currentMailToken = useSamwooAuthStore((state) => state.auth?.token)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const requestIdRef = useRef<string | null>(null)
   const { progressEvents, resetProgress, finishProgress } = useHermesTeamChatProgress(requestIdRef)
   const {
@@ -78,9 +78,9 @@ export function HermesTeamChatView({
     attachmentNotice,
     clearAttachments,
     pasteClipboardImage,
-    readAttachments,
+    pickAttachments,
     removeAttachment
-  } = useHermesTeamChatAttachments(textareaRef, busy)
+  } = useHermesTeamChatAttachments(textareaRef, busy, conversationId)
 
   useEffect(() => {
     localStorage.setItem(
@@ -153,12 +153,18 @@ export function HermesTeamChatView({
     setMessages([...history, { role: 'user', content: displayText }])
     setDraft('')
     const outgoingAttachments = attachments
-    clearAttachments()
     const requestId = crypto.randomUUID()
     requestIdRef.current = requestId
     resetProgress()
     setBusy(true)
     const directCommand = parseDirectShellCommand(text)
+    if (directCommand) {
+      for (const attachment of outgoingAttachments) {
+        removeAttachment(attachment)
+      }
+    } else {
+      clearAttachments()
+    }
     try {
       if (directCommand) {
         const result = await window.api.preflight.runHermesLocalShellCommand({
@@ -206,6 +212,9 @@ export function HermesTeamChatView({
         }
       ])
     } catch (error) {
+      for (const attachment of outgoingAttachments) {
+        removeAttachment(attachment)
+      }
       if (requestIdRef.current !== requestId) {
         return
       }
@@ -232,6 +241,7 @@ export function HermesTeamChatView({
     finishProgress,
     messages,
     model,
+    removeAttachment,
     resetProgress,
     route
   ])
@@ -317,13 +327,9 @@ export function HermesTeamChatView({
               ) : null}
               {attachments.length ? (
                 <div className="mb-2 flex flex-wrap gap-1.5 px-1">
-                  {attachments.map((attachment, index) => (
+                  {attachments.map((attachment) => (
                     <div
-                      key={
-                        attachment.kind === 'image'
-                          ? attachment.path
-                          : `${attachment.name}-${index}`
-                      }
+                      key={teamChatAttachmentKey(attachment)}
                       className="flex max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
                     >
                       {attachment.kind === 'image' ? (
@@ -372,17 +378,6 @@ export function HermesTeamChatView({
                   }
                 }}
               />
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                accept=".txt,.md,.csv,.json,.yaml,.yml,.log"
-                onChange={(event) => {
-                  void readAttachments(event.target.files)
-                  event.target.value = ''
-                }}
-              />
               <div className="flex items-center pt-0.5">
                 <NativeChatComposerActions
                   attachDisabled={busy}
@@ -391,7 +386,7 @@ export function HermesTeamChatView({
                   isWorking={busy}
                   isDictating={false}
                   isDictationHoldMode={false}
-                  onAttach={() => fileInputRef.current?.click()}
+                  onAttach={() => void pickAttachments()}
                   onDictationToggle={() => {}}
                   onDictationHoldStart={() => {}}
                   onDictationHoldEnd={() => {}}

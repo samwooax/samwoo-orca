@@ -1,10 +1,13 @@
 import type { Store } from '../persistence'
+import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
 import type {
   HermesTeamChatResult,
   TeamChatLocalToolExecution
 } from '../../shared/hermes-team-chat-result'
 import { executeLocalProjectToolReply } from './hermes-local-project-tool-loop'
+import type { LocalDocumentAttachment } from './hermes-local-document-protocol'
+import type { ExcelArtifactCapability } from '../../shared/hermes-excel-artifact'
 
 export const MAX_LOCAL_TOOL_EXECUTIONS = 8
 
@@ -19,8 +22,12 @@ export async function advanceTeamChatLocalToolTurn(args: {
   reply: string
   cwd: string
   store: Store
+  artifactStore?: HermesBinaryArtifactStore
+  excelCapability?: ExcelArtifactCapability | null
+  conversationId?: string
   requestId: string
   toolExecutions: TeamChatLocalToolExecution[]
+  documentAttachments?: LocalDocumentAttachment[]
   onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<
   | { kind: 'complete' }
@@ -31,7 +38,11 @@ export async function advanceTeamChatLocalToolTurn(args: {
     reply: args.reply,
     cwd: args.cwd,
     store: args.store,
+    artifactStore: args.artifactStore,
+    excelCapability: args.excelCapability,
+    conversationId: args.conversationId,
     requestId: args.requestId,
+    documentAttachments: args.documentAttachments,
     allowExecution: args.toolExecutions.length < MAX_LOCAL_TOOL_EXECUTIONS,
     onProgress: args.onProgress
   })

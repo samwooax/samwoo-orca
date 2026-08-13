@@ -96,6 +96,9 @@ jobs:
           retry_wait_seconds: 30
           command: pnpm install --frozen-lockfile
 
+      - name: Install frozen worker builder
+        run: python -m pip install uv==0.11.26
+
       - name: Verify SAMWOO local integrations and installer
         shell: pwsh
         run: |
@@ -104,6 +107,14 @@ jobs:
             src/main/ipc/crash-reporting.test.ts `
             src/main/ipc/messenger-popout.test.ts `
             src/main/ipc/hermes-team-chat-runner.test.ts `
+            src/main/ipc/hermes-binary-artifact-store.test.ts `
+            src/main/ipc/hermes-excel-artifact-job-registry.test.ts `
+            src/main/ipc/hermes-excel-artifact-protocol.test.ts `
+            src/main/ipc/hermes-local-document-formats.test.ts `
+            src/main/ipc/hermes-local-document-protocol.test.ts `
+            src/main/ipc/hermes-local-project-documents.test.ts `
+            src/main/ipc/hermes-local-project-tool-loop.test.ts `
+            src/main/ipc/hermes-team-chat-attachment-normalization.test.ts `
             src/main/ipc/hermes-team-chat-image-transfer.test.ts `
             src/main/ipc/hermes-team-chat-acp-client.test.ts `
             src/main/ipc/hermes-team-chat-session-registry.test.ts `
@@ -187,6 +198,8 @@ jobs:
             src/renderer/src/lib/worktree-activation.test.ts `
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
             config/scripts/electron-builder-samwoo-config.test.mjs `
+            config/scripts/excel-artifact-packaging-contract.test.mjs `
+            config/scripts/hermes-excel-artifact-worker-manifest.test.mjs `
             config/scripts/samwoo-brand-assets.test.mjs `
             config/scripts/samwoo-windows-internal-signing-workflow.test.mjs `
             config/scripts/windows-one-click-integrity-contract.test.mjs `

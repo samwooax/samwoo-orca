@@ -1,6 +1,24 @@
 export type TeamChatLocalToolOperationResult = {
   id: string
-  kind: 'list' | 'read' | 'write' | 'run' | 'stop'
+  kind:
+    | 'list'
+    | 'read'
+    | 'write'
+    | 'inspect'
+    | 'extract'
+    | 'apply_xlsx_translation'
+    | 'apply_pptx_translation'
+    | 'create_pptx'
+    | 'edit_pptx'
+    | 'create_pdf'
+    | 'edit_pdf'
+    | 'create'
+    | 'modify'
+    | 'validate'
+    | 'render'
+    | 'cancel'
+    | 'run'
+    | 'stop'
   ok: boolean
   target?: string
   status?: 'completed' | 'running' | 'stopped'
@@ -13,7 +31,7 @@ export type TeamChatLocalToolOperationResult = {
 
 export type TeamChatLocalToolExecution = {
   sequence: number
-  kind: 'local_file' | 'local_command'
+  kind: 'local_file' | 'local_document' | 'local_command' | 'excel_artifact'
   operations: TeamChatLocalToolOperationResult[]
 }
 

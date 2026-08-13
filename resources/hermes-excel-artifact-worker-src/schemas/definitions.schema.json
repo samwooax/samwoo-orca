@@ -1,0 +1,2460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://samwoo-orca.invalid/excel-artifact/v1/definitions.schema.json",
+  "title": "Orca Excel Artifact v1 shared definitions",
+  "$defs": {
+    "operationId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "jobId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "artifactId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!\\.git(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)(?!.*[\\u0000-\\u001f])[^/].*$",
+      "allOf": [
+        {
+          "not": {
+            "pattern": ":"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)[^/]*[. ](?:/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(?:[. ][^/]*)?(?:/|$)"
+          }
+        }
+      ]
+    },
+    "xlsxRelativePath": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/relativePath"
+        },
+        {
+          "pattern": "\\.[Xx][Ll][Ss][Xx]$"
+        }
+      ]
+    },
+    "safeFileName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^(?!\\.\\.?$)(?!.*[/\\\\])(?!.*[\\u0000-\\u001f]).+$",
+      "allOf": [
+        {
+          "not": {
+            "pattern": ":"
+          }
+        },
+        {
+          "not": {
+            "pattern": "[. ]$"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(?:[. ].*)?$"
+          }
+        }
+      ]
+    },
+    "mediaType": {
+      "enum": [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "text/csv",
+        "text/plain",
+        "application/json"
+      ]
+    },
+    "inputRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "pptx",
+            "pdf",
+            "png",
+            "jpeg",
+            "xlsx"
+          ]
+        },
+        "artifactId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "slides": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "pages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "artifactId"
+          ],
+          "not": {
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "required": [
+            "path"
+          ],
+          "not": {
+            "required": [
+              "artifactId"
+            ]
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "pptx"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "slides"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "pdf"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "pages"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/inputRef"
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "overwrite"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/xlsxRelativePath"
+        },
+        "overwrite": {
+          "type": "boolean"
+        },
+        "expectedSha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "overwrite": {
+                "const": true
+              }
+            },
+            "required": [
+              "overwrite"
+            ]
+          },
+          "then": {
+            "required": [
+              "expectedSha256"
+            ],
+            "properties": {
+              "expectedSha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "expectedSha256": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "version"
+      ],
+      "properties": {
+        "profile": {
+          "const": "excel-artifact-v1"
+        },
+        "version": {
+          "const": "1"
+        }
+      }
+    },
+    "validationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "openXml",
+        "formulas",
+        "charts",
+        "renderPreview"
+      ],
+      "properties": {
+        "openXml": {
+          "type": "boolean"
+        },
+        "formulas": {
+          "type": "boolean"
+        },
+        "charts": {
+          "type": "boolean"
+        },
+        "renderPreview": {
+          "type": "boolean"
+        }
+      }
+    },
+    "jsonScalar": {
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "null"
+      ]
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^(?:#[A-Fa-f0-9]{6}|[A-Za-z][A-Za-z0-9 ]{0,31})$"
+    },
+    "cellAddress": {
+      "type": "string",
+      "pattern": "^\\$?[A-Z]{1,3}\\$?[1-9][0-9]{0,6}$"
+    },
+    "cellRange": {
+      "type": "string",
+      "pattern": "^\\$?[A-Z]{1,3}\\$?[1-9][0-9]{0,6}(?::\\$?[A-Z]{1,3}\\$?[1-9][0-9]{0,6})?$"
+    },
+    "format": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+        },
+        "font": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "size": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "bold": {
+              "type": "boolean"
+            },
+            "italic": {
+              "type": "boolean"
+            },
+            "underline": {
+              "type": "boolean"
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            }
+          }
+        },
+        "fill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "color"
+          ],
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/color"
+            },
+            "pattern": {
+              "enum": [
+                "solid",
+                "none"
+              ]
+            }
+          }
+        },
+        "alignment": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "horizontal": {
+              "enum": [
+                "left",
+                "center",
+                "right",
+                "fill",
+                "justify"
+              ]
+            },
+            "vertical": {
+              "enum": [
+                "top",
+                "center",
+                "bottom",
+                "justify"
+              ]
+            },
+            "wrapText": {
+              "type": "boolean"
+            },
+            "textRotation": {
+              "type": "integer",
+              "minimum": -90,
+              "maximum": 90
+            }
+          }
+        },
+        "border": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "style": {
+              "enum": [
+                "none",
+                "thin",
+                "medium",
+                "thick",
+                "dashed",
+                "dotted",
+                "double"
+              ]
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            }
+          }
+        },
+        "numberFormat": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "locked": {
+          "type": "boolean"
+        }
+      }
+    },
+    "cellSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "address"
+      ],
+      "properties": {
+        "address": {
+          "$ref": "#/$defs/cellAddress"
+        },
+        "value": {
+          "$ref": "#/$defs/jsonScalar"
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "formatId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "numberFormat": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "comment": {
+          "type": "string",
+          "maxLength": 32767
+        },
+        "hyperlink": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      },
+      "not": {
+        "required": [
+          "value",
+          "formula"
+        ]
+      }
+    },
+    "dataCell": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/jsonScalar"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "value": {
+              "$ref": "#/$defs/jsonScalar"
+            },
+            "formula": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            },
+            "formatId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "not": {
+            "required": [
+              "value",
+              "formula"
+            ]
+          }
+        }
+      ]
+    },
+    "columnSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "range"
+      ],
+      "properties": {
+        "range": {
+          "type": "string",
+          "pattern": "^[A-Z]{1,3}(?::[A-Z]{1,3})?$"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "formatId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "rowSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 409
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "formatId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "tableSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "range"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.]{0,254}$"
+        },
+        "range": {
+          "$ref": "#/$defs/cellRange"
+        },
+        "style": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "showHeaderRow": {
+          "type": "boolean"
+        },
+        "showTotalRow": {
+          "type": "boolean"
+        },
+        "bandedRows": {
+          "type": "boolean"
+        }
+      }
+    },
+    "seriesRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sheet",
+        "range"
+      ],
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 31
+        },
+        "range": {
+          "$ref": "#/$defs/cellRange"
+        }
+      }
+    },
+    "chartSeries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "values"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "categories": {
+          "$ref": "#/$defs/seriesRef"
+        },
+        "values": {
+          "$ref": "#/$defs/seriesRef"
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        }
+      }
+    },
+    "chartSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "series",
+        "position"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "area",
+            "bar",
+            "column",
+            "doughnut",
+            "line",
+            "pie",
+            "scatter"
+          ]
+        },
+        "subtype": {
+          "enum": [
+            "standard",
+            "stacked",
+            "percent_stacked",
+            "straight",
+            "smooth"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "series": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 255,
+          "items": {
+            "$ref": "#/$defs/chartSeries"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/cellAddress"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 4096
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 4096
+        },
+        "legend": {
+          "enum": [
+            "none",
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ]
+        }
+      }
+    },
+    "dataValidationSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "range",
+        "type"
+      ],
+      "properties": {
+        "range": {
+          "$ref": "#/$defs/cellRange"
+        },
+        "type": {
+          "enum": [
+            "any",
+            "integer",
+            "decimal",
+            "list",
+            "date",
+            "time",
+            "textLength",
+            "custom"
+          ]
+        },
+        "operator": {
+          "enum": [
+            "between",
+            "notBetween",
+            "equal",
+            "notEqual",
+            "greaterThan",
+            "lessThan",
+            "greaterThanOrEqual",
+            "lessThanOrEqual"
+          ]
+        },
+        "formula1": {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "formula2": {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/jsonScalar"
+          }
+        },
+        "allowBlank": {
+          "type": "boolean"
+        },
+        "inputTitle": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "inputMessage": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "errorTitle": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "errorMessage": {
+          "type": "string",
+          "maxLength": 255
+        }
+      }
+    },
+    "conditionalFormatSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "range",
+        "type",
+        "formatId"
+      ],
+      "properties": {
+        "range": {
+          "$ref": "#/$defs/cellRange"
+        },
+        "type": {
+          "enum": [
+            "cell",
+            "formula",
+            "duplicate",
+            "unique",
+            "top",
+            "bottom",
+            "blanks",
+            "noBlanks",
+            "errors",
+            "noErrors"
+          ]
+        },
+        "operator": {
+          "enum": [
+            "between",
+            "notBetween",
+            "equal",
+            "notEqual",
+            "greaterThan",
+            "lessThan",
+            "greaterThanOrEqual",
+            "lessThanOrEqual"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/jsonScalar"
+        },
+        "formula": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "formatId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "imageSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "position",
+        "altText"
+      ],
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "position": {
+          "$ref": "#/$defs/cellAddress"
+        },
+        "altText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "xOffset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        },
+        "yOffset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        }
+      }
+    },
+    "pageSetup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "orientation": {
+          "enum": [
+            "portrait",
+            "landscape"
+          ]
+        },
+        "printArea": {
+          "$ref": "#/$defs/cellRange"
+        },
+        "header": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "footer": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "margins": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "left": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "right": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "top": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "bottom": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            }
+          }
+        }
+      }
+    },
+    "worksheetSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "state"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 31,
+          "pattern": "^[^:*?\\/\\[\\]]+$"
+        },
+        "tabColor": {
+          "$ref": "#/$defs/color"
+        },
+        "state": {
+          "enum": [
+            "visible",
+            "hidden",
+            "veryHidden"
+          ]
+        },
+        "data": {
+          "type": "array",
+          "maxItems": 1048576,
+          "items": {
+            "type": "array",
+            "maxItems": 16384,
+            "items": {
+              "$ref": "#/$defs/dataCell"
+            }
+          }
+        },
+        "cells": {
+          "type": "array",
+          "maxItems": 1000000,
+          "items": {
+            "$ref": "#/$defs/cellSpec"
+          }
+        },
+        "columns": {
+          "type": "array",
+          "maxItems": 16384,
+          "items": {
+            "$ref": "#/$defs/columnSpec"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "maxItems": 1048576,
+          "items": {
+            "$ref": "#/$defs/rowSpec"
+          }
+        },
+        "merges": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/cellRange"
+          }
+        },
+        "freezePane": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "row": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1048575
+            },
+            "column": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16383
+            }
+          }
+        },
+        "autofilter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "range"
+          ],
+          "properties": {
+            "range": {
+              "$ref": "#/$defs/cellRange"
+            }
+          }
+        },
+        "tables": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/tableSpec"
+          }
+        },
+        "charts": {
+          "type": "array",
+          "maxItems": 255,
+          "items": {
+            "$ref": "#/$defs/chartSpec"
+          }
+        },
+        "dataValidations": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/dataValidationSpec"
+          }
+        },
+        "conditionalFormats": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/conditionalFormatSpec"
+          }
+        },
+        "images": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/imageSpec"
+          }
+        },
+        "pageSetup": {
+          "$ref": "#/$defs/pageSetup"
+        }
+      }
+    },
+    "workbookSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sheets"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "preservationPolicy": {
+          "enum": [
+            "fail_on_unsupported_loss",
+            "warn_on_unsupported_loss"
+          ],
+          "default": "fail_on_unsupported_loss"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "title": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "subject": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "author": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "company": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "category": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "keywords": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "comments": {
+              "type": "string",
+              "maxLength": 32767
+            }
+          }
+        },
+        "formats": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/format"
+          }
+        },
+        "namedRanges": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "formula"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z_\\\\][A-Za-z0-9_.\\\\]{0,254}$"
+              },
+              "formula": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              }
+            }
+          }
+        },
+        "sheets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 255,
+          "items": {
+            "$ref": "#/$defs/worksheetSpec"
+          }
+        }
+      }
+    },
+    "validationCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "status",
+        "message"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "skipped",
+            "unavailable"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "checks"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/validationCheck"
+          }
+        }
+      }
+    },
+    "inspectionBbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "xEmu",
+        "yEmu",
+        "widthEmu",
+        "heightEmu"
+      ],
+      "properties": {
+        "xEmu": {
+          "type": "integer",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        },
+        "yEmu": {
+          "type": "integer",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        },
+        "widthEmu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000000000
+        },
+        "heightEmu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000000000
+        }
+      }
+    },
+    "inspectionText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "bbox": {
+          "$ref": "#/$defs/inspectionBbox"
+        }
+      }
+    },
+    "inspectionShape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "name"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "shape",
+            "connector",
+            "group"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "bbox": {
+          "$ref": "#/$defs/inspectionBbox"
+        }
+      }
+    },
+    "inspectionTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rows",
+        "columns",
+        "cells"
+      ],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "cells": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "array",
+            "maxItems": 10000,
+            "items": {
+              "type": "string",
+              "maxLength": 16384
+            }
+          }
+        },
+        "bbox": {
+          "$ref": "#/$defs/inspectionBbox"
+        }
+      }
+    },
+    "inspectionChart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "types",
+        "title"
+      ],
+      "properties": {
+        "types": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+          }
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "bbox": {
+          "$ref": "#/$defs/inspectionBbox"
+        }
+      }
+    },
+    "inspectionImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mediaType",
+        "sizeBytes"
+      ],
+      "properties": {
+        "mediaType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 127,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$&^_.+/-]*$"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "pixelWidth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20000
+        },
+        "pixelHeight": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20000
+        },
+        "bbox": {
+          "$ref": "#/$defs/inspectionBbox"
+        }
+      }
+    },
+    "inspectionBackground": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "theme",
+            "solid",
+            "gradient",
+            "pattern",
+            "image",
+            "unknown"
+          ]
+        },
+        "color": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "themeColor": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "inspectionSlide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "text",
+        "shapes",
+        "tables",
+        "charts",
+        "images",
+        "unsupportedObjects"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "text": {
+          "type": "array",
+          "maxItems": 20000,
+          "items": {
+            "$ref": "#/$defs/inspectionText"
+          }
+        },
+        "shapes": {
+          "type": "array",
+          "maxItems": 20000,
+          "items": {
+            "$ref": "#/$defs/inspectionShape"
+          }
+        },
+        "tables": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/inspectionTable"
+          }
+        },
+        "charts": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/inspectionChart"
+          }
+        },
+        "images": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/inspectionImage"
+          }
+        },
+        "background": {
+          "$ref": "#/$defs/inspectionBackground"
+        },
+        "unsupportedObjects": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+          }
+        }
+      }
+    },
+    "inspectionTheme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "colorScheme": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "fontScheme": {
+          "type": "string",
+          "maxLength": 255
+        }
+      }
+    },
+    "inspectionEmbeddedWorkbook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mediaType",
+        "sizeBytes",
+        "warning"
+      ],
+      "properties": {
+        "mediaType": {
+          "const": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "warning": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      }
+    },
+    "pptxInspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "mediaType",
+        "sha256",
+        "sizeBytes",
+        "slideCount",
+        "selection",
+        "presentation",
+        "warnings"
+      ],
+      "properties": {
+        "kind": {
+          "const": "pptx"
+        },
+        "mediaType": {
+          "const": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "slideCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "selection": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "presentation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "widthEmu",
+            "heightEmu",
+            "theme",
+            "fonts",
+            "slides",
+            "embeddedWorkbooks"
+          ],
+          "properties": {
+            "widthEmu": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2000000000
+            },
+            "heightEmu": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2000000000
+            },
+            "theme": {
+              "$ref": "#/$defs/inspectionTheme"
+            },
+            "fonts": {
+              "type": "array",
+              "maxItems": 4096,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              }
+            },
+            "slides": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 200,
+              "items": {
+                "$ref": "#/$defs/inspectionSlide"
+              }
+            },
+            "embeddedWorkbooks": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/inspectionEmbeddedWorkbook"
+              }
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/warning"
+          }
+        }
+      }
+    },
+    "pdfInspectionPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "widthPoints",
+        "heightPoints",
+        "rotation"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "widthPoints": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 20000
+        },
+        "heightPoints": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 20000
+        },
+        "rotation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 359
+        }
+      }
+    },
+    "pdfInspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "mediaType",
+        "sha256",
+        "sizeBytes",
+        "pageCount",
+        "selection",
+        "pages",
+        "warnings"
+      ],
+      "properties": {
+        "kind": {
+          "const": "pdf"
+        },
+        "mediaType": {
+          "const": "application/pdf"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "pageCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "selection": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "pages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/pdfInspectionPage"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/warning"
+          }
+        }
+      }
+    },
+    "imageInspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "mediaType",
+        "sha256",
+        "sizeBytes",
+        "selection",
+        "image",
+        "warnings"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "png",
+            "jpeg"
+          ]
+        },
+        "mediaType": {
+          "enum": [
+            "image/png",
+            "image/jpeg"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "selection": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "prefixItems": [
+            {
+              "const": 1
+            }
+          ],
+          "items": false
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height",
+            "mode",
+            "hasAlpha",
+            "iccProfilePresent",
+            "exifOrientation",
+            "orientationApplied"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20000
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20000
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[A-Za-z0-9;]+$"
+            },
+            "hasAlpha": {
+              "type": "boolean"
+            },
+            "iccProfilePresent": {
+              "type": "boolean"
+            },
+            "exifOrientation": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8
+            },
+            "orientationApplied": {
+              "type": "boolean"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "exifOrientation": {
+                    "const": 1
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "orientationApplied": {
+                    "const": false
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "orientationApplied": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/warning"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "png"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mediaType": {
+                "const": "image/png"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "mediaType": {
+                "const": "image/jpeg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "xlsxInspectionFeatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activex": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "advanced_conditional_formats": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "charts": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "conditional_formats": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "custom_xml": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "data_validations": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "defined_names": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "digital_signatures": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "drawing_shapes": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "external_links": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "form_controls": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "formulas": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "images": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "macros": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "merged_ranges": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "ole_objects": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "pivot_caches": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "pivot_tables": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "query_tables": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "sheets": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "slicer_caches": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "slicers": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "tables": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "theme_parts": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "threaded_comments": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "unsupported_charts": {"$ref": "#/$defs/inspectionFeatureCount"},
+        "web_extensions": {"$ref": "#/$defs/inspectionFeatureCount"}
+      }
+    },
+    "inspectionFeatureCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "xlsxInspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "mediaType",
+        "sha256",
+        "sizeBytes",
+        "sheetCount",
+        "sheets",
+        "tableCount",
+        "chartCount",
+        "features"
+      ],
+      "properties": {
+        "kind": {
+          "const": "xlsx"
+        },
+        "mediaType": {
+          "const": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "sheetCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "sheets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 255,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 31
+          }
+        },
+        "tableCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        },
+        "chartCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        },
+        "features": {
+          "$ref": "#/$defs/xlsxInspectionFeatures"
+        }
+      }
+    },
+    "inspectionResult": {
+      "oneOf": [
+        {"$ref": "#/$defs/pptxInspection"},
+        {"$ref": "#/$defs/pdfInspection"},
+        {"$ref": "#/$defs/imageInspection"},
+        {"$ref": "#/$defs/xlsxInspection"}
+      ]
+    },
+    "resultArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "kind",
+        "mediaType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "kind": {
+          "enum": [
+            "workbook",
+            "presentation",
+            "document",
+            "image",
+            "data",
+            "validationReport",
+            "preview",
+            "contactSheet",
+            "log"
+          ]
+        },
+        "mediaType": {
+          "$ref": "#/$defs/mediaType"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 134217728
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "fileName": {
+          "$ref": "#/$defs/safeFileName"
+        },
+        "relativePath": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    },
+    "resultInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "sha256",
+        "sizeBytes"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "pptx",
+            "pdf",
+            "png",
+            "jpeg",
+            "xlsx"
+          ]
+        },
+        "artifactId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 134217728
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "artifactId"
+          ],
+          "not": {
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "required": [
+            "path"
+          ],
+          "not": {
+            "required": [
+              "artifactId"
+            ]
+          }
+        }
+      ]
+    },
+    "resultOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "sizeBytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/xlsxRelativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 134217728
+        },
+        "replaced": {
+          "type": "boolean"
+        },
+        "previousSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "resultEngine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "role"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "xlsxwriter",
+            "openpyxl",
+            "libreoffice",
+            "python",
+            "defusedxml",
+            "pypdf",
+            "pypdfium2",
+            "pillow"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "role": {
+          "enum": [
+            "inspect",
+            "create",
+            "modify",
+            "validate",
+            "render"
+          ]
+        }
+      }
+    },
+    "warningDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "field": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "feature": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "sheet": {
+          "type": "string",
+          "maxLength": 31
+        },
+        "range": {
+          "$ref": "#/$defs/cellRange"
+        },
+        "artifactId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "details": {
+          "$ref": "#/$defs/warningDetails"
+        }
+      }
+    },
+    "resultItem": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "sheet": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 31
+            },
+            "range": {
+              "$ref": "#/$defs/cellRange"
+            },
+            "status": {
+              "enum": [
+                "created",
+                "modified",
+                "preserved",
+                "validated",
+                "rendered",
+                "skipped"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "selectedReferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "slides": {
+          "type": "array",
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "pages": {
+          "type": "array",
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "sheets": {
+          "type": "array",
+          "maxItems": 255,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 31
+          }
+        }
+      }
+    },
+    "cleanupResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "warnings"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "removed",
+            "retained",
+            "failed"
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/warning"
+          }
+        }
+      }
+    },
+    "errorDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "field": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "feature": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "artifactId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "relativePath": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "expectedSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "actualSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limitBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actualBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limitEntries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actualEntries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limitRatio": {
+          "type": "number",
+          "minimum": 0
+        },
+        "part": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "recovery",
+        "details"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "protocol_invalid",
+            "protocol_version_unsupported",
+            "capability_unsupported",
+            "workspace_unauthorized",
+            "input_not_found",
+            "input_format_invalid",
+            "input_hash_mismatch",
+            "input_encrypted",
+            "archive_limit_exceeded",
+            "archive_traversal_detected",
+            "output_already_exists",
+            "output_path_invalid",
+            "dependency_unavailable",
+            "conversion_failed",
+            "generation_failed",
+            "modification_failed",
+            "timeout",
+            "cancelled",
+            "validation_failed",
+            "render_unavailable",
+            "render_failed",
+            "commit_failed",
+            "cleanup_failed",
+            "job_conflict",
+            "job_result_unknown"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "recovery": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "details": {
+          "$ref": "#/$defs/errorDetails"
+        }
+      }
+    }
+  }
+}

@@ -15,7 +15,7 @@ SAMWOO-ORCA는 **여러 AI CLI 에이전트를 로컬·WSL·SSH·원격 Runtime�
 - 화면 상태, 영속 설정, Runtime 공개 상태, 터미널 프로세스와 스크롤백은 서로 다른 계층이 소유한다.
 - SSH 실행용 relay와 모바일·웹 연결용 cloud relay는 이름만 비슷한 별도 시스템이다.
 - SAMWOO 인증 서버와 Nextcloud는 이 저장소 밖에 배포되는 운영 의존성이다. 저장소에는 전체 인증 서버가 아니라 확장 모듈과 설치 코드만 있다.
-- Hermes의 로컬 파일/명령 도구는 범용 Orca 파일 API와 별도이며, Excel 작업에서 보고된 제한과 오류는 주로 이 경로에서 발생했다.
+- Hermes의 로컬 파일/문서/명령 도구는 범용 Orca 파일 API와 별도이며, Excel 작업에서 보고된 오류는 binary 문서를 UTF-8 파일 경로로 보낸 데서 발생했다.
 
 ## 2. 전체 시스템 그림
 
@@ -74,64 +74,65 @@ flowchart LR
 
 ## 3. 배포 단위와 프로세스 경계
 
-| 단위 | 주 실행 위치 | 책임 | 수명/주의 |
-|---|---|---|---|
-| Electron main | 사용자 PC | 조합 루트, IPC, Store, Runtime, SSH, 브라우저, 업데이트, 통합 서비스 | 앱 수명과 연결되지만 PTY daemon은 정상 종료 후에도 남을 수 있음 |
-| Electron renderer | 사용자 PC의 sandboxed Chromium | React UI, Zustand 상태, 사용자 입력, 터미널 렌더링 | 권한 작업은 preload IPC를 통해 요청 |
-| Dashboard pop-out renderer | 별도 BrowserWindow/DOM/Zustand | agent dashboard 표시 | 격리 partition을 쓰지만 main window와 같은 전체 preload API를 공유 |
-| Preload | Electron 격리 경계 | 허용된 typed API를 `window.api`로 노출 | renderer에 Node 전체 권한을 주지 않음 |
-| Orca Runtime RPC | Electron main 또는 `orca serve` | 상태 그래프와 원격 조작 API의 권한 경계 | 로컬 socket/pipe와 WebSocket/relay를 동시에 제공 가능 |
-| PTY daemon | 사용자 PC의 별도 Node 프로세스 | 로컬 셸 프로세스, 터미널 모델, 이력과 재연결 | 정상 앱 종료 시 연결만 끊고 셸을 유지하는 것이 기본 |
-| SSH relay | SSH 대상 호스트 | 원격 PTY, 파일, Git, hook, 포트, 자동화 | SSH 사용자 권한으로 업로드·실행되며 재연결 가능한 daemon 모드가 있음 |
-| Agent CLI | 로컬 또는 원격 PTY | Codex, Claude Code, OpenCode 등 실제 모델 상호작용 | Orca가 모델을 내장 실행하는 것이 아님 |
-| Plugin host | 사용자 PC의 별도 Node child process | 제3자 플러그인 JavaScript 실행 | Electron 권한 없이 capability bridge를 사용하지만 OS sandbox는 아님 |
-| Web client | 브라우저 | 데스크톱 renderer를 web preload shim과 함께 재사용 | Runtime-scope pairing이 필요하며 호스트 상태를 소유하지 않음 |
-| Mobile app | iOS/Android | 모니터링, 명령, 터미널, 작업공간 조작 | mobile allowlist 범위의 Runtime RPC만 사용 |
-| SAMWOO auth service | 사내 서버 | 로그인, 세션, 메일 중계, 공유 카탈로그·메시지 | 전체 서버 본체는 이 저장소에 없음 |
-| Hermes host | 사내 원격 서버 | Team Chat 모델 세션과 추론 | 로컬 앱이 시스템 `ssh`로 연결 |
-| Nextcloud | 사내/운영 서버 | 공유 워크스페이스 파일 저장 | Orca 클라이언트가 직접 자격증명을 받지 않음 |
+| 단위                       | 주 실행 위치                                       | 책임                                                                 | 수명/주의                                                                                                                  |
+| -------------------------- | -------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Electron main              | 사용자 PC                                          | 조합 루트, IPC, Store, Runtime, SSH, 브라우저, 업데이트, 통합 서비스 | 앱 수명과 연결되지만 PTY daemon은 정상 종료 후에도 남을 수 있음                                                            |
+| Electron renderer          | 사용자 PC의 sandboxed Chromium                     | React UI, Zustand 상태, 사용자 입력, 터미널 렌더링                   | 권한 작업은 preload IPC를 통해 요청                                                                                        |
+| Dashboard pop-out renderer | 별도 BrowserWindow/DOM/Zustand                     | agent dashboard 표시                                                 | 격리 partition을 쓰지만 main window와 같은 전체 preload API를 공유                                                         |
+| Preload                    | Electron 격리 경계                                 | 허용된 typed API를 `window.api`로 노출                               | renderer에 Node 전체 권한을 주지 않음                                                                                      |
+| Orca Runtime RPC           | Electron main 또는 `orca serve`                    | 상태 그래프와 원격 조작 API의 권한 경계                              | 로컬 socket/pipe와 WebSocket/relay를 동시에 제공 가능                                                                      |
+| PTY daemon                 | 사용자 PC의 별도 Node 프로세스                     | 로컬 셸 프로세스, 터미널 모델, 이력과 재연결                         | 정상 앱 종료 시 연결만 끊고 셸을 유지하는 것이 기본                                                                        |
+| SSH relay                  | SSH 대상 호스트                                    | 원격 PTY, 파일, Git, hook, 포트, 자동화                              | SSH 사용자 권한으로 업로드·실행되며 재연결 가능한 daemon 모드가 있음                                                       |
+| Agent CLI                  | 로컬 또는 원격 PTY                                 | Codex, Claude Code, OpenCode 등 실제 모델 상호작용                   | Orca가 모델을 내장 실행하는 것이 아님                                                                                      |
+| Plugin host                | 사용자 PC의 별도 Node child process                | 제3자 플러그인 JavaScript 실행                                       | Electron 권한 없이 capability bridge를 사용하지만 OS sandbox는 아님                                                        |
+| Hermes document worker     | 사용자 PC의 main-owned frozen Python child process | XLSX/PPTX/PDF 생성·수정·검증                                         | Windows x64 설치본에 고정 engine과 함께 포함하며 main만 실행·취소·파일 commit 권한을 가짐. SSH/Runtime에서는 실행하지 않음 |
+| Web client                 | 브라우저                                           | 데스크톱 renderer를 web preload shim과 함께 재사용                   | Runtime-scope pairing이 필요하며 호스트 상태를 소유하지 않음                                                               |
+| Mobile app                 | iOS/Android                                        | 모니터링, 명령, 터미널, 작업공간 조작                                | mobile allowlist 범위의 Runtime RPC만 사용                                                                                 |
+| SAMWOO auth service        | 사내 서버                                          | 로그인, 세션, 메일 중계, 공유 카탈로그·메시지                        | 전체 서버 본체는 이 저장소에 없음                                                                                          |
+| Hermes host                | 사내 원격 서버                                     | Team Chat 모델 세션과 추론                                           | 로컬 앱이 시스템 `ssh`로 연결                                                                                              |
+| Nextcloud                  | 사내/운영 서버                                     | 공유 워크스페이스 파일 저장                                          | Orca 클라이언트가 직접 자격증명을 받지 않음                                                                                |
 
 패키징은 `config/electron-builder.config.cjs`가 담당한다. 제품명은 `SAMWOO-ORCA`, app ID는 `com.samwooax.samwoo-orca`이며 Windows 설치 파일명은 `samwoo-orca-windows-setup.exe`다. 데스크톱 빌드는 Electron 번들뿐 아니라 CLI, SSH relay, web client, bundled skills/plugins와 플랫폼별 native 의존성을 함께 만든다. `docs/`는 패키지에서 제외되므로 이 문서는 저장소 문서이며 설치 프로그램 안에 자동 포함되지 않는다.
 
 ## 4. 소스 디렉터리 지도
 
-| 경로 | 역할 |
-|---|---|
-| `src/main/index.ts` | 데스크톱·headless 부팅과 종료를 조립하는 composition root |
-| `src/main/ipc/` | renderer에서 main으로 들어오는 권한 요청과 SAMWOO/Hermes 확장 |
-| `src/main/runtime/` | Runtime 상태, RPC server, 원격 클라이언트 API, orchestration |
-| `src/main/runtime/rpc/` | transport, dispatcher, schema, method registry |
-| `src/main/providers/` | 로컬·SSH 파일/Git/PTY 구현과 capability routing |
-| `src/main/daemon/` | 지속형 로컬 PTY daemon과 client/adapter |
-| `src/main/agent-hooks/` | 에이전트 hook 수신·설치·상태 정규화 |
-| `src/main/window/` | BrowserWindow 생성과 webview 보안 정책 |
-| `src/preload/` | renderer에 노출하는 Electron IPC bridge |
-| `src/renderer/src/` | 데스크톱 React UI, Zustand store, xterm, 브라우저·편집기 화면 |
-| `src/renderer/src/web/` | 동일 renderer를 Runtime RPC 기반 웹 앱으로 투영하는 shim |
-| `src/shared/` | main/renderer/CLI 간 타입, schema, host·workspace 식별 규칙 |
-| `src/cli/` | `orca` 명령, 로컬 Runtime 연결, remote environment 연결 |
-| `src/relay/` | SSH 대상에 배포되는 relay 번들 |
-| `mobile/` | Expo Router 기반 모바일 클라이언트 |
-| `server/samwoo-auth/` | 운영 auth server 옆에 설치되는 메일·공유·메시지 확장 |
-| `config/` | 빌드, 패키징, lint, 호환성 검사, release 스크립트 |
-| `native/`, `resources/`, `skills/` | 플랫폼 helper, 패키지 리소스, 번들 skill |
+| 경로                               | 역할                                                          |
+| ---------------------------------- | ------------------------------------------------------------- |
+| `src/main/index.ts`                | 데스크톱·headless 부팅과 종료를 조립하는 composition root     |
+| `src/main/ipc/`                    | renderer에서 main으로 들어오는 권한 요청과 SAMWOO/Hermes 확장 |
+| `src/main/runtime/`                | Runtime 상태, RPC server, 원격 클라이언트 API, orchestration  |
+| `src/main/runtime/rpc/`            | transport, dispatcher, schema, method registry                |
+| `src/main/providers/`              | 로컬·SSH 파일/Git/PTY 구현과 capability routing               |
+| `src/main/daemon/`                 | 지속형 로컬 PTY daemon과 client/adapter                       |
+| `src/main/agent-hooks/`            | 에이전트 hook 수신·설치·상태 정규화                           |
+| `src/main/window/`                 | BrowserWindow 생성과 webview 보안 정책                        |
+| `src/preload/`                     | renderer에 노출하는 Electron IPC bridge                       |
+| `src/renderer/src/`                | 데스크톱 React UI, Zustand store, xterm, 브라우저·편집기 화면 |
+| `src/renderer/src/web/`            | 동일 renderer를 Runtime RPC 기반 웹 앱으로 투영하는 shim      |
+| `src/shared/`                      | main/renderer/CLI 간 타입, schema, host·workspace 식별 규칙   |
+| `src/cli/`                         | `orca` 명령, 로컬 Runtime 연결, remote environment 연결       |
+| `src/relay/`                       | SSH 대상에 배포되는 relay 번들                                |
+| `mobile/`                          | Expo Router 기반 모바일 클라이언트                            |
+| `server/samwoo-auth/`              | 운영 auth server 옆에 설치되는 메일·공유·메시지 확장          |
+| `config/`                          | 빌드, 패키징, lint, 호환성 검사, release 스크립트             |
+| `native/`, `resources/`, `skills/` | 플랫폼 helper, 패키지 리소스, 번들 skill                      |
 
 ## 5. 식별자와 소유권 모델
 
 ### 5.1 서로 혼동하면 안 되는 식별자
 
-| 개념 | 예시 | 의미 |
-|---|---|---|
-| Orca application profile | 활성 profile의 data file | 앱 설정·세션·브라우저 partition을 분리하는 로컬 프로필 |
-| SAMWOO login profile | `ai_center` 같은 서버 판정 profile | 사내 권한·메일·공유 범위를 정하는 업무 프로필 |
-| Execution host ID | `local`, `ssh:<targetId>`, `runtime:<environmentId>` | 파일·Git·PTY 명령을 어느 호스트에서 실행할지 결정 |
-| Workspace scope | `worktree:<id>`, `folder:<id>` | Git worktree와 일반 폴더 workspace를 동일 UI에서 구분 |
-| Worktree ID | repo ID와 path를 결합한 ID | repo 내 실제 작업 사본의 identity |
-| Worktree instance ID | worktree 점유마다 새로 발급 | 같은 path/ID가 삭제 후 재사용될 때 이전 lineage와 event를 거부 |
-| Pane key | tab ID + leaf ID | 화면 pane과 실행 세션을 안정적으로 연결 |
-| PTY ID/incarnation | provider가 발급 | 실제 셸 세션과 재생성 세대를 구분 |
-| SSH generation/incarnation | target session 세대 | 끊긴 이전 연결의 늦은 이벤트가 새 연결을 오염시키지 못하게 함 |
-| Runtime ID | 실행 중 Runtime 인스턴스 | stale metadata 또는 다른 프로세스의 정리를 방지 |
+| 개념                       | 예시                                                 | 의미                                                           |
+| -------------------------- | ---------------------------------------------------- | -------------------------------------------------------------- |
+| Orca application profile   | 활성 profile의 data file                             | 앱 설정·세션·브라우저 partition을 분리하는 로컬 프로필         |
+| SAMWOO login profile       | `ai_center` 같은 서버 판정 profile                   | 사내 권한·메일·공유 범위를 정하는 업무 프로필                  |
+| Execution host ID          | `local`, `ssh:<targetId>`, `runtime:<environmentId>` | 파일·Git·PTY 명령을 어느 호스트에서 실행할지 결정              |
+| Workspace scope            | `worktree:<id>`, `folder:<id>`                       | Git worktree와 일반 폴더 workspace를 동일 UI에서 구분          |
+| Worktree ID                | repo ID와 path를 결합한 ID                           | repo 내 실제 작업 사본의 identity                              |
+| Worktree instance ID       | worktree 점유마다 새로 발급                          | 같은 path/ID가 삭제 후 재사용될 때 이전 lineage와 event를 거부 |
+| Pane key                   | tab ID + leaf ID                                     | 화면 pane과 실행 세션을 안정적으로 연결                        |
+| PTY ID/incarnation         | provider가 발급                                      | 실제 셸 세션과 재생성 세대를 구분                              |
+| SSH generation/incarnation | target session 세대                                  | 끊긴 이전 연결의 늦은 이벤트가 새 연결을 오염시키지 못하게 함  |
+| Runtime ID                 | 실행 중 Runtime 인스턴스                             | stale metadata 또는 다른 프로세스의 정리를 방지                |
 
 `src/shared/execution-host.ts`와 `src/shared/workspace-scope.ts`가 핵심 규칙이다. 새로운 기능은 최소한 execution host와 workspace scope를 함께 전달해야 한다. 경로 문자열만 보고 로컬 Git worktree라고 가정하면 folder workspace, SSH, paired runtime 중 하나가 깨진다.
 
@@ -139,21 +140,21 @@ WSL은 별도의 `executionHostId` 종류가 아니라 local partition 안에서
 
 ### 5.2 상태의 실제 소유자
 
-| 상태 | 정본 또는 주 소유자 | 다른 계층의 역할 |
-|---|---|---|
-| repo, project group, settings, persisted workspace session | main의 `Store` (`src/main/persistence.ts`) | renderer는 IPC로 읽고 변경 |
-| 현재 탭, pane layout, 선택, 편집기·브라우저 UI 상태 | renderer Zustand (`src/renderer/src/store/index.ts`) | 필요한 부분을 Store와 Runtime에 투영 |
-| 원격 클라이언트가 보는 탭·PTY·agent·browser graph | `OrcaRuntimeService` | renderer graph를 coalescing하여 publish |
-| 로컬 셸 프로세스와 터미널 이력 | PTY daemon | renderer xterm은 뷰와 입력기 |
-| 원격 셸 프로세스와 원격 작업 | SSH relay/provider | main은 세대와 권한을 검증하고 이벤트를 중계 |
-| 브라우저 페이지 process/WebContents | main `BrowserManager` | Zustand는 탭 메타데이터를 보유 |
-| orchestration run/task/message/delivery | 별도 SQLite DB | Runtime RPC가 idempotency와 권한 계약을 적용 |
-| pairing device token/key | main의 제한된 pairing 파일 | web/mobile은 pairing capability를 보유 |
-| SAMWOO auth token | renderer `localStorage`의 `samwoo.auth` | auth server가 실제 만료·profile 권한을 판정 |
-| SAMWOO 공유 메타·댓글·메시지 | auth service SQLite | 로컬에는 파일 hash/ETag sync manifest만 저장 |
-| Hermes ACP session | main의 in-memory session registry와 원격 Hermes process | renderer는 채팅 화면과 로컬 history를 표시 |
-| SAMWOO 예약 정의·실행 원장 | renderer `localStorage`의 `samwoo.schedules.v1` | App-level 30초 runner가 due 판정·실행 상태를 갱신 |
-| SAMWOO 예약 결과 | 등록된 local project의 `SAMWOO-예약결과/<예약 ID>/` | main IPC가 project authority를 재검증하고 새 Markdown 파일로 저장 |
+| 상태                                                       | 정본 또는 주 소유자                                     | 다른 계층의 역할                                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------- |
+| repo, project group, settings, persisted workspace session | main의 `Store` (`src/main/persistence.ts`)              | renderer는 IPC로 읽고 변경                                        |
+| 현재 탭, pane layout, 선택, 편집기·브라우저 UI 상태        | renderer Zustand (`src/renderer/src/store/index.ts`)    | 필요한 부분을 Store와 Runtime에 투영                              |
+| 원격 클라이언트가 보는 탭·PTY·agent·browser graph          | `OrcaRuntimeService`                                    | renderer graph를 coalescing하여 publish                           |
+| 로컬 셸 프로세스와 터미널 이력                             | PTY daemon                                              | renderer xterm은 뷰와 입력기                                      |
+| 원격 셸 프로세스와 원격 작업                               | SSH relay/provider                                      | main은 세대와 권한을 검증하고 이벤트를 중계                       |
+| 브라우저 페이지 process/WebContents                        | main `BrowserManager`                                   | Zustand는 탭 메타데이터를 보유                                    |
+| orchestration run/task/message/delivery                    | 별도 SQLite DB                                          | Runtime RPC가 idempotency와 권한 계약을 적용                      |
+| pairing device token/key                                   | main의 제한된 pairing 파일                              | web/mobile은 pairing capability를 보유                            |
+| SAMWOO auth token                                          | renderer `localStorage`의 `samwoo.auth`                 | auth server가 실제 만료·profile 권한을 판정                       |
+| SAMWOO 공유 메타·댓글·메시지                               | auth service SQLite                                     | 로컬에는 파일 hash/ETag sync manifest만 저장                      |
+| Hermes ACP session                                         | main의 in-memory session registry와 원격 Hermes process | renderer는 채팅 화면과 로컬 history를 표시                        |
+| SAMWOO 예약 정의·실행 원장                                 | renderer `localStorage`의 `samwoo.schedules.v1`         | App-level 30초 runner가 due 판정·실행 상태를 갱신                 |
+| SAMWOO 예약 결과                                           | 등록된 local project의 `SAMWOO-예약결과/<예약 ID>/`     | main IPC가 project authority를 재검증하고 새 Markdown 파일로 저장 |
 
 동일한 정보가 여러 곳에 보여도 모두 정본인 것은 아니다. 예를 들어 renderer 탭 상태는 Runtime graph로 복제되며, 터미널 스크롤백은 renderer session보다 daemon checkpoint가 crash recovery의 권위 있는 원천이다.
 
@@ -216,11 +217,11 @@ Renderer graph는 아무 창이나 publish할 수 없다. Runtime이 현재 `aut
 
 ### 7.2 Transport
 
-| Transport | 사용처 | 현재 경계 |
-|---|---|---|
-| Unix socket / Windows named pipe | 같은 PC의 `orca` CLI | runtime metadata의 endpoint·token으로 인증, Unix에서는 제한 권한 파일 사용 |
-| WebSocket | 모바일, web, remote CLI/runtime | device token과 NaCl 기반 E2EE, heartbeat와 pre-auth 제한 적용 |
-| Cloud relay transport | 직접 연결이 어려운 paired mobile | broker를 거쳐도 application E2EE 유지 |
+| Transport                        | 사용처                           | 현재 경계                                                                  |
+| -------------------------------- | -------------------------------- | -------------------------------------------------------------------------- |
+| Unix socket / Windows named pipe | 같은 PC의 `orca` CLI             | runtime metadata의 endpoint·token으로 인증, Unix에서는 제한 권한 파일 사용 |
+| WebSocket                        | 모바일, web, remote CLI/runtime  | device token과 NaCl 기반 E2EE, heartbeat와 pre-auth 제한 적용              |
+| Cloud relay transport            | 직접 연결이 어려운 paired mobile | broker를 거쳐도 application E2EE 유지                                      |
 
 Cloud relay metadata가 있어도 broker가 최종 권한은 아니다. host의 device token, relay device identity와 E2EE handshake가 다시 일치해야 같은 Runtime method에 도달한다. E2EE channel은 hello, auth, ready 단계로 전이하며 relay 연결은 context-bound handshake를 요구한다.
 
@@ -372,11 +373,11 @@ Relay는 OS/architecture별 content hash version 아래에 staging·lock·완료
 
 ### 10.2 이름이 비슷한 별도 relay
 
-| 구분 | 목적 | 연결 방향 |
-|---|---|---|
-| SSH relay | 원격 개발 호스트에서 PTY/파일/Git 실행 | Desktop main -> SSH host |
+| 구분                | 목적                                              | 연결 방향                                 |
+| ------------------- | ------------------------------------------------- | ----------------------------------------- |
+| SSH relay           | 원격 개발 호스트에서 PTY/파일/Git 실행            | Desktop main -> SSH host                  |
 | Desktop cloud relay | NAT 등으로 직접 접속하기 어려운 mobile/web를 중계 | Mobile/web <-> broker <-> Desktop Runtime |
-| WSL hook relay | WSL 안 agent hook를 Windows host로 전달 | WSL process -> Desktop hook service |
+| WSL hook relay      | WSL 안 agent hook를 Windows host로 전달           | WSL process -> Desktop hook service       |
 
 이 세 경로의 credential, lifecycle, protocol을 하나로 합치면 권한 경계가 무너진다.
 
@@ -533,8 +534,8 @@ Renderer HermesTeamChatView
   -> 시스템 ssh
   -> Hermes host의 agent/ACP process
   -> 모델 응답
-  -> 필요 시 <orca_local_files> / <orca_local_commands>
-  -> main이 선택한 local project에서 파일 검증 또는 명령 승인 후 실행
+  -> 필요 시 <orca_local_files> / <orca_local_documents> / <orca_local_commands>
+  -> main이 선택한 local project 또는 요청 한정 문서 첨부를 검증한 뒤 실행
   -> 결과를 Hermes 모델에 돌려줌
 
 호환 경로: token-protected local loopback chat server (기본 127.0.0.1:47821)
@@ -546,8 +547,8 @@ Renderer HermesTeamChatView
 - 일반 모델은 one-shot stream, Hermes 모델은 JSONL ACP persistent session을 사용하며 idle session을 정리한다.
 - local chat HTTP server는 loopback에만 bind하고 app userData의 제한 권한 token file로 요청을 인증한다.
 - chat URL query에는 profile, label, host, cwd와 현재 `mailtoken`이 포함된다. 실제 화면은 BrowserPane이 해당 route를 인식해 native React view로 대체한다.
-- 텍스트 file picker는 `.txt`, `.md`, `.csv`, `.json`, `.yaml`, `.yml`, `.log`만 받는다. PPTX/XLSX/PDF 같은 binary document를 읽는 parser가 아니다.
-- 붙여넣은 이미지는 별도 임시 파일·SSH upload 경로를 사용한다.
+- native file picker는 96KB 이하 UTF-8 텍스트와 64MiB 이하 PDF/XLSX/PPTX/PNG/JPEG를 구분한다. binary는 renderer/Base64에 싣지 않고 Electron main의 private artifact store로 복사·해시한 뒤 opaque ID만 renderer에 반환한다.
+- artifact는 conversation/request에 결합하고 1시간 TTL, 요청 종료·제거·앱 종료 시 정리한다. 붙여넣은 이미지는 기존 임시 파일·SSH upload 호환 경로를 사용한다.
 
 표시 history, model/effort와 conversation ID는 renderer localStorage가 소유하고, main은 in-flight controller와 Hermes ACP process를 소유한다. Conversation당 active request는 하나로 직렬화하며 host/profile/mail token이 바뀌거나 process가 닫히면 session을 교체하고 30분 idle 뒤 정리한다. Loopback server의 send/cancel/close는 chat token을 요구하지만 direct Electron IPC는 trusted preload/renderer 경계를 신뢰한다.
 
@@ -568,6 +569,30 @@ Renderer HermesTeamChatView
 - temp file + rename과 project별 queue로 write 충돌 방지
 - project가 admission된 뒤 각 file write마다 별도 사용자 approval dialog를 띄우지는 않음
 
+#### 로컬 문서 도구
+
+`src/main/ipc/hermes-local-project-documents.ts`는 UTF-8 파일 도구를 완화하지 않고 별도 `<orca_local_documents>` protocol로 PDF/XLSX/PPTX를 처리한다.
+
+- 한 요청에 최대 4개 문서 operation을 허용한다. 읽기·번역 외에 `create_pptx`/`edit_pptx`와 `create_pdf`/`edit_pdf`가 신규 파일만 생성한다.
+- project 파일은 기존 canonical root authority를 재사용한다. 직접 첨부는 main artifact store에서 해시를 다시 확인한 뒤 요청 한정 `@attachments/...` virtual path로만 모델에 노출한다.
+- 입력·출력은 파일당 64MiB, 결과 합계는 768KiB다. legacy loopback Base64 경로는 호환용으로만 유지하고 96MiB body 상한을 둔다.
+- PDF는 최대 1,000페이지, 호출당 10페이지, 페이지당 32,000자까지 text layer를 추출한다. bundled worker는 텍스트 PDF 생성과 페이지 삭제·재배열·회전·병합, watermark, metadata 편집을 지원한다. 스캔 OCR과 기존 PDF의 임의 본문 치환은 아직 지원하지 않는다.
+- XLSX는 OOXML ZIP/XML에서 문자열 셀만 추출한다. 수식·숫자는 대상에서 제외하고 style·formula·chart·media archive entry를 유지한다.
+- XLSX 추출은 호출당 200셀, 적용은 128셀이다. 원문 문자열과 원본 SHA-256이 모두 같아야 하며 원본과 다른 신규 `.xlsx` project path로만 저장한다.
+- PPTX는 슬라이드 순서대로 텍스트 문단과 표·차트·이미지 개수를 추출한다. 번역은 추출 문단과 원본 SHA-256 일치를 요구한다. bundled worker는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트 교체, 슬라이드 추가·삭제, 표 셀·요소 편집을 신규 `.pptx`로 저장한다.
+- 선택된 local project가 없는 직접 첨부 번역은 Electron main이 native save dialog를 열어 사용자가 목적지를 승인한다. 기존 파일을 덮어쓰지 않는다.
+- ZIP은 최대 4,096 entry, entry당 64MiB, 총 비압축 256MiB, XML당 16MiB다. DOCTYPE/ENTITY, archive path 탈출, 매크로·ActiveX·OLE, 외부 OOXML 관계를 거부한다.
+- PDF.js와 OOXML 읽기·번역은 30초 timeout·memory limit이 있는 Node worker thread에서 실행한다. 일반 생성·편집은 Python 3.13과 고정된 openpyxl/XlsxWriter/python-pptx/pypdf/reportlab을 PyInstaller one-folder 실행파일로 빌드해 Windows 설치본의 `Resources/hermes-excel-artifact-worker`에 포함한다. 사용자의 Python·pip·Office package를 사용하지 않는다.
+- project-backed source/output은 local worktree와 folder workspace에서만 동작한다. SSH/Runtime 경로를 로컬 path로 해석하지 않으며, 요청 첨부의 추출만 project root 없이 가능하다.
+- Electron main은 worker bundle manifest와 실제 engine metadata를 probe한 경우에만 Excel Artifact v1의 `create`/`modify`/`validate`/`cancel` capability를 trusted instruction에 넣는다. `<orca_excel_artifact>`는 local file/document/command envelope와 하나의 union으로 parse하고, capability가 없거나 SSH/Runtime workspace이면 실행하지 않는다. LibreOffice render/preview capability는 계속 비활성이다.
+
+#### Excel Artifact job 경계
+
+- 모델은 strict Workbook Spec v1과 workspace-relative output 또는 opaque artifact input만 낸다. main은 `@attachments/...`를 conversation/request-bound artifact ID로 바꾸며 worker에는 root와 hash-bound private path를 trusted context로 별도 전달한다.
+- main은 conversation/workspace scope의 idempotency fingerprint를 mutation 전에 append+fsync receipt로 기록한다. 동일 key·동일 요청은 terminal result를 재사용하고, 다른 요청은 `job_conflict`, 종료 상태가 유실된 요청은 `job_result_unknown`으로 자동 재실행을 막는다.
+- worker는 private staging에서 생성·수정한 뒤 OOXML, 수식, chart reference와 선언 spec을 재검증하고 같은 volume에 원자적으로 commit한다. project가 없는 직접 첨부 결과는 private workspace commit 후 native save dialog와 create-only copy를 통과해야 receipt가 terminal이 된다.
+- main request cancellation은 활성 frozen worker를 종료하며 결과·오류는 private path, argv, 환경, credential을 제거한 구조만 Hermes에 반환한다. worker process와 실제 파일 권한은 서버 Hermes가 아니라 Electron main이 소유한다.
+
 #### 로컬 명령 도구
 
 `src/main/ipc/hermes-local-project-commands.ts`의 현재 제한은 다음과 같다.
@@ -585,11 +610,11 @@ Renderer HermesTeamChatView
 
 각 실행 결과는 `src/shared/hermes-team-chat-result.ts`의 `toolExecutions`로 최종 성공·실패·취소 응답에 보존된다. renderer는 이를 `hermes-team-chat-tool-execution-summary.ts`로 요약해 표시하므로, 마지막 모델 문장만 보고 이미 수행된 local write·command를 잃어버리지 않는다.
 
-파일 또는 명령 envelope는 답변 전체에 정확히 하나만 있어야 한다. 두 종류를 같이 출력하거나 태그는 있지만 JSON/schema가 잘못된 응답은 일반 답변으로 통과시키지 않고 `local_tool_protocol_invalid`로 실패시킨다. 명령 요청은 `mode: "foreground" | "background"`와 초 단위 `timeoutSeconds`를 사용하며, `foreground` boolean이나 `timeoutMs`는 유효하지 않다.
+파일·문서·명령 envelope는 답변 전체에 정확히 하나만 있어야 한다. 둘 이상을 같이 출력하거나 태그는 있지만 JSON/schema가 잘못된 응답은 일반 답변으로 통과시키지 않고 `local_tool_protocol_invalid`로 실패시킨다. 명령 요청은 `mode: "foreground" | "background"`와 초 단위 `timeoutSeconds`를 사용하며, `foreground` boolean이나 `timeoutMs`는 유효하지 않다.
 
-현재 cancellation controller는 원격 모델/SSH 전송을 끊지만 이미 시작한 local foreground command process와 직접 연결되지 않는다. 사용자가 취소해도 해당 command는 timeout 또는 자체 종료까지 계속될 수 있다.
+Team Chat cancellation controller는 원격 모델/SSH 전송과 요청 ID에 등록된 local document worker를 즉시 종료한다. 이미 시작한 foreground command process는 아직 직접 연결되지 않아 요청 timeout 또는 자체 종료까지 계속될 수 있다.
 
-Background local command는 managed process ID를 반환하고 명시적 stop 또는 자연 종료까지 chat보다 오래 남을 수 있다. 또한 profile 목록 조회 경로는 renderer가 준 profile-list command를 platform shell로 실행하므로 trusted renderer compromise 시 임의 local command surface가 된다. 동일 request ID가 충돌하면 현재 in-memory controller를 교체할 수 있어 요청 ID uniqueness도 renderer와 main 양쪽에서 강제할 필요가 있다.
+Background local command는 managed process ID를 반환하고 명시적 stop 또는 자연 종료까지 chat보다 오래 남을 수 있다. 또한 profile 목록 조회 경로는 renderer가 준 profile-list command를 platform shell로 실행하므로 trusted renderer compromise 시 임의 local command surface가 된다. 동일 request ID의 동시 Team Chat 요청은 main in-flight registry가 거부한다.
 
 ### 15.5 예약 지시와 결과 저장
 
@@ -616,36 +641,34 @@ renderer `useSamwooScheduleRunner`
 
 ## 16. KPI Excel 작업에서 발생한 오류의 정확한 위치
 
-| 관찰된 메시지/현상 | 실제 발생 계층 | 의미 | 올바른 대응 |
-|---|---|---|---|
-| `API call failed after 3 retries` | Hermes 원격 모델/provider | Excel 코드 실행 전 또는 응답 생성 중 upstream 실패 | request ID와 원격 provider log를 보존하고 재시도 정책/상태를 확인 |
-| PPTX 디자인을 직접 읽지 못함 | Hermes attachment 입력 | text picker와 UTF-8 reader에 binary Office parser가 없음 | 슬라이드를 이미지로 export해 이미지 경로로 전달하거나 별도 안전한 PPTX 변환 계층 추가 |
-| `invalid or oversized file content` | Hermes local file bridge | Base64가 canonical하지 않거나 decode 결과가 파일당 512 KiB를 넘음 | Python source를 작게 유지하고 plain UTF-8 source를 protocol Base64로 쓰며, 생성된 XLSX binary는 command가 직접 출력하도록 함 |
-| `zlib.error: incorrect data check` | 생성 스크립트 내부 | 모델이 만든 zlib/Base64 wrapper가 잘렸거나 잘못 생성됨 | source 전송을 위해 임의 압축 wrapper를 쓰지 말고 content hash 기반 일반 text write 사용 |
-| `ModuleNotFoundError: xlsxwriter` | 사용자 PC의 command environment | 허용된 command가 실행됐지만 dependency가 없음 | lock된 실행환경 또는 `uv run --with xlsxwriter ...`처럼 요청 단위 dependency 명시 |
-| `local project tool execution limit reached` | Hermes Team Chat loop | 최대 8번의 local tool 실행 뒤 최종 답변 전용 회차에서도 추가 실행을 요청함 | 추가 요청은 실행하지 않으며 보존된 이전 실행 결과를 확인하고 새 사용자 요청에서 이어서 수행 |
-| `<orca_local_commands>`가 그대로 답변에 보임 | Hermes protocol parser | 잘못된 field, JSON/schema 또는 복수 envelope 때문에 도구 요청으로 인정되지 않음 | `local_tool_protocol_invalid`로 일반 답변과 분리하며 `mode`·`timeoutSeconds`와 단일 envelope를 사용 |
-| `exit code 0`, 파일 존재만 확인 | 검증 단계 부족 | 생성 process 성공만 증명하며 레이아웃·수식·Office 호환성은 증명하지 않음 | OOXML open 검사, workbook 구조 검사, LibreOffice/Excel render 기반 시각 검증 추가 |
+| 관찰된 메시지/현상                           | 실제 발생 계층                                         | 의미                                                                            | 올바른 대응                                                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `API call failed after 3 retries`            | Hermes 원격 모델/provider                              | Excel 코드 실행 전 또는 응답 생성 중 upstream 실패                              | request ID와 원격 provider log를 보존하고 재시도 정책/상태를 확인                                                            |
+| `.xlsx`/`.pdf`가 binary라 읽을 수 없음       | v1.4.193 이하의 Hermes text attachment/local file 경로 | binary 문서를 UTF-8 도구에 보냈고 전용 parser가 없었음                          | 문서 도구가 포함된 빌드에서 직접 첨부하거나 local project 상대 경로로 `extract`를 사용                                       |
+| PPTX를 binary라 읽지 못함                    | v1.4.193 이하의 Hermes attachment 입력                 | UTF-8 reader에 binary Office parser가 없음                                      | 문서 도구 빌드에서 PPTX를 직접 첨부하고 `extract` 사용                                                                       |
+| `invalid or oversized file content`          | Hermes local file bridge                               | Base64가 canonical하지 않거나 decode 결과가 파일당 512 KiB를 넘음               | Python source를 작게 유지하고 plain UTF-8 source를 protocol Base64로 쓰며, 생성된 XLSX binary는 command가 직접 출력하도록 함 |
+| `zlib.error: incorrect data check`           | 생성 스크립트 내부                                     | 모델이 만든 zlib/Base64 wrapper가 잘렸거나 잘못 생성됨                          | source 전송을 위해 임의 압축 wrapper를 쓰지 말고 content hash 기반 일반 text write 사용                                      |
+| `ModuleNotFoundError: xlsxwriter`            | v1.4.193 이하 또는 손상된 설치본                       | bundled Artifact worker가 없거나 구버전 command 환경을 사용함                   | 문서 worker가 포함된 Orca로 업데이트하고 capability probe 결과를 확인                                                        |
+| `local project tool execution limit reached` | Hermes Team Chat loop                                  | 최대 8번의 local tool 실행 뒤 최종 답변 전용 회차에서도 추가 실행을 요청함      | 추가 요청은 실행하지 않으며 보존된 이전 실행 결과를 확인하고 새 사용자 요청에서 이어서 수행                                  |
+| `<orca_local_commands>`가 그대로 답변에 보임 | Hermes protocol parser                                 | 잘못된 field, JSON/schema 또는 복수 envelope 때문에 도구 요청으로 인정되지 않음 | `local_tool_protocol_invalid`로 일반 답변과 분리하며 `mode`·`timeoutSeconds`와 단일 envelope를 사용                          |
+| `exit code 0`, 파일 존재만 확인              | 검증 단계 부족                                         | 생성 process 성공만 증명하며 레이아웃·수식·Office 호환성은 증명하지 않음        | OOXML open 검사, workbook 구조 검사, LibreOffice/Excel render 기반 시각 검증 추가                                            |
 
 따라서 이 장애들은 “대시보드 왼쪽 영역도 너무 커서” 발생한 하나의 문제가 아니다. 입력 포맷, 모델/provider, local file protocol, tool round budget, Python dependency와 결과 검증이라는 서로 다른 계층의 오류가 연속으로 드러난 것이다.
 
-### 16.1 기존 시스템과 충돌하지 않는 단기 운영 방식
+### 16.1 현재 코드의 안전한 처리 방식
 
-1. PPTX는 미리 PNG/JPG로 export하고 이미지 붙여넣기 경로로 제공한다.
-2. 모델은 먼저 전체 workbook spec과 generator 구조를 확정하고 local tool 실행을 시작한다.
-3. generator `.py`만 Hermes text file tool로 저장한다. zlib wrapper를 만들지 않는다.
-4. `uv run --with xlsxwriter --with openpyxl python <generator>`처럼 dependency를 실행 명령에 고정한다.
-5. 같은 generator 실행에서 `.xlsx`를 project path에 직접 쓴다. binary XLSX를 Hermes file envelope로 전달하지 않는다.
-6. 별도 검증 명령으로 sheet, formula, chart, merged range, file open 여부를 확인한다.
-7. 시각 검수가 필요하면 Excel/LibreOffice 렌더 결과를 이미지로 만들고 사람이 승인한다.
+1. PDF/XLSX/PPTX 입력은 text file envelope가 아니라 main-owned 문서 첨부 또는 local document envelope로 전달한다.
+2. XLSX 번역은 source text와 SHA-256, 일반 생성·수정은 Workbook Spec v1과 durable idempotency receipt를 사용한다.
+3. PDF/PPTX 생성·편집은 bundled worker가 신규 파일로 저장한다. text가 없는 스캔 PDF는 OCR 필요 상태로 보고한다.
+4. 결과는 OOXML/PDF 재개방, sheet/slide/page, formula, chart, merged range와 output hash를 검증한다.
 
 이 방식은 Runtime, PTY, 범용 파일 권한과 Store schema를 바꾸지 않아 기존 시스템과의 충돌 위험이 가장 낮다.
 
 ### 16.2 제품 수준의 권장 개선 순서
 
-1. **Artifact job API 추가**: 자연어 local tool loop와 분리된 생성 job에 cwd, 입력 asset, dependency manifest, output, timeout과 validation을 명시한다.
-2. **Binary input 변환 계층 추가**: PPTX/PDF를 제한된 worker에서 text와 page image로 변환하고 원본 크기·압축 폭탄·매크로·경로를 검증한다.
-3. **재현 가능한 Python 환경**: project별 lock/cache를 두되 전역 Python에 package를 설치하지 않는다.
+1. **시각 검증 추가**: Windows Job Object/no-network sandbox가 검증된 LibreOffice와 preview artifact registry를 붙인 뒤에만 render capability를 광고한다.
+2. **Binary input 변환 확장**: PDF page image와 OCR을 추가한다.
+3. **플랫폼 확대**: 동일 lock으로 macOS/Linux worker를 각 native release runner에서 빌드·서명한다.
 4. **chunked/resumable file write**: 크기 제한 자체를 제거하지 말고 chunk hash, 전체 hash, temp commit과 quota를 둔다.
 5. **구조·시각 검증 pipeline**: 생성 성공, OOXML 무결성, 수식/차트 범위, 렌더 snapshot을 구분해 보고한다.
 6. **오류 taxonomy**: provider, attachment, file protocol, dependency, command timeout, validation 실패를 별도 코드로 UI에 노출한다.
@@ -654,34 +677,35 @@ renderer `useSamwooScheduleRunner`
 
 ## 17. 현재 코드 기준 위험 및 운영 주의사항
 
-| 우선순위 | 항목 | 현재 상태와 영향 | 권장 조치 |
-|---|---|---|---|
-| 높음 | SAMWOO application-layer TLS 없음 | auth/share 기본 URL이 고정 HTTP다. Tailnet WireGuard와 ACL이 전제되지만 endpoint identity와 app-layer TLS가 없음 | HTTPS 또는 검증된 localhost tunnel, ACL과 server identity 검증 |
-| 높음 | renderer 지정 `authUrl` | renderer가 로그인 비밀번호의 목적지를 바꿀 수 있음 | production에서는 고정/allowlist하고 dev override를 명시적으로 분리 |
-| 높음 | SAMWOO login 응답 경계 | 입력 길이, response body, HTTP status/content-type gate가 부족해 메모리·응답 신뢰 범위가 넓음 | bounded schema/bytes, status와 JSON content-type 검사 후 parse |
-| 높음 | 공유 sync root 권한 모델 차이 | SAMWOO sync handler가 범용 `resolveAuthorizedPath` 없이 absolute root를 받음 | main에서 picker grant 또는 Store workspace authority를 재검증 |
-| 높음 | Native chat transcript path | authenticated RPC caller가 준 기존 `.jsonl` path의 provider-root containment 검증이 현재 없음 | execution-host별 허용 transcript root canonicalization과 hook-issued capability 요구 |
-| 높음 | Hermes profile-list shell | trusted renderer가 준 command를 platform shell로 실행하는 경로가 있음 | 고정 executable/argv API로 바꾸고 production override 제거 |
-| 높음 | Hermes 원격 permission mode | Claude bypass mode와 ACP auto-allow가 remote profile 권한으로 실행 | 전용 최소권한 계정/container, permission policy와 audit, 위험 tool deny |
-| 중간 | SAMWOO bearer의 localStorage 저장 | renderer/XSS가 성공하면 token 탈취 가능, local shape만으로 시작 gate를 통과 가능 | main `safeStorage` 보관 + opaque session handle, 시작 시 server validation |
-| 중간 | Hermes `mailtoken` query | loopback URL·브라우저 history/state에 bearer가 나타남 | main-side session ID로 치환하고 token은 main memory에서만 resolve |
-| 중간 | Hermes file write 승인 | root/path/hash 검증은 있지만 write별 사용자 승인은 없음 | 민감 파일 policy와 변경 preview/일괄 승인 추가 |
-| 중간 | local command cancellation | 채팅 취소가 foreground child process를 즉시 죽이지 않음 | process를 in-flight controller에 등록하고 cross-platform process-tree 종료 |
-| 중간 | Hermes request/background lifecycle | request ID 충돌이 controller를 교체할 수 있고 background command가 chat보다 오래 생존 | main 발급 ID, collision reject, app/workspace teardown에 process registry 연결 |
-| 중간 | Hermes SSH TOFU | `accept-new`는 최초 접속 host key를 자동 신뢰 | 사전 배포된 known_hosts 또는 fingerprint pinning |
-| 중간 | Store secret 평문 fallback | safeStorage 불가/실패 시 일부 secret이 평문으로 저장될 수 있음 | 민감도별 fail-closed 또는 사용자 경고와 OS keychain 요구 |
-| 중간 | top-level preload와 sender 범위 | main/pop-out이 넓은 동일 preload를 공유하고 일부 generic IPC는 고위험 handler만큼 sender를 강하게 고정하지 않음 | top-level window별 최소 API, 명시적 webPreferences, 공통 sender authorization 적용 |
-| 중간 | 운영 auth server source 부재 | 저장소와 실제 `/opt/samwoo-auth/auth-server.py`의 drift를 CI가 완전히 검증하지 못함 | base server도 versioned artifact로 관리하고 deployment version/health 노출 |
-| 중간 | Plugin은 OS sandbox가 아님 | child process 격리만으로는 host 계정 권한을 제거하지 않음 | capability 최소화, 서명/consent/audit 유지, 고위험 plugin 별도 sandbox 검토 |
-| 중간 | SSH relay root는 OS sandbox가 아님 | registered root는 호환 metadata이며 relay process는 SSH 계정 권한으로 실행 | SSH 계정 최소 권한, app-side selector 유지, endpoint credential 보호 |
-| 구조 | Runtime 집중도 | `OrcaRuntimeService`가 graph, PTY, workspace, mobile, automation의 큰 stateful nexus | authoritative window, host partition, provider late binding, generation fence를 유지하며 기능별 facade로 분리 |
-| 운영 | Pairing URL은 credential | URL 유출 시 해당 scope로 접속 가능 | 짧은 수명/회전, device revoke, 외부 채널 공유 금지 |
-| 운영 | `orca serve` 네트워크 노출 | 명시 모드에서는 외부 interface에 서비스 가능 | 방화벽, reverse proxy, E2EE pairing과 bind 주소 점검 |
-| 운영 | 앱 종료 후 agent 생존 | persistent daemon 설계상 terminal이 계속 실행될 수 있음 | UI에 잔존 process를 명확히 표시하고 종료/stop 의미를 구분 |
-| 운영 | 메일 secret은 memory session | auth service 재시작 뒤 메일만 만료될 수 있음 | 사용자에게 재로그인 필요 상태를 별도 표시 |
-| 운영 | cold-start 동기 Store parse | 큰 profile 또는 손상 JSON의 읽기·migration이 Electron main thread를 막을 수 있음 | state 크기 예산, migration benchmark, sidecar 분리와 복구 telemetry 유지 |
-| 운영 | Browser profile 공유 | worktree가 달라도 같은 browser profile이면 cookie/storage를 공유 | UI에 profile scope를 명확히 표시하고 민감 작업은 별도 profile 사용 |
-| 운영 | 포트 attribution은 추정 | cwd, command line과 advertised URL만으로 process 소유를 확정할 수 없음 | kill 전 exact rescan을 유지하고 외부/container listener를 별도 표시 |
+| 우선순위 | 항목                                | 현재 상태와 영향                                                                                                 | 권장 조치                                                                                                     |
+| -------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 높음     | SAMWOO application-layer TLS 없음   | auth/share 기본 URL이 고정 HTTP다. Tailnet WireGuard와 ACL이 전제되지만 endpoint identity와 app-layer TLS가 없음 | HTTPS 또는 검증된 localhost tunnel, ACL과 server identity 검증                                                |
+| 높음     | renderer 지정 `authUrl`             | renderer가 로그인 비밀번호의 목적지를 바꿀 수 있음                                                               | production에서는 고정/allowlist하고 dev override를 명시적으로 분리                                            |
+| 높음     | SAMWOO login 응답 경계              | 입력 길이, response body, HTTP status/content-type gate가 부족해 메모리·응답 신뢰 범위가 넓음                    | bounded schema/bytes, status와 JSON content-type 검사 후 parse                                                |
+| 높음     | 공유 sync root 권한 모델 차이       | SAMWOO sync handler가 범용 `resolveAuthorizedPath` 없이 absolute root를 받음                                     | main에서 picker grant 또는 Store workspace authority를 재검증                                                 |
+| 높음     | Native chat transcript path         | authenticated RPC caller가 준 기존 `.jsonl` path의 provider-root containment 검증이 현재 없음                    | execution-host별 허용 transcript root canonicalization과 hook-issued capability 요구                          |
+| 높음     | Hermes profile-list shell           | trusted renderer가 준 command를 platform shell로 실행하는 경로가 있음                                            | 고정 executable/argv API로 바꾸고 production override 제거                                                    |
+| 높음     | Hermes 원격 permission mode         | Claude bypass mode와 ACP auto-allow가 remote profile 권한으로 실행                                               | 전용 최소권한 계정/container, permission policy와 audit, 위험 tool deny                                       |
+| 중간     | SAMWOO bearer의 localStorage 저장   | renderer/XSS가 성공하면 token 탈취 가능, local shape만으로 시작 gate를 통과 가능                                 | main `safeStorage` 보관 + opaque session handle, 시작 시 server validation                                    |
+| 중간     | Hermes `mailtoken` query            | loopback URL·브라우저 history/state에 bearer가 나타남                                                            | main-side session ID로 치환하고 token은 main memory에서만 resolve                                             |
+| 중간     | Hermes file write 승인              | root/path/hash 검증은 있지만 write별 사용자 승인은 없음                                                          | 민감 파일 policy와 변경 preview/일괄 승인 추가                                                                |
+| 낮음     | Hermes binary attachment lifecycle  | private artifact가 crash 뒤 남거나 잘못된 conversation에 재사용될 수 있음                                        | startup stale cleanup, conversation/request binding, hash 재검증, TTL과 turn/app cleanup 유지                 |
+| 중간     | local command cancellation          | 채팅 취소가 foreground child process를 즉시 죽이지 않음                                                          | process를 in-flight controller에 등록하고 cross-platform process-tree 종료                                    |
+| 중간     | Hermes request/background lifecycle | request ID 충돌이 controller를 교체할 수 있고 background command가 chat보다 오래 생존                            | main 발급 ID, collision reject, app/workspace teardown에 process registry 연결                                |
+| 중간     | Hermes SSH TOFU                     | `accept-new`는 최초 접속 host key를 자동 신뢰                                                                    | 사전 배포된 known_hosts 또는 fingerprint pinning                                                              |
+| 중간     | Store secret 평문 fallback          | safeStorage 불가/실패 시 일부 secret이 평문으로 저장될 수 있음                                                   | 민감도별 fail-closed 또는 사용자 경고와 OS keychain 요구                                                      |
+| 중간     | top-level preload와 sender 범위     | main/pop-out이 넓은 동일 preload를 공유하고 일부 generic IPC는 고위험 handler만큼 sender를 강하게 고정하지 않음  | top-level window별 최소 API, 명시적 webPreferences, 공통 sender authorization 적용                            |
+| 중간     | 운영 auth server source 부재        | 저장소와 실제 `/opt/samwoo-auth/auth-server.py`의 drift를 CI가 완전히 검증하지 못함                              | base server도 versioned artifact로 관리하고 deployment version/health 노출                                    |
+| 중간     | Plugin은 OS sandbox가 아님          | child process 격리만으로는 host 계정 권한을 제거하지 않음                                                        | capability 최소화, 서명/consent/audit 유지, 고위험 plugin 별도 sandbox 검토                                   |
+| 중간     | SSH relay root는 OS sandbox가 아님  | registered root는 호환 metadata이며 relay process는 SSH 계정 권한으로 실행                                       | SSH 계정 최소 권한, app-side selector 유지, endpoint credential 보호                                          |
+| 구조     | Runtime 집중도                      | `OrcaRuntimeService`가 graph, PTY, workspace, mobile, automation의 큰 stateful nexus                             | authoritative window, host partition, provider late binding, generation fence를 유지하며 기능별 facade로 분리 |
+| 운영     | Pairing URL은 credential            | URL 유출 시 해당 scope로 접속 가능                                                                               | 짧은 수명/회전, device revoke, 외부 채널 공유 금지                                                            |
+| 운영     | `orca serve` 네트워크 노출          | 명시 모드에서는 외부 interface에 서비스 가능                                                                     | 방화벽, reverse proxy, E2EE pairing과 bind 주소 점검                                                          |
+| 운영     | 앱 종료 후 agent 생존               | persistent daemon 설계상 terminal이 계속 실행될 수 있음                                                          | UI에 잔존 process를 명확히 표시하고 종료/stop 의미를 구분                                                     |
+| 운영     | 메일 secret은 memory session        | auth service 재시작 뒤 메일만 만료될 수 있음                                                                     | 사용자에게 재로그인 필요 상태를 별도 표시                                                                     |
+| 운영     | cold-start 동기 Store parse         | 큰 profile 또는 손상 JSON의 읽기·migration이 Electron main thread를 막을 수 있음                                 | state 크기 예산, migration benchmark, sidecar 분리와 복구 telemetry 유지                                      |
+| 운영     | Browser profile 공유                | worktree가 달라도 같은 browser profile이면 cookie/storage를 공유                                                 | UI에 profile scope를 명확히 표시하고 민감 작업은 별도 profile 사용                                            |
+| 운영     | 포트 attribution은 추정             | cwd, command line과 advertised URL만으로 process 소유를 확정할 수 없음                                           | kill 전 exact rescan을 유지하고 외부/container listener를 별도 표시                                           |
 
 이 표는 exploit 가능성을 단정하는 목록이 아니라 현재 trust model이 기대하는 전제를 명시한 것이다. 특히 Tailnet과 sandbox가 위험을 줄여도, 그 전제가 깨졌을 때의 방어층은 별도로 평가해야 한다.
 
@@ -725,25 +749,26 @@ renderer `useSamwooScheduleRunner`
 - raw password, mail secret, bearer token을 prompt/transcript/log에 넣지 않는다.
 - 공유 workspace profile과 permission은 서버가 결정하게 한다.
 - Hermes local tool은 선택된 local project root 밖으로 나가지 못하게 한다.
+- 문서 첨부는 main-owned artifact ID와 요청 한정 virtual path로만 읽고 번역 결과는 검증된 신규 local project path에만 쓴다.
 - artifact 지원을 위해 arbitrary command나 전역 package install을 허용하지 않는다.
 
 ## 19. 기능별 기본 검증 매트릭스
 
-| 변경 영역 | 최소 검증 |
-|---|---|
-| Renderer/Store | cold start, hydration 실패, profile 전환, 두 번째 unload |
-| Terminal | local daemon, fallback provider, Windows ConPTY, app restart, backpressure |
-| SSH | ssh2와 system SSH, SFTP 없음, reconnect generation, remote daemon attach |
-| Workspace | Git worktree, folder workspace, local, WSL, SSH, runtime environment |
-| Files | symlink escape, missing destination, Windows drive, picker grant, remote watch |
-| Git | Git 2.25 fallback, 최신 preferred path, native/WSL/SSH cache 격리 |
-| Runtime RPC | local pipe, mobile scope deny, runtime scope, reconnect, protocol mismatch |
-| Browser | webview allowlist, partition, preload stripping, headless offscreen |
-| Plugin | consent/integrity, capability deny, host restart, panel navigation |
-| SAMWOO auth | expired session, auth server restart, wrong profile, unreachable Tailnet |
-| Workspace share | permission, conflict, confirmed delete, excluded secret, 16 MiB/5,000 limits |
-| SAMWOO schedule | app/login gate, 90초 catch-up, local worktree와 folder, stale `remoteJobId`, duplicate result path, project authority mismatch |
-| Hermes artifact | binary input conversion, 512 KiB source limit, dependency miss, timeout, cancel, render validation |
+| 변경 영역       | 최소 검증                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Renderer/Store  | cold start, hydration 실패, profile 전환, 두 번째 unload                                                                                                                                                                                                                                                                                                                               |
+| Terminal        | local daemon, fallback provider, Windows ConPTY, app restart, backpressure                                                                                                                                                                                                                                                                                                             |
+| SSH             | ssh2와 system SSH, SFTP 없음, reconnect generation, remote daemon attach                                                                                                                                                                                                                                                                                                               |
+| Workspace       | Git worktree, folder workspace, local, WSL, SSH, runtime environment                                                                                                                                                                                                                                                                                                                   |
+| Files           | symlink escape, missing destination, Windows drive, picker grant, remote watch                                                                                                                                                                                                                                                                                                         |
+| Git             | Git 2.25 fallback, 최신 preferred path, native/WSL/SSH cache 격리                                                                                                                                                                                                                                                                                                                      |
+| Runtime RPC     | local pipe, mobile scope deny, runtime scope, reconnect, protocol mismatch                                                                                                                                                                                                                                                                                                             |
+| Browser         | webview allowlist, partition, preload stripping, headless offscreen                                                                                                                                                                                                                                                                                                                    |
+| Plugin          | consent/integrity, capability deny, host restart, panel navigation                                                                                                                                                                                                                                                                                                                     |
+| SAMWOO auth     | expired session, auth server restart, wrong profile, unreachable Tailnet                                                                                                                                                                                                                                                                                                               |
+| Workspace share | permission, conflict, confirmed delete, excluded secret, 16 MiB/5,000 limits                                                                                                                                                                                                                                                                                                           |
+| SAMWOO schedule | app/login gate, 90초 catch-up, local worktree와 folder, stale `remoteJobId`, duplicate result path, project authority mismatch                                                                                                                                                                                                                                                         |
+| Hermes artifact | direct PDF/XLSX/PPTX/image attachment, artifact conversation/request isolation, project/folder path, SSH path deny, PDF text/no-text/create/page edits, XLSX create/modify/validate and durable replay, PPTX create/edit/translation, formula/style/media preservation, ZIP bomb/path escape/external relation, source hash, no-overwrite, worker cancellation/integrity/package asset |
 
 ## 20. 핵심 코드 인덱스
 
@@ -783,6 +808,7 @@ renderer `useSamwooScheduleRunner`
 - Hermes model/tool loop: `src/main/ipc/hermes-team-chat-runner.ts`, `src/main/ipc/hermes-local-project-tool-loop.ts`
 - Hermes result preservation: `src/main/ipc/hermes-team-chat-local-tool-turn.ts`, `src/shared/hermes-team-chat-result.ts`, `src/renderer/src/components/hermes-team-chat/hermes-team-chat-tool-execution-summary.ts`
 - Hermes local files/commands: `src/main/ipc/hermes-local-project-files.ts`, `src/main/ipc/hermes-local-project-commands.ts`
+- Hermes local documents/artifacts: `src/main/ipc/hermes-binary-artifact-store.ts`, `src/main/ipc/hermes-local-project-documents.ts`, `src/main/ipc/hermes-local-document-worker-entry.ts`, `src/main/ipc/hermes-local-document-pdf.ts`, `src/main/ipc/hermes-local-document-xlsx.ts`, `src/main/ipc/hermes-local-document-pptx.ts`
 - SAMWOO local schedules/results: `src/shared/samwoo-schedule.ts`, `src/renderer/src/lib/samwoo-schedule-runner.ts`, `src/main/ipc/samwoo-schedule-results.ts`
 - Build/package: `package.json`, `config/electron-builder.config.cjs`
 
@@ -796,7 +822,7 @@ renderer `useSamwooScheduleRunner`
 - Runtime RPC method, pairing scope 또는 protocol compatibility 변경
 - SSH relay, browser sandbox, plugin capability 경계 변경
 - SAMWOO auth/session/mail/share token 처리 변경
-- Hermes local file/command 제한이나 artifact workflow 변경
+- Hermes local file/document/command 제한이나 artifact workflow 변경
 - SAMWOO 예약 실행 owner, catch-up 정책 또는 결과 저장 authority 변경
 
 문서의 설명과 코드가 충돌하면 코드를 현재 사실로 보되, 그 차이는 문서 누락으로 처리한다. 배포 장애 분석에서는 반드시 installer 버전, Git commit, active Orca profile, execution host, workspace scope, PTY provider와 Runtime ID를 함께 기록한다.

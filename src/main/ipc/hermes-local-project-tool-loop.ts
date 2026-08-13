@@ -1,5 +1,7 @@
 import type { Store } from '../persistence'
+import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
+import type { ExcelArtifactCapability } from '../../shared/hermes-excel-artifact'
 import { localCommandProgress } from './hermes-local-command-progress'
 import {
   formatLocalCommandResults,
@@ -12,6 +14,17 @@ import {
   LOCAL_PROJECT_FILE_PROTOCOL_PROMPT,
   parseLocalFileRequest
 } from './hermes-local-file-protocol'
+import {
+  LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT,
+  parseLocalDocumentRequest,
+  type LocalDocumentAttachment
+} from './hermes-local-document-protocol'
+import { executeLocalDocumentToolRequest } from './hermes-local-document-tool-handler'
+import {
+  excelArtifactProtocolPrompt,
+  parseExcelArtifactRequest
+} from './hermes-excel-artifact-protocol'
+import { executeExcelArtifactToolRequest } from './hermes-excel-artifact-tool-handler'
 import { executeLocalCommandRequest } from './hermes-local-project-commands'
 import { executeLocalFileRequest } from './hermes-local-project-files'
 import { approveLocalCommandRequest } from './hermes-local-command-approval'
@@ -20,7 +33,11 @@ import type {
   TeamChatLocalToolOperationResult
 } from '../../shared/hermes-team-chat-result'
 
-export const LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT = `${LOCAL_PROJECT_FILE_PROTOCOL_PROMPT}\n${LOCAL_PROJECT_COMMAND_PROTOCOL_PROMPT}`
+export function localProjectToolProtocolPrompt(
+  excelCapability: ExcelArtifactCapability | null
+): string {
+  return `${LOCAL_PROJECT_FILE_PROTOCOL_PROMPT}\n${LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT}\n${LOCAL_PROJECT_COMMAND_PROTOCOL_PROMPT}\n${excelArtifactProtocolPrompt(excelCapability)}`
+}
 
 export type LocalProjectToolReply =
   | { kind: 'none' }
@@ -32,8 +49,16 @@ export type LocalProjectToolReply =
       execution: Omit<TeamChatLocalToolExecution, 'sequence'>
     }
 
-function hasEnvelopeMarker(reply: string, name: 'files' | 'commands'): boolean {
+function hasEnvelopeMarker(reply: string, name: 'files' | 'documents' | 'commands'): boolean {
   return reply.includes(`<orca_local_${name}>`) || reply.includes(`</orca_local_${name}>`)
+}
+
+function hasUnknownOrcaEnvelope(reply: string): boolean {
+  return /<\/?orca_[A-Za-z0-9_]+>/.test(reply)
+}
+
+function hasExcelEnvelope(reply: string): boolean {
+  return reply.includes('<orca_excel_artifact>') || reply.includes('</orca_excel_artifact>')
 }
 
 function summarizeFileResults(
@@ -80,35 +105,91 @@ export async function executeLocalProjectToolReply(args: {
   reply: string
   cwd: string
   store: Store
+  artifactStore?: HermesBinaryArtifactStore
+  excelCapability?: ExcelArtifactCapability | null
+  conversationId?: string
   requestId: string
+  documentAttachments?: LocalDocumentAttachment[]
   allowExecution?: boolean
   onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<LocalProjectToolReply> {
   const fileRequest = parseLocalFileRequest(args.reply)
+  const documentRequest = parseLocalDocumentRequest(args.reply)
   const commandRequest = parseLocalCommandRequest(args.reply)
+  const excelRequest = parseExcelArtifactRequest(args.reply)
   const hasFileEnvelope = hasEnvelopeMarker(args.reply, 'files')
+  const hasDocumentEnvelope = hasEnvelopeMarker(args.reply, 'documents')
   const hasCommandEnvelope = hasEnvelopeMarker(args.reply, 'commands')
-  if (hasFileEnvelope && hasCommandEnvelope) {
+  const hasExcelArtifactEnvelope = hasExcelEnvelope(args.reply)
+  if (
+    [hasFileEnvelope, hasDocumentEnvelope, hasCommandEnvelope, hasExcelArtifactEnvelope].filter(
+      Boolean
+    ).length > 1
+  ) {
     return {
       kind: 'invalid',
-      error: 'local tool reply must contain exactly one file or command envelope'
+      error: 'local tool reply must contain exactly one file, document, command, or Excel envelope'
     }
   }
-  if (!fileRequest && !commandRequest) {
-    if (hasFileEnvelope || hasCommandEnvelope || args.reply.includes('<orca_local_')) {
+  if (!fileRequest && !documentRequest && !commandRequest && !excelRequest) {
+    if (
+      hasFileEnvelope ||
+      hasDocumentEnvelope ||
+      hasCommandEnvelope ||
+      hasExcelArtifactEnvelope ||
+      hasUnknownOrcaEnvelope(args.reply)
+    ) {
       return {
         kind: 'invalid',
-        error: hasCommandEnvelope
-          ? 'invalid local command envelope; use mode and timeoutSeconds fields'
-          : hasFileEnvelope
-            ? 'invalid local file envelope; use one exact version 1 envelope'
-            : 'invalid or unsupported local tool envelope'
+        error: hasExcelArtifactEnvelope
+          ? 'invalid or unsupported Excel Artifact envelope'
+          : hasCommandEnvelope
+            ? 'invalid local command envelope; use mode and timeoutSeconds fields'
+            : hasDocumentEnvelope
+              ? 'invalid local document envelope; use one exact version 1 envelope'
+              : hasFileEnvelope
+                ? 'invalid local file envelope; use one exact version 1 envelope'
+                : 'invalid or unsupported local tool envelope'
       }
     }
     return { kind: 'none' }
   }
   if (args.allowExecution === false) {
     return { kind: 'blocked' }
+  }
+  if (excelRequest) {
+    if (!args.excelCapability || !args.artifactStore || !args.conversationId) {
+      return { kind: 'invalid', error: 'Excel Artifact capability is unavailable' }
+    }
+    return {
+      kind: 'executed',
+      ...(await executeExcelArtifactToolRequest({
+        cwd: args.cwd,
+        request: excelRequest,
+        capability: args.excelCapability,
+        store: args.store,
+        artifactStore: args.artifactStore,
+        conversationId: args.conversationId,
+        requestId: args.requestId,
+        attachments: args.documentAttachments,
+        onProgress: args.onProgress
+      }))
+    }
+  }
+  if (documentRequest) {
+    return {
+      kind: 'executed',
+      ...(await executeLocalDocumentToolRequest({
+        cwd: args.cwd,
+        request: documentRequest,
+        store: args.store,
+        artifactStore: args.artifactStore,
+        conversationId: args.conversationId,
+        requestId: args.requestId,
+        attachments: args.documentAttachments,
+        onProgress: args.onProgress
+      }))
+    }
   }
   // Why: without a selected project root every local operation fails anyway, so
   // approving one first is a prompt the user can only answer one way. It also

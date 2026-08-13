@@ -15,6 +15,9 @@ const { verifyLinuxGlibcFloor } = require('./scripts/verify-linux-glibc-floor.cj
 const { writeMacBuildCompatibility } = require('./scripts/mac-build-compatibility.cjs')
 const { verifyPackagedPluginResources } = require('./scripts/verify-packaged-plugin-resources.cjs')
 const { verifySkillsCliRuntime } = require('./scripts/verify-skills-cli-runtime.cjs')
+const {
+  writeExcelArtifactWorkerManifest
+} = require('./scripts/hermes-excel-artifact-worker-manifest.cjs')
 
 // Why: dev-channel builds must carry the *release* identity — same bundle id,
 // Developer ID signature, and notarization ticket — or Squirrel.Mac refuses to
@@ -75,6 +78,10 @@ const linuxSpeechNativeResource = {
 const winSpeechNativeResource = {
   from: 'node_modules/sherpa-onnx-win-x64',
   to: 'node_modules/sherpa-onnx-win-x64'
+}
+const winExcelArtifactWorkerResource = {
+  from: 'resources/hermes-excel-artifact-worker/win32-x64/orca-excel-artifact-worker',
+  to: 'hermes-excel-artifact-worker'
 }
 
 /** @type {import('electron-builder').Configuration} */
@@ -170,6 +177,8 @@ module.exports = {
     'out/main/gemini/**',
     'out/main/grok/**',
     'out/main/hermes/**',
+    'out/main/hermes-local-document-worker-entry.js',
+    'out/main/pdf.worker.mjs',
     'out/main/daemon-entry.js',
     'out/main/plugin-host-entry.js',
     'out/main/computer-sidecar.js',
@@ -271,6 +280,16 @@ module.exports = {
       )
     }
   },
+  afterSign: async (context) => {
+    if (context.electronPlatformName !== 'win32') {
+      return
+    }
+    const workerRoot = join(context.appOutDir, 'resources', 'hermes-excel-artifact-worker')
+    if (!existsSync(workerRoot)) {
+      throw new Error(`Missing packaged Excel Artifact worker: ${workerRoot}`)
+    }
+    writeExcelArtifactWorkerManifest(workerRoot)
+  },
   win: {
     executableName: 'SAMWOO-ORCA',
     signtoolOptions: {
@@ -280,6 +299,7 @@ module.exports = {
       ...commonExtraResources,
       ...createPackagedRuntimeNodeModuleResources('win32'),
       winSpeechNativeResource,
+      winExcelArtifactWorkerResource,
       {
         from: 'resources/win32/bin/orca.cmd',
         to: 'bin/orca.cmd'

@@ -25,6 +25,9 @@ out/
 /build/
 release/
 native/**/.build/
+/resources/hermes-excel-artifact-worker/
+/resources/hermes-excel-artifact-worker-src/.venv/
+/resources/hermes-excel-artifact-worker-src/**/__pycache__/
 
 # pnpm
 .pnpm-store/

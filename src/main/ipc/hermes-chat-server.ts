@@ -18,17 +18,21 @@ import {
 } from './hermes-team-chat-runner'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
 import { SAMWOO_HERMES_SSH_HOST } from '../../shared/samwoo-service-endpoints'
-import type { TeamChatAttachment } from '../../shared/hermes-team-chat-attachments'
 import { registerHermesTeamChatAppCleanup } from './hermes-team-chat-app-cleanup'
 import { isValidTeamChatSshHost } from './hermes-team-chat-ssh-process'
 import { registerHermesLocalShellCommandHandlers } from './hermes-local-shell-command-ipc'
 import type { HermesTeamChatResult } from '../../shared/hermes-team-chat-result'
+import {
+  normalizeTeamChatAttachments,
+  prepareTeamChatAttachments
+} from './hermes-team-chat-attachment-normalization'
+import { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
+import { registerTeamChatArtifactHandlers } from './hermes-team-chat-artifact-ipc'
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
 const MAIL_TOKEN_RE = /^[A-Za-z0-9._-]{1,256}$/
 const FIXED_PORT = 47821
-const MAX_BODY_BYTES = 768 * 1024
-const MAX_ATTACHMENT_CHARS = 96_000
+const MAX_BODY_BYTES = 96 * 1024 * 1024
 
 let server: Server | null = null
 let port = 0
@@ -54,59 +58,6 @@ function loadOrCreateToken(): string {
 
 const token = loadOrCreateToken()
 
-function normalizeAttachments(value: unknown): TeamChatAttachment[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-  let remaining = MAX_ATTACHMENT_CHARS
-  const result: TeamChatAttachment[] = []
-  for (const item of value.slice(0, 5)) {
-    if (
-      !item ||
-      typeof item !== 'object' ||
-      typeof (item as TeamChatAttachment).name !== 'string'
-    ) {
-      continue
-    }
-    const attachment = item as {
-      kind?: unknown
-      name: string
-      content?: unknown
-      path?: unknown
-    }
-    const name = attachment.name.replaceAll(/[\r\n[\]]/g, '').slice(0, 160)
-    if (
-      attachment.kind === 'image' &&
-      typeof attachment.path === 'string' &&
-      attachment.path.length <= 1024
-    ) {
-      result.push({ kind: 'image', name, path: attachment.path })
-      continue
-    }
-    if (
-      (attachment.kind !== undefined && attachment.kind !== 'text') ||
-      typeof attachment.content !== 'string' ||
-      remaining <= 0
-    ) {
-      continue
-    }
-    const content = attachment.content.slice(0, remaining)
-    remaining -= content.length
-    result.push({ kind: 'text', name, content })
-  }
-  return result
-}
-
-function appendAttachments(message: string, attachments: TeamChatAttachment[]): string {
-  if (!attachments.length) {
-    return message
-  }
-  const blocks = attachments
-    .filter((attachment) => attachment.kind === 'text')
-    .map((attachment) => `[첨부파일: ${attachment.name}]\n${attachment.content}\n[첨부파일 끝]`)
-  return `${message}${message ? '\n\n' : ''}${blocks.join('\n\n')}`
-}
-
 function readRequestBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolveBody, rejectBody) => {
     let body = ''
@@ -128,10 +79,15 @@ function writeJson(res: ServerResponse, status: number, value: unknown): void {
     .end(JSON.stringify(value))
 }
 
-async function handleSend(req: IncomingMessage, res: ServerResponse, store: Store): Promise<void> {
+async function handleSend(
+  req: IncomingMessage,
+  res: ServerResponse,
+  store: Store,
+  artifactStore: HermesBinaryArtifactStore
+): Promise<void> {
   try {
     const parsed = JSON.parse(await readRequestBody(req)) as Record<string, unknown>
-    const result = await handleTeamChatRequest(parsed, store)
+    const result = await handleTeamChatRequest(parsed, store, artifactStore)
     writeJson(res, result.ok || result.error !== 'invalid request' ? 200 : 400, result)
   } catch (error) {
     writeJson(res, 500, {
@@ -144,6 +100,7 @@ async function handleSend(req: IncomingMessage, res: ServerResponse, store: Stor
 async function handleTeamChatRequest(
   parsed: Record<string, unknown>,
   store: Store,
+  artifactStore: HermesBinaryArtifactStore,
   onProgress?: (event: TeamChatProgressEvent) => void
 ): Promise<HermesTeamChatResult> {
   const profile = typeof parsed.profile === 'string' ? parsed.profile : ''
@@ -156,7 +113,7 @@ async function handleTeamChatRequest(
       : SAMWOO_HERMES_SSH_HOST
   const cwd = typeof parsed.cwd === 'string' ? parsed.cwd.slice(0, 512) : ''
   const message = typeof parsed.message === 'string' ? parsed.message.slice(0, 96_000) : ''
-  const attachments = normalizeAttachments(parsed.attachments)
+  const attachments = normalizeTeamChatAttachments(parsed.attachments)
   if (
     !NAME_RE.test(profile) ||
     !NAME_RE.test(requestId) ||
@@ -172,21 +129,38 @@ async function handleTeamChatRequest(
     typeof parsed.mailtoken === 'string' && MAIL_TOKEN_RE.test(parsed.mailtoken)
       ? parsed.mailtoken
       : undefined
-  return runTeamChatMessage({
-    requestId,
-    conversationId,
-    host,
-    profile,
-    modelId: model.id,
-    effort,
-    message: appendAttachments(message, attachments),
-    imageAttachments: attachments.filter((attachment) => attachment.kind === 'image'),
-    history: normalizeTeamChatHistory(parsed.history),
-    cwd,
-    store,
-    mailToken,
-    onProgress
-  })
+  let artifactIds: string[] = []
+  try {
+    const preparedAttachments = await prepareTeamChatAttachments({
+      message,
+      attachments,
+      conversationId,
+      requestId,
+      artifactStore
+    })
+    artifactIds = preparedAttachments.artifactIds
+    return await runTeamChatMessage({
+      requestId,
+      conversationId,
+      host,
+      profile,
+      modelId: model.id,
+      effort,
+      message: preparedAttachments.message,
+      imageAttachments: preparedAttachments.images,
+      documentAttachments: preparedAttachments.documents,
+      history: normalizeTeamChatHistory(parsed.history),
+      cwd,
+      store,
+      artifactStore,
+      mailToken,
+      onProgress
+    })
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  } finally {
+    await artifactStore.cleanupMany(artifactIds)
+  }
 }
 
 async function handleCancel(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -218,7 +192,8 @@ async function handleCloseConversation(req: IncomingMessage, res: ServerResponse
   }
 }
 function ensureServer(
-  store: Store
+  store: Store,
+  artifactStore: HermesBinaryArtifactStore
 ): Promise<{ ok: boolean; port?: number; token?: string; error?: string }> {
   if (server && port) {
     return Promise.resolve({ ok: true, port, token })
@@ -246,7 +221,7 @@ function ensureServer(
           return
         }
         void (url.pathname === '/api/send'
-          ? handleSend(req, res, store)
+          ? handleSend(req, res, store, artifactStore)
           : url.pathname === '/api/cancel'
             ? handleCancel(req, res)
             : handleCloseConversation(req, res))
@@ -279,14 +254,22 @@ function ensureServer(
 }
 
 export function registerHermesChatServerHandlers(store: Store): void {
-  ipcMain.handle('hermes:ensureChatServer', async () => ensureServer(store))
+  const artifactStore = new HermesBinaryArtifactStore(
+    join(app.getPath('userData'), 'hermes-team-chat-artifacts')
+  )
+  ipcMain.handle('hermes:ensureChatServer', async () => ensureServer(store, artifactStore))
   ipcMain.handle('hermes:sendTeamChat', async (event, input: unknown) =>
     input && typeof input === 'object'
-      ? handleTeamChatRequest(input as Record<string, unknown>, store, (progress) => {
-          if (!event.sender.isDestroyed()) {
-            event.sender.send('hermes:teamChatProgress', progress)
+      ? handleTeamChatRequest(
+          input as Record<string, unknown>,
+          store,
+          artifactStore,
+          (progress) => {
+            if (!event.sender.isDestroyed()) {
+              event.sender.send('hermes:teamChatProgress', progress)
+            }
           }
-        })
+        )
       : { ok: false, error: 'invalid request' }
   )
   ipcMain.handle('hermes:closeTeamChatConversation', async (_event, conversationId: unknown) => {
@@ -296,7 +279,11 @@ export function registerHermesChatServerHandlers(store: Store): void {
         : false
     return { ok: true, closed }
   })
-  registerHermesTeamChatAppCleanup(app, closeAllTeamChatConversations)
+  registerTeamChatArtifactHandlers(artifactStore)
+  registerHermesTeamChatAppCleanup(app, async () => {
+    await closeAllTeamChatConversations()
+    await artifactStore.close()
+  })
   registerHermesLocalShellCommandHandlers(store, cancelTeamChatMessage)
-  void ensureServer(store)
+  void ensureServer(store, artifactStore)
 }

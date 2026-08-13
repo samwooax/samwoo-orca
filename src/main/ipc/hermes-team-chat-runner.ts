@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { lstat } from 'node:fs/promises'
 import type { Store } from '../persistence'
 import {
   buildTeamChatAcpRemoteCommand,
@@ -27,7 +28,12 @@ import {
   cleanupTeamChatClipboardImages,
   uploadTeamChatClipboardImages
 } from './hermes-team-chat-image-transfer'
-import { LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT } from './hermes-local-project-tool-loop'
+import { localProjectToolProtocolPrompt } from './hermes-local-project-tool-loop'
+import type { LocalDocumentAttachment } from './hermes-local-document-protocol'
+import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
+import { getExcelArtifactCapability } from './hermes-excel-artifact-worker-client'
+import { resolveAuthorizedPath } from './filesystem-auth'
+import type { ExcelArtifactCapability } from '../../shared/hermes-excel-artifact'
 import { stopRemoteTeamChat, teamChatSshArgs } from './hermes-team-chat-ssh-process'
 import type {
   HermesTeamChatResult,
@@ -38,21 +44,31 @@ import {
   attachTeamChatToolExecutions,
   MAX_LOCAL_TOOL_EXECUTIONS
 } from './hermes-team-chat-local-tool-turn'
+import {
+  cancelRegisteredTeamChatRun,
+  registerTeamChatRun,
+  unregisterTeamChatRun,
+  type TeamChatRunController
+} from './hermes-team-chat-run-controller'
 
 const ACP_CANCEL_GRACE_MS = 5_000
 
-type RunningProcess = ReturnType<typeof spawn>
-type InFlightController = {
-  proc: RunningProcess | null
-  stage: 'transfer' | 'agent' | null
-  cancelledReason: 'cancelled' | 'timeout' | null
-  cancelAgent: (() => Promise<boolean>) | null
-  hardStopTimer: ReturnType<typeof setTimeout> | null
-  stop: (reason: 'cancelled' | 'timeout') => Promise<boolean>
-}
-
-const inFlight = new Map<string, InFlightController>()
 const hermesSessions = new HermesTeamChatSessionRegistry()
+
+async function availableExcelArtifactCapability(
+  cwd: string,
+  store: Store
+): Promise<ExcelArtifactCapability | null> {
+  const capability = await getExcelArtifactCapability()
+  if (!capability || !cwd.trim()) {
+    return capability
+  }
+  try {
+    return (await lstat(await resolveAuthorizedPath(cwd, store))).isDirectory() ? capability : null
+  } catch {
+    return null
+  }
+}
 
 async function runOneShotRemoteTeamChat(args: {
   requestId: string
@@ -62,7 +78,7 @@ async function runOneShotRemoteTeamChat(args: {
   effort: TeamChatEffort
   mailToken?: string
   message: string
-  controller: InFlightController
+  controller: TeamChatRunController
   onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<HermesTeamChatResult> {
   const remote = buildTeamChatRemoteCommand(args)
@@ -86,7 +102,7 @@ async function runOneShotRemoteTeamChat(args: {
 }
 
 function cancellationResult(
-  reason: InFlightController['cancelledReason']
+  reason: TeamChatRunController['cancelledReason']
 ): HermesTeamChatResult | null {
   if (!reason) {
     return null
@@ -106,44 +122,18 @@ export async function runTeamChatMessage(args: {
   effort: TeamChatEffort
   message: string
   imageAttachments: TeamChatImageAttachment[]
+  documentAttachments?: LocalDocumentAttachment[]
   history: TeamChatHistoryMessage[]
   cwd: string
   store: Store
+  artifactStore?: HermesBinaryArtifactStore
   mailToken?: string
   onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<HermesTeamChatResult> {
-  const controller: InFlightController = {
-    proc: null,
-    stage: null,
-    cancelledReason: null,
-    cancelAgent: null,
-    hardStopTimer: null,
-    stop: async (reason) => {
-      if (controller.cancelledReason) {
-        return false
-      }
-      const activeProcess = controller.proc
-      if (activeProcess && controller.stage === 'transfer') {
-        controller.cancelledReason = reason
-        activeProcess.kill()
-        return true
-      }
-      if (controller.cancelAgent) {
-        const stopped = await controller.cancelAgent()
-        if (stopped) {
-          controller.cancelledReason = reason
-        }
-        return stopped
-      }
-      if (activeProcess && !(await stopRemoteTeamChat(args.host, args.requestId))) {
-        return false
-      }
-      controller.cancelledReason = reason
-      activeProcess?.kill()
-      return true
-    }
+  const controller = registerTeamChatRun(args.requestId, args.host)
+  if (!controller) {
+    return { ok: false, error: 'a request with this ID is already running' }
   }
-  inFlight.set(args.requestId, controller)
   const timer = setTimeout(() => {
     void controller.stop('timeout')
   }, TEAM_CHAT_MESSAGE_TIMEOUT_MS)
@@ -161,6 +151,7 @@ export async function runTeamChatMessage(args: {
       }
     })
     const deviceContext = await getTeamChatDeviceContext(args.cwd)
+    const excelCapability = await availableExcelArtifactCapability(args.cwd, args.store)
     const isHermes = resolveTeamChatModel(args.modelId).provider === 'hermes'
     if (!isHermes) {
       // Why: a dormant ACP session cannot observe Claude turns; close it so returning to Hermes rehydrates complete UI history.
@@ -212,7 +203,7 @@ export async function runTeamChatMessage(args: {
       const fullMessage = formatTeamChatMessage({
         contextLine:
           round === 0
-            ? `${formatTeamChatDeviceContext(deviceContext)}${LOCAL_PROJECT_TOOL_PROTOCOL_PROMPT}\n`
+            ? `${formatTeamChatDeviceContext(deviceContext)}${localProjectToolProtocolPrompt(excelCapability)}\n`
             : undefined,
         history: round === 0 && (!sessionHandle || sessionHandle.created) ? args.history : [],
         message: conversationMessage
@@ -247,8 +238,12 @@ export async function runTeamChatMessage(args: {
         reply: result.reply,
         cwd: args.cwd,
         store: args.store,
+        artifactStore: args.artifactStore,
+        excelCapability,
+        conversationId: args.conversationId,
         requestId: args.requestId,
         toolExecutions,
+        documentAttachments: args.documentAttachments,
         onProgress: args.onProgress
       })
       if (toolTurn.kind === 'complete') {
@@ -292,12 +287,12 @@ export async function runTeamChatMessage(args: {
         teamChatSshArgs(args.host, remoteCommand)
       ).catch(() => {})
     }
-    inFlight.delete(args.requestId)
+    unregisterTeamChatRun(args.requestId)
   }
 }
 
 export async function cancelTeamChatMessage(requestId: string): Promise<boolean> {
-  return (await inFlight.get(requestId)?.stop('cancelled')) ?? false
+  return cancelRegisteredTeamChatRun(requestId)
 }
 
 export async function closeTeamChatConversation(conversationId: string): Promise<boolean> {

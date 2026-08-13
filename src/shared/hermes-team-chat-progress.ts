@@ -12,6 +12,7 @@ export type TeamChatProgressKind =
   | 'plan'
   | 'tool'
   | 'local_file'
+  | 'local_document'
   | 'local_command'
 
 export type TeamChatProgressEvent = {

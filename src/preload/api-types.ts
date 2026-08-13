@@ -16,7 +16,10 @@ import type {
   TerminalPreviewDataPayload
 } from '../shared/terminal-preview'
 import type { TeamChatProgressEvent } from '../shared/hermes-team-chat-progress'
-import type { TeamChatAttachment } from '../shared/hermes-team-chat-attachments'
+import type {
+  PickTeamChatAttachmentsResult,
+  TeamChatAttachment
+} from '../shared/hermes-team-chat-attachments'
 import type { HermesTeamChatResult } from '../shared/hermes-team-chat-result'
 import type {
   TerminalTabCloseRequest,
@@ -800,6 +803,14 @@ export type PreflightApi = {
     history: { role: 'user' | 'assistant'; content: string }[]
     attachments: TeamChatAttachment[]
   }) => Promise<HermesTeamChatResult>
+  pickHermesTeamChatAttachments: (args: {
+    conversationId: string
+    remainingSlots: number
+  }) => Promise<PickTeamChatAttachmentsResult>
+  releaseHermesTeamChatArtifact: (args: {
+    conversationId: string
+    artifactId: string
+  }) => Promise<{ ok: boolean; released: boolean }>
   runHermesLocalShellCommand: (args: {
     requestId: string
     command: string

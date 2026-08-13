@@ -2840,6 +2840,12 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
       ok: false,
       error: 'Hermes team chat is unavailable in the web client'
     }),
+    pickHermesTeamChatAttachments: async () => ({
+      cancelled: true,
+      attachments: [],
+      rejected: []
+    }),
+    releaseHermesTeamChatArtifact: async () => ({ ok: true, released: false }),
     runHermesLocalShellCommand: async () => ({
       ok: false,
       error: 'Local terminal commands are unavailable in the web client'

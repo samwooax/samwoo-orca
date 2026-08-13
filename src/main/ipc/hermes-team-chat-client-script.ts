@@ -261,8 +261,23 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
   elements.attach.addEventListener("click", function () { elements.file.click() })
   elements.file.addEventListener("change", async function () {
     const selected = Array.from(elements.file.files || []).slice(0, 5)
+    let documentBytes = attachments.filter(function (item) { return item.kind === "document" }).reduce(function (total, item) {
+      return total + Math.floor(item.contentBase64.length * 3 / 4)
+    }, 0)
     for (const file of selected) {
-      if (file.size <= 96000) attachments.push({ name: file.name, content: await file.text() })
+      const isDocument = [".pdf", ".xlsx", ".pptx", ".png", ".jpg", ".jpeg"].some(function (extension) { return file.name.toLowerCase().endsWith(extension) })
+      if (isDocument && file.size > 0 && documentBytes + file.size <= 67108864) {
+        const contentBase64 = await new Promise(function (resolve, reject) {
+          const reader = new FileReader()
+          reader.onerror = function () { reject(reader.error) }
+          reader.onload = function () { const value = typeof reader.result === "string" ? reader.result : ""; resolve(value.slice(value.indexOf(",") + 1)) }
+          reader.readAsDataURL(file)
+        })
+        attachments.push({ kind: "document", name: file.name, contentBase64: contentBase64 })
+        documentBytes += file.size
+      } else if (!isDocument && file.size <= 96000) {
+        attachments.push({ kind: "text", name: file.name, content: await file.text() })
+      }
     }
     elements.file.value = ""
     renderAttachments()
@@ -280,8 +295,6 @@ export const HERMES_TEAM_CHAT_CLIENT_SCRIPT = String.raw`
     render()
     elements.input.focus()
   })
-  renderPickers()
-  renderAttachments()
-  render()
+  renderPickers(); renderAttachments(); render()
   elements.input.focus()
 `

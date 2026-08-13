@@ -1,6 +1,8 @@
 import { isBuiltin } from 'node:module'
 import { resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { defineConfig, type UserConfig } from 'electron-vite'
+import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { createBootstrapFatalExitBanner } from './build-plugins/bootstrap-fatal-exit-banner'
@@ -12,7 +14,10 @@ const BUNDLED_MAIN_DEPENDENCIES = new Set([
   '@xterm/addon-serialize',
   // Why: Windows NSIS deploys app.asar before external resources; bootstrap must
   // not race the later resources/node_modules copy.
-  'zod'
+  'zod',
+  // Why: the unpacked document worker must not depend on packaged node_modules.
+  '@xmldom/xmldom',
+  'fflate'
 ])
 const EXTERNAL_MAIN_DEPENDENCIES = Object.keys(packageJson.dependencies).filter(
   (dependency) => !BUNDLED_MAIN_DEPENDENCIES.has(dependency)
@@ -190,6 +195,20 @@ function createMainBootstrapPlugin() {
   }
 }
 
+function createPdfWorkerAssetPlugin(): Plugin {
+  return {
+    name: 'orca-pdf-worker-asset',
+    generateBundle() {
+      // Why: PDF.js loads this ESM sibling at runtime while parsing off the main thread.
+      this.emitFile({
+        type: 'asset',
+        fileName: 'pdf.worker.mjs',
+        source: readFileSync(resolve('node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'))
+      })
+    }
+  }
+}
+
 export const electronViteConfig: UserConfig = {
   main: {
     build: {
@@ -213,6 +232,10 @@ export const electronViteConfig: UserConfig = {
           'computer-sidecar': resolve('src/main/computer/sidecar-entry.ts'),
           'stt-worker': resolve('src/main/speech/stt-worker.ts'),
           'warp-theme-parser-worker': resolve('src/main/warp-themes/warp-theme-parser-worker.ts'),
+          // Why: binary document parsing is isolated from Electron's main event loop.
+          'hermes-local-document-worker-entry': resolve(
+            'src/main/ipc/hermes-local-document-worker-entry.ts'
+          ),
           'session-scanner-opencode-sqlite-worker-entry': resolve(
             'src/main/ai-vault/session-scanner-opencode-sqlite-worker-entry.ts'
           ),
@@ -245,7 +268,11 @@ export const electronViteConfig: UserConfig = {
           entryFileNames: '[name].js',
           chunkFileNames: 'chunks/[name]-[hash].js'
         },
-        plugins: [createMainBootstrapPlugin(), createPlainNodeEntryGuardPlugin()]
+        plugins: [
+          createMainBootstrapPlugin(),
+          createPlainNodeEntryGuardPlugin(),
+          createPdfWorkerAssetPlugin()
+        ]
       }
     },
     // Why: compile-time substitution for the telemetry gate. See the block

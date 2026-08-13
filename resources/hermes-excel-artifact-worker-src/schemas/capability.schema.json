@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://samwoo-orca.invalid/excel-artifact/v1/capability.schema.json",
+  "title": "Orca Excel Artifact v1 advertised capability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "protocolVersions",
+    "actions",
+    "inputKinds",
+    "executionHosts",
+    "workbookSpecVersions",
+    "workbookFeatures",
+    "create",
+    "modify",
+    "validate",
+    "render",
+    "pptxInspect",
+    "pdfInspect",
+    "maxInputBytes",
+    "maxTimeoutSeconds"
+  ],
+  "properties": {
+    "name": {
+      "const": "excelArtifact"
+    },
+    "protocolVersions": {
+      "type": "array",
+      "const": [
+        1
+      ]
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "contains": {
+        "const": "cancel"
+      },
+      "items": {
+        "enum": [
+          "inspect",
+          "create",
+          "modify",
+          "validate",
+          "render",
+          "cancel"
+        ]
+      }
+    },
+    "inputKinds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "pptx",
+          "pdf",
+          "png",
+          "jpeg",
+          "xlsx",
+          "csv",
+          "json"
+        ]
+      }
+    },
+    "executionHosts": {
+      "type": "array",
+      "const": [
+        "local"
+      ]
+    },
+    "workbookSpecVersions": {
+      "type": "array",
+      "const": [
+        1
+      ]
+    },
+    "workbookFeatures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 26,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "workbookProperties",
+          "formats",
+          "sheets",
+          "sheetState",
+          "cells",
+          "formulas",
+          "namedRanges",
+          "tables",
+          "autoFilter",
+          "freezePane",
+          "mergedRanges",
+          "rowHeight",
+          "columnWidth",
+          "numberFormat",
+          "font",
+          "fill",
+          "border",
+          "alignment",
+          "conditionalFormatting",
+          "dataValidation",
+          "nativeCharts",
+          "images",
+          "printArea",
+          "pageOrientation",
+          "pageMargins",
+          "headerFooter"
+        ]
+      }
+    },
+    "create": {
+      "allOf": [
+        {"$ref": "#/$defs/engine"},
+        {"properties": {"name": {"const": "xlsxwriter"}}}
+      ]
+    },
+    "modify": {
+      "allOf": [
+        {"$ref": "#/$defs/engine"},
+        {"properties": {"name": {"const": "openpyxl"}}}
+      ]
+    },
+    "validate": {
+      "allOf": [
+        {"$ref": "#/$defs/engine"},
+        {"properties": {"name": {"const": "openpyxl"}}}
+      ]
+    },
+    "render": {
+      "allOf": [
+        {"$ref": "#/$defs/engine"},
+        {"properties": {"name": {"const": "libreoffice"}}}
+      ]
+    },
+    "pptxInspect": {
+      "type": "boolean"
+    },
+    "pdfInspect": {
+      "type": "boolean"
+    },
+    "maxInputBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1073741824
+    },
+    "maxTimeoutSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"create": {"properties": {"available": {"const": true}}}}, "required": ["create"]},
+      "then": {"properties": {"actions": {"contains": {"const": "create"}}}},
+      "else": {"properties": {"actions": {"not": {"contains": {"const": "create"}}}}}
+    },
+    {
+      "if": {"properties": {"modify": {"properties": {"available": {"const": true}}}}, "required": ["modify"]},
+      "then": {"properties": {"actions": {"contains": {"const": "modify"}}}},
+      "else": {"properties": {"actions": {"not": {"contains": {"const": "modify"}}}}}
+    },
+    {
+      "if": {"properties": {"validate": {"properties": {"available": {"const": true}}}}, "required": ["validate"]},
+      "then": {"properties": {"actions": {"contains": {"const": "validate"}}}},
+      "else": {"properties": {"actions": {"not": {"contains": {"const": "validate"}}}}}
+    },
+    {
+      "if": {"properties": {"render": {"properties": {"available": {"const": true}}}}, "required": ["render"]},
+      "then": {"properties": {"actions": {"contains": {"const": "render"}}}},
+      "else": {"properties": {"actions": {"not": {"contains": {"const": "render"}}}}}
+    },
+    {
+      "if": {"properties": {"pptxInspect": {"const": true}}, "required": ["pptxInspect"]},
+      "then": {
+        "properties": {
+          "actions": {"contains": {"const": "inspect"}},
+          "inputKinds": {"contains": {"const": "pptx"}},
+          "render": {"properties": {"available": {"const": true}}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"pdfInspect": {"const": true}}, "required": ["pdfInspect"]},
+      "then": {
+        "properties": {
+          "actions": {"contains": {"const": "inspect"}},
+          "inputKinds": {"contains": {"const": "pdf"}}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "available"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "xlsxwriter",
+            "openpyxl",
+            "libreoffice",
+            "python"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "available": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

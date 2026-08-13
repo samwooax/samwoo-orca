@@ -31,8 +31,8 @@ const TEAM_CHAT_PAGE = String.raw`<!doctype html>
         <div class="attachment-list" id="attachment-list"></div>
         <textarea id="input" rows="1" placeholder="메시지를 입력하세요…" aria-label="메시지"></textarea>
         <div class="composer-actions">
-          <input id="file" type="file" multiple accept=".txt,.md,.csv,.json,.yaml,.yml,.log" />
-          <button class="icon-button" id="attach" type="button" aria-label="텍스트 파일 첨부">
+          <input id="file" type="file" multiple accept=".txt,.md,.csv,.json,.yaml,.yml,.log,.pdf,.xlsx,.pptx,.png,.jpg,.jpeg" />
+          <button class="icon-button" id="attach" type="button" aria-label="파일 첨부">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M12 5v14M5 12h14"/>
             </svg>

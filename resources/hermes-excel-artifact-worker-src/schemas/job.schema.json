@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://samwoo-orca.invalid/excel-artifact/v1/job.schema.json",
+  "title": "Orca Excel Artifact v1 model job request",
+  "description": "The JSON object contained by one exact <orca_excel_artifact> envelope. Workspace authority is trusted context and is deliberately absent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "operationId",
+    "idempotencyKey",
+    "action"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "operationId": {
+      "$ref": "definitions.schema.json#/$defs/operationId"
+    },
+    "idempotencyKey": {
+      "$ref": "definitions.schema.json#/$defs/idempotencyKey"
+    },
+    "action": {
+      "enum": [
+        "inspect",
+        "create",
+        "modify",
+        "validate",
+        "render",
+        "cancel"
+      ]
+    },
+    "inputs": {
+      "$ref": "definitions.schema.json#/$defs/inputs"
+    },
+    "output": {
+      "$ref": "definitions.schema.json#/$defs/output"
+    },
+    "workbookSpec": {
+      "$ref": "definitions.schema.json#/$defs/workbookSpec"
+    },
+    "validation": {
+      "$ref": "definitions.schema.json#/$defs/validationRequest"
+    },
+    "toolchain": {
+      "$ref": "definitions.schema.json#/$defs/toolchain"
+    },
+    "timeoutSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 600
+    },
+    "jobId": {
+      "$ref": "definitions.schema.json#/$defs/jobId"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "inspect"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "inputs",
+          "toolchain",
+          "timeoutSeconds"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "output"
+              ]
+            },
+            {
+              "required": [
+                "workbookSpec"
+              ]
+            },
+            {
+              "required": [
+                "jobId"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "output",
+          "workbookSpec",
+          "validation",
+          "toolchain",
+          "timeoutSeconds"
+        ],
+        "not": {
+          "required": [
+            "jobId"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "modify"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "inputs",
+          "output",
+          "workbookSpec",
+          "validation",
+          "toolchain",
+          "timeoutSeconds"
+        ],
+        "properties": {
+          "inputs": {
+            "allOf": [
+              {
+                "$ref": "definitions.schema.json#/$defs/inputs"
+              },
+              {
+                "contains": {
+                  "allOf": [
+                    {"$ref": "definitions.schema.json#/$defs/inputRef"},
+                    {
+                      "required": ["kind", "sha256"],
+                      "properties": {
+                        "kind": {"const": "xlsx"},
+                        "sha256": {"$ref": "definitions.schema.json#/$defs/sha256"}
+                      }
+                    }
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            ]
+          },
+          "workbookSpec": {
+            "allOf": [
+              {
+                "$ref": "definitions.schema.json#/$defs/workbookSpec"
+              },
+              {
+                "required": [
+                  "preservationPolicy"
+                ]
+              }
+            ]
+          }
+        },
+        "not": {
+          "required": [
+            "jobId"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "validate"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "inputs",
+          "validation",
+          "toolchain",
+          "timeoutSeconds"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "output"
+              ]
+            },
+            {
+              "required": [
+                "workbookSpec"
+              ]
+            },
+            {
+              "required": [
+                "jobId"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "render"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "inputs",
+          "toolchain",
+          "timeoutSeconds"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "output"
+              ]
+            },
+            {
+              "required": [
+                "workbookSpec"
+              ]
+            },
+            {
+              "required": [
+                "jobId"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "cancel"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "jobId"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "inputs"
+              ]
+            },
+            {
+              "required": [
+                "output"
+              ]
+            },
+            {
+              "required": [
+                "workbookSpec"
+              ]
+            },
+            {
+              "required": [
+                "validation"
+              ]
+            },
+            {
+              "required": [
+                "toolchain"
+              ]
+            },
+            {
+              "required": [
+                "timeoutSeconds"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

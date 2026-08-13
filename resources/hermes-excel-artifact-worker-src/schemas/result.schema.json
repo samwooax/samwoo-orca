@@ -1,0 +1,445 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://samwoo-orca.invalid/excel-artifact/v1/result.schema.json",
+  "title": "Orca Excel Artifact v1 job result",
+  "description": "A sanitized, path-minimized result. It never includes private paths, argv, stdout, environment variables, or credentials.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "operationId",
+    "idempotencyKey",
+    "jobId",
+    "action",
+    "state",
+    "inputs",
+    "engines",
+    "sheets",
+    "tables",
+    "charts",
+    "previews",
+    "warnings",
+    "committed",
+    "cleanup",
+    "startedAt",
+    "completedAt"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "operationId": {
+      "$ref": "definitions.schema.json#/$defs/operationId"
+    },
+    "idempotencyKey": {
+      "$ref": "definitions.schema.json#/$defs/idempotencyKey"
+    },
+    "jobId": {
+      "$ref": "definitions.schema.json#/$defs/jobId"
+    },
+    "action": {
+      "enum": [
+        "inspect",
+        "create",
+        "modify",
+        "validate",
+        "render",
+        "cancel"
+      ]
+    },
+    "state": {
+      "enum": [
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "inputs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "definitions.schema.json#/$defs/resultInput"
+      }
+    },
+    "output": {
+      "$ref": "definitions.schema.json#/$defs/resultOutput"
+    },
+    "engines": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "definitions.schema.json#/$defs/resultEngine"
+      }
+    },
+    "selectedReferences": {
+      "$ref": "definitions.schema.json#/$defs/selectedReferences"
+    },
+    "sheets": {
+      "type": "array",
+      "maxItems": 255,
+      "items": {
+        "$ref": "definitions.schema.json#/$defs/resultItem"
+      }
+    },
+    "tables": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "$ref": "definitions.schema.json#/$defs/resultItem"
+      }
+    },
+    "charts": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "$ref": "definitions.schema.json#/$defs/resultItem"
+      }
+    },
+    "validation": {
+      "$ref": "definitions.schema.json#/$defs/validationResult"
+    },
+    "inspection": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "definitions.schema.json#/$defs/inspectionResult"
+      }
+    },
+    "previews": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "definitions.schema.json#/$defs/resultArtifact"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "definitions.schema.json#/$defs/warning"
+      }
+    },
+    "error": {
+      "$ref": "definitions.schema.json#/$defs/error"
+    },
+    "committed": {
+      "type": "boolean"
+    },
+    "cleanup": {
+      "$ref": "definitions.schema.json#/$defs/cleanupResult"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "completed"
+          },
+          "action": {
+            "enum": [
+              "create",
+              "modify"
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "output",
+          "validation"
+        ],
+        "properties": {
+          "committed": {
+            "const": true
+          },
+          "validation": {
+            "allOf": [
+              {
+                "$ref": "definitions.schema.json#/$defs/validationResult"
+              },
+              {
+                "properties": {
+                  "passed": {
+                    "const": true
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "not": {
+          "required": [
+            "error"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "completed"
+          },
+          "action": {
+            "const": "validate"
+          }
+        },
+        "required": [
+          "state",
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "validation"
+        ],
+        "properties": {
+          "validation": {
+            "properties": {
+              "passed": {
+                "const": true
+              },
+              "checks": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "completed"
+          },
+          "action": {
+            "const": "render"
+          }
+        },
+        "required": [
+          "state",
+          "action"
+        ]
+      },
+      "then": {
+        "properties": {
+          "previews": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "validation"
+        ],
+        "properties": {
+          "validation": {
+            "required": [
+              "passed"
+            ],
+            "properties": {
+              "passed": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "properties": {
+              "checks": {
+                "not": {
+                  "contains": {
+                    "required": [
+                      "status"
+                    ],
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "failed",
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "validation"
+        ],
+        "properties": {
+          "validation": {
+            "required": [
+              "passed"
+            ],
+            "properties": {
+              "passed": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "properties": {
+              "checks": {
+                "contains": {
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "unavailable"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "completed"
+          },
+          "action": {
+            "enum": [
+              "inspect",
+              "validate",
+              "render",
+              "cancel"
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "action"
+        ]
+      },
+      "then": {
+        "properties": {
+          "committed": {
+            "const": false
+          }
+        },
+        "not": {
+          "required": [
+            "error"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "completed"
+          },
+          "action": {
+            "const": "inspect"
+          }
+        },
+        "required": [
+          "state",
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "inspection"
+        ],
+        "properties": {
+          "inputs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "enum": [
+              "cancel"
+            ]
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "inspection"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "failed",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "committed": {
+            "const": false
+          }
+        },
+        "not": {
+          "required": [
+            "output"
+          ]
+        }
+      }
+    }
+  ]
+}

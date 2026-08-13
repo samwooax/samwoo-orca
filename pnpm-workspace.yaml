@@ -3,3 +3,7 @@
 # package graph. Without this file `pnpm -r` auto-discovers mobile/ and its
 # nested package, and the root's patchedDependencies fail as ERR_PNPM_UNUSED_PATCH.
 packages: []
+
+# Security fixes for the OOXML parser must not wait out the general release-age gate.
+minimumReleaseAgeExclude:
+  - '@xmldom/xmldom'
