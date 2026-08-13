@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.194 빌드 준비                                                | 4f4bc09bd                                                              |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.194 draft·서명 자산 검증 완료, GUI 실측 대기                 | 4f4bc09bd, 6beda34c0, run 31684130573                                  |
 
 ## 웨이브 상세
 
@@ -158,4 +158,5 @@
 - 서버의 `excel-artifact` Skill discovery는 계속 비활성이다. Orca가 trusted capability와 로컬 protocol 지침을 Team Chat system context에 직접 주입하므로 서버 Tool이나 사용자 PC absolute path 권한은 필요하지 않다.
 - PPTX 일반 생성·편집과 PDF 생성·페이지 편집을 같은 self-contained worker에 추가했다. 사용자는 Python/pip/package를 설치하지 않는다. LibreOffice preview와 OCR, 안전하게 보존할 수 없는 active content는 여전히 미지원이다.
 - focused Vitest 13개 파일 81개 통과(1개 skip), TypeScript 3종, native/type-aware/React 품질 검사, max-lines·reliability·localization 3종, Electron production bundle을 통과했다. frozen worker의 XLSX/PPTX/PDF 실제 생성과 XLSX 구조 검증, PPTX chart·PDF 재개방, package signing 뒤 manifest 재생성 계약도 통과했다.
-- 남은 단계: Windows package/sign CI와 설치본 GUI 첨부·native save 실측. 로컬 package는 기존 `node-pty` 재빌드에 필요한 Visual Studio Build Tools가 없어 중단됐고, 재빌드를 생략한 리소스 스모크도 electron-builder의 pnpm dependency-tree 출력 파싱 단계에서 중단됐다. 기능 소스나 frozen worker 실패로 보지 않되 정식 패키지 성공으로도 간주하지 않는다.
+- Actions run `31684130573`에서 Windows package/sign과 draft 업로드가 성공했다. 설치본은 231,716,992바이트이며 GitHub SHA-256, `latest.yml` SHA-512·크기·관리자 권한 플래그, SAMWOO 내부 Authenticode 서명을 재검증했다. worker build source와 `.venv`는 app.asar에서 제외하고 실행용 worker 한 벌만 ordinary resource로 포함했다.
+- 남은 단계: v1.4.194 설치본에서 PDF/XLSX/PPTX 첨부·native save GUI 실측 후 draft 공개.

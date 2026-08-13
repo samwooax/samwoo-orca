@@ -451,7 +451,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.191` | 공개 유지                | Hermes 채팅 로컬 셸 명령 실행과 웹 터미널 fallback 문구 보완                                                                              |
 | `v1.4.192` | draft 검증 완료          | PC 로컬 예약 실행·프로젝트 결과 저장과 Windows 원클릭 관리자 설치 복구. Actions run `31452996632`, 오프라인 원클릭 키트 `r24` 무결성 확인 |
 | `v1.4.193` | **공개 — 최신**          | Hermes 로컬 도구 프로토콜 검증·라운드 경계 수정·실행 결과 보존. Actions run `31581558831` 성공 및 공개 `latest.yml` 버전 `1.4.193` 확인   |
-| `v1.4.194` | 빌드 준비                | Hermes PDF/XLSX/PPTX 직접 첨부·읽기·생성·편집과 self-contained document worker                                                            |
+| `v1.4.194` | draft 검증 완료          | Hermes PDF/XLSX/PPTX 직접 첨부·읽기·생성·편집과 self-contained document worker. Actions run `31684130573`, 설치본 GUI 실측 대기           |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
