@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-13, Git commit `6beda34c0d02011729e41dafb03ee89130403746`, `package.json` 버전 `1.4.194`
+> 기준: 2026-08-13, Git commit `b730f5494`, `package.json` 버전 `1.4.195`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -582,7 +582,7 @@ Renderer HermesTeamChatView
 - PPTX는 슬라이드 순서대로 텍스트 문단과 표·차트·이미지 개수를 추출한다. 번역은 추출 문단과 원본 SHA-256 일치를 요구한다. bundled worker는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트 교체, 슬라이드 추가·삭제, 표 셀·요소 편집을 신규 `.pptx`로 저장한다.
 - 선택된 local project가 없는 직접 첨부 번역은 Electron main이 native save dialog를 열어 사용자가 목적지를 승인한다. 기존 파일을 덮어쓰지 않는다.
 - ZIP은 최대 4,096 entry, entry당 64MiB, 총 비압축 256MiB, XML당 16MiB다. DOCTYPE/ENTITY, archive path 탈출, 매크로·ActiveX·OLE, 외부 OOXML 관계를 거부한다.
-- PDF.js와 OOXML 읽기·번역은 30초 timeout·memory limit이 있는 Node worker thread에서 실행한다. 일반 생성·편집은 Python 3.13과 고정된 openpyxl/XlsxWriter/python-pptx/pypdf/reportlab을 PyInstaller one-folder 실행파일로 빌드해 Windows 설치본의 `Resources/hermes-excel-artifact-worker`에 포함한다. 사용자의 Python·pip·Office package를 사용하지 않는다.
+- PDF.js와 OOXML 읽기·번역은 30초 timeout·memory limit이 있는 Node worker thread에서 실행한다. PDF.js는 PDF 요청에서만 lazy-load하고, Node용 DOMMatrix/ImageData/Path2D를 제공하는 플랫폼별 `@napi-rs/canvas`와 `pdf.worker.mjs`를 packaged resource 경계에서 확인한다. 일반 생성·편집은 Python 3.13과 고정된 openpyxl/XlsxWriter/python-pptx/pypdf/reportlab을 PyInstaller one-folder 실행파일로 빌드해 Windows 설치본의 `Resources/hermes-excel-artifact-worker`에 포함한다. 사용자의 Python·pip·Office package를 사용하지 않는다.
 - project-backed source/output은 local worktree와 folder workspace에서만 동작한다. SSH/Runtime 경로를 로컬 path로 해석하지 않으며, 요청 첨부의 추출만 project root 없이 가능하다.
 - Electron main은 worker bundle manifest와 실제 engine metadata를 probe한 경우에만 Excel Artifact v1의 `create`/`modify`/`validate`/`cancel` capability를 trusted instruction에 넣는다. `<orca_excel_artifact>`는 local file/document/command envelope와 하나의 union으로 parse하고, capability가 없거나 SSH/Runtime workspace이면 실행하지 않는다. LibreOffice render/preview capability는 계속 비활성이다.
 
