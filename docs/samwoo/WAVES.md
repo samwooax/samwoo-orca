@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | 구현·로컬 검증 완료, 배포 대기                                    | —                                                                      |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.194 빌드 준비                                                | 4f4bc09bd                                                              |
 
 ## 웨이브 상세
 
@@ -151,7 +151,7 @@
 
 ### W15 — Hermes PDF/XLSX/PPTX 로컬 문서 도구
 
-- `codex/hermes-local-documents`에서 text file bridge와 분리된 document protocol을 구현했다. native picker의 PDF/XLSX/PPTX/이미지는 main-owned artifact ID로만 전달한다.
+- `samwoo/upstream-v1.4.168`의 `v1.4.194` 릴리스 후보에 text file bridge와 분리된 document protocol을 통합했다. native picker의 PDF/XLSX/PPTX/이미지는 main-owned artifact ID로만 전달한다.
 - PDF text layer, XLSX 문자열 셀, PPTX 슬라이드 문단을 분할 추출한다. XLSX/PPTX 번역은 source text·SHA-256을 검증하고 구조·style·media를 유지한 신규 파일로만 저장한다.
 - binary parsing은 30초·memory/ZIP/XML 상한이 있는 worker thread에서 실행한다. PDF.js worker asset이 배포 bundle에 포함되는 것을 확인했다.
 - Windows local host에서는 bundled Python 3.13 worker를 integrity·engine probe한 뒤 Excel Artifact v1 `create`/`modify`/`validate`를 광고한다. durable idempotency receipt, output lock, cancellation, private staging·atomic commit을 main이 소유하고 SSH/Runtime에는 광고하지 않는다.
