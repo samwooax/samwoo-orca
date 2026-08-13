@@ -112,6 +112,7 @@ jobs:
             src/main/ipc/hermes-excel-artifact-protocol.test.ts `
             src/main/ipc/hermes-local-document-formats.test.ts `
             src/main/ipc/hermes-local-document-protocol.test.ts `
+            src/main/ipc/hermes-local-document-worker-operations.test.ts `
             src/main/ipc/hermes-local-project-documents.test.ts `
             src/main/ipc/hermes-local-project-tool-loop.test.ts `
             src/main/ipc/hermes-team-chat-attachment-normalization.test.ts `
@@ -199,6 +200,7 @@ jobs:
             config/scripts/windows-outbound-ssh-installer-contract.test.mjs `
             config/scripts/electron-builder-samwoo-config.test.mjs `
             config/scripts/excel-artifact-packaging-contract.test.mjs `
+            config/scripts/hermes-local-document-packaging.test.mjs `
             config/scripts/hermes-excel-artifact-worker-manifest.test.mjs `
             config/scripts/samwoo-brand-assets.test.mjs `
             config/scripts/samwoo-windows-internal-signing-workflow.test.mjs `
@@ -225,6 +227,9 @@ jobs:
         run: pnpm build:release
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Verify bundled local document worker
+        run: node config/scripts/hermes-local-document-bundle-smoke.mjs
 
       - name: Package signed Windows NSIS installer
         shell: pwsh

@@ -1,4 +1,3 @@
-import { extractPdfPages, inspectPdf } from './hermes-local-document-pdf'
 import {
   applyPptxTranslations,
   extractPptxParagraphs,
@@ -34,6 +33,7 @@ export async function executeLocalDocumentWorkerOperation(
 ): Promise<LocalDocumentWorkerValue> {
   validateSignature(request)
   if (request.format === 'pdf') {
+    const { extractPdfPages, inspectPdf } = await import('./hermes-local-document-pdf')
     if (request.kind === 'inspect') {
       return { format: 'pdf', ...(await inspectPdf(request.data)) }
     }

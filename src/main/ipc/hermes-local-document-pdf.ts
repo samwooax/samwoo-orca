@@ -1,11 +1,27 @@
-import { getDocument, VerbosityLevel } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import type { LocalDocumentItem } from './hermes-local-document-protocol'
+import {
+  installPdfNodeGlobals,
+  resolvePdfWorkerSource
+} from './hermes-local-document-pdf-node-runtime'
 
 const MAX_PDF_PAGES = 1_000
 const MAX_PAGES_PER_EXTRACTION = 10
 const MAX_PAGE_TEXT_CHARS = 32_000
 
+const importPdfJs = () => import('pdfjs-dist/legacy/build/pdf.mjs')
+let pdfJsModule: ReturnType<typeof importPdfJs> | undefined
+
+function loadPdfJs(): ReturnType<typeof importPdfJs> {
+  installPdfNodeGlobals()
+  pdfJsModule ??= importPdfJs().then((pdfJs) => {
+    pdfJs.GlobalWorkerOptions.workerSrc = resolvePdfWorkerSource()
+    return pdfJs
+  })
+  return pdfJsModule
+}
+
 export async function inspectPdf(content: Uint8Array): Promise<{ pageCount: number }> {
+  const { getDocument, VerbosityLevel } = await loadPdfJs()
   const task = getDocument({
     data: Uint8Array.from(content),
     disableFontFace: true,
@@ -50,6 +66,7 @@ export async function extractPdfPages(
   cursor: number,
   requestedLimit: number
 ): Promise<{ pageCount: number; items: LocalDocumentItem[]; nextCursor?: number }> {
+  const { getDocument, VerbosityLevel } = await loadPdfJs()
   const task = getDocument({
     data: Uint8Array.from(content),
     disableFontFace: true,

@@ -41,6 +41,9 @@ importers:
       '@linear/sdk':
         specifier: ^82.1.0
         version: 82.1.0(graphql@16.14.2)
+      '@napi-rs/canvas':
+        specifier: 0.1.100
+        version: 0.1.100
       '@parcel/watcher':
         specifier: ^2.5.6
         version: 2.5.6
@@ -7618,7 +7621,6 @@ snapshots:
       '@napi-rs/canvas-linux-x64-musl': 0.1.100
       '@napi-rs/canvas-win32-arm64-msvc': 0.1.100
       '@napi-rs/canvas-win32-x64-msvc': 0.1.100
-    optional: true
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)':
     dependencies:

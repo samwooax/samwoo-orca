@@ -16,6 +16,7 @@ const requireFromProject = createRequire(join(projectDir, 'package.json'))
 const PACKAGED_RUNTIME_PACKAGE_ROOTS = [
   '@electron-toolkit/utils',
   '@linear/sdk',
+  '@napi-rs/canvas',
   '@parcel/watcher',
   'electron-updater',
   'i18next',
@@ -174,18 +175,15 @@ function collectPackagedRuntimePackages(electronPlatformName = process.platform)
     visit(packageName)
   }
 
-  // Why: @parcel/watcher loads its native .node addon from a platform-specific
-  // optionalDependency (e.g. @parcel/watcher-linux-x64-glibc) that the
-  // dependencies graph above never reaches. Include the ones installed for the
-  // build's supported architectures; afterPack pruning trims non-target
-  // platform/architecture variants. Without this the packaged main bundle's import of
-  // '@parcel/watcher' resolves at runtime but throws loading its binary.
-  const parcelWatcherDir = packages.get('@parcel/watcher')
-  if (parcelWatcherDir) {
-    const parcelWatcherPackage = JSON.parse(
-      readFileSync(join(parcelWatcherDir, 'package.json'), 'utf8')
-    )
-    for (const optionalName of Object.keys(parcelWatcherPackage.optionalDependencies ?? {})) {
+  // Why: these packages load native addons from optional platform subpackages;
+  // afterPack pruning keeps only the target platform and architecture.
+  for (const packageName of ['@parcel/watcher', '@napi-rs/canvas']) {
+    const packageDir = packages.get(packageName)
+    if (!packageDir) {
+      continue
+    }
+    const packageJson = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
+    for (const optionalName of Object.keys(packageJson.optionalDependencies ?? {})) {
       try {
         visit(optionalName)
       } catch {
@@ -405,6 +403,43 @@ function prunePackagedParcelWatcher(resourcesDir, electronPlatformName, electron
   }
 }
 
+function napiCanvasTargetName(electronPlatformName, electronArch) {
+  const architecture = normalizeElectronArchitecture(electronArch)
+  const names = {
+    darwin: { arm64: 'canvas-darwin-arm64', x64: 'canvas-darwin-x64' },
+    linux: {
+      arm: 'canvas-linux-arm-gnueabihf',
+      arm64: 'canvas-linux-arm64-gnu',
+      x64: 'canvas-linux-x64-gnu'
+    },
+    win32: { arm64: 'canvas-win32-arm64-msvc', x64: 'canvas-win32-x64-msvc' }
+  }
+  const target = names[electronPlatformName]?.[architecture]
+  if (!target) {
+    throw new Error(`Unsupported @napi-rs/canvas target: ${electronPlatformName}-${architecture}`)
+  }
+  return target
+}
+
+function prunePackagedNapiCanvas(resourcesDir, electronPlatformName, electronArch) {
+  const napiDir = join(resourcesDir, 'node_modules', '@napi-rs')
+  if (!existsSync(napiDir)) {
+    return
+  }
+  const target = napiCanvasTargetName(electronPlatformName, electronArch)
+  for (const entry of readdirSync(napiDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name === 'canvas' || !entry.name.startsWith('canvas-')) {
+      continue
+    }
+    if (entry.name !== target) {
+      rmSync(join(napiDir, entry.name), { recursive: true, force: true })
+    }
+  }
+  if (existsSync(join(napiDir, 'canvas')) && !existsSync(join(napiDir, target))) {
+    throw new Error(`Packaged PDF runtime is missing @napi-rs/${target}`)
+  }
+}
+
 function prunePackagedRuntimeTypeDeclarations(resourcesDir) {
   const nodeModulesDir = join(resourcesDir, 'node_modules')
   if (!existsSync(nodeModulesDir)) {
@@ -448,6 +483,7 @@ function prunePackagedRuntimeNodeModules(resourcesDir, electronPlatformName, ele
   const architecture = normalizeElectronArchitecture(electronArch)
   prunePackagedNodePty(resourcesDir, electronPlatformName, architecture)
   prunePackagedParcelWatcher(resourcesDir, electronPlatformName, architecture)
+  prunePackagedNapiCanvas(resourcesDir, electronPlatformName, architecture)
   prunePackagedRuntimeTypeDeclarations(resourcesDir)
   prunePackagedSherpaOnnx(resourcesDir, electronPlatformName)
   prunePackagedZodSources(resourcesDir)
@@ -471,6 +507,7 @@ module.exports = {
   isPackagedExternalSpecifier,
   packageNameFromSpecifier,
   prunePackagedNodePty,
+  prunePackagedNapiCanvas,
   prunePackagedParcelWatcher,
   prunePackagedRuntimeNodeModules,
   prunePackagedSherpaOnnx,
