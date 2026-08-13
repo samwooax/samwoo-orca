@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-12, Git commit `84f8d8cd1f69a291618757acf4df08deef7f214e`, `package.json` 버전 `1.4.182`
+> 기준: 2026-08-13, Git commit `5a17819434e3c3a06dc311caa37bbaf497186851`, `package.json` 버전 `1.4.193`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -152,6 +152,8 @@ WSL은 별도의 `executionHostId` 종류가 아니라 local partition 안에서
 | SAMWOO auth token | renderer `localStorage`의 `samwoo.auth` | auth server가 실제 만료·profile 권한을 판정 |
 | SAMWOO 공유 메타·댓글·메시지 | auth service SQLite | 로컬에는 파일 hash/ETag sync manifest만 저장 |
 | Hermes ACP session | main의 in-memory session registry와 원격 Hermes process | renderer는 채팅 화면과 로컬 history를 표시 |
+| SAMWOO 예약 정의·실행 원장 | renderer `localStorage`의 `samwoo.schedules.v1` | App-level 30초 runner가 due 판정·실행 상태를 갱신 |
+| SAMWOO 예약 결과 | 등록된 local project의 `SAMWOO-예약결과/<예약 ID>/` | main IPC가 project authority를 재검증하고 새 Markdown 파일로 저장 |
 
 동일한 정보가 여러 곳에 보여도 모두 정본인 것은 아니다. 예를 들어 renderer 탭 상태는 Runtime graph로 복제되며, 터미널 스크롤백은 renderer session보다 daemon checkpoint가 crash recovery의 권위 있는 원천이다.
 
@@ -518,7 +520,7 @@ Hermes가 메일 API를 호출할 때 앱은 `MAILTOKEN`을 원격 process 환�
 
 주의할 차이도 있다. 범용 파일 API는 `resolveAuthorizedPath`를 쓰지만 `src/main/ipc/samwoo-workspace-file-sync.ts`의 handler는 renderer가 준 absolute source/destination을 직접 `path.resolve`한 뒤 동기화한다. remote entry의 root 탈출은 막지만, 선택한 local root 자체가 Store의 허용 workspace인지 같은 main-side 검증을 사용하지 않는다. 현재는 trusted top-level renderer와 picker를 신뢰하는 별도 경계다.
 
-자세한 사용자 동작과 서버 설치는 `docs/SAMWOO_WORKSPACE_SHARING.md`에 있다.
+자세한 사용자 동작과 서버 설치는 `docs/samwoo/WORKSPACE-SHARING.md`에 있다.
 
 ### 15.4 Hermes Team Chat
 
@@ -526,7 +528,7 @@ Hermes Team Chat은 일반 agent terminal과도, SAMWOO auth server에서 직접
 
 ```text
 Renderer HermesTeamChatView
-  -> local loopback chat server (기본 127.0.0.1:47821)
+  -> preload Electron IPC
   -> main hermes-team-chat runner
   -> 시스템 ssh
   -> Hermes host의 agent/ACP process
@@ -534,6 +536,9 @@ Renderer HermesTeamChatView
   -> 필요 시 <orca_local_files> / <orca_local_commands>
   -> main이 선택한 local project에서 파일 검증 또는 명령 승인 후 실행
   -> 결과를 Hermes 모델에 돌려줌
+
+호환 경로: token-protected local loopback chat server (기본 127.0.0.1:47821)
+  -> 같은 main runner
 ```
 
 - SSH workspace와 paired web runtime에서는 자동 Hermes launch를 막고 local worktree/folder workspace에서만 연다.
@@ -578,11 +583,36 @@ Renderer HermesTeamChatView
 
 모델이 요청할 수 있는 local tool 실행은 한 사용자 요청당 최대 8회다. 이 값은 화면 작업 범위나 Python 코드 줄 수 제한이 아니라 **모델 응답 -> local tool 실행 -> 결과 반환** 반복 횟수다. 8번째 실행 결과 뒤에는 도구를 실행하지 않는 최종 답변 전용 모델 회차를 한 번 허용한다. 해당 회차가 다시 도구를 요청하면 실행 전에 차단하고, 앞서 실행된 operation의 종류·대상·성공 여부를 실패 응답에 함께 반환한다.
 
+각 실행 결과는 `src/shared/hermes-team-chat-result.ts`의 `toolExecutions`로 최종 성공·실패·취소 응답에 보존된다. renderer는 이를 `hermes-team-chat-tool-execution-summary.ts`로 요약해 표시하므로, 마지막 모델 문장만 보고 이미 수행된 local write·command를 잃어버리지 않는다.
+
 파일 또는 명령 envelope는 답변 전체에 정확히 하나만 있어야 한다. 두 종류를 같이 출력하거나 태그는 있지만 JSON/schema가 잘못된 응답은 일반 답변으로 통과시키지 않고 `local_tool_protocol_invalid`로 실패시킨다. 명령 요청은 `mode: "foreground" | "background"`와 초 단위 `timeoutSeconds`를 사용하며, `foreground` boolean이나 `timeoutMs`는 유효하지 않다.
 
 현재 cancellation controller는 원격 모델/SSH 전송을 끊지만 이미 시작한 local foreground command process와 직접 연결되지 않는다. 사용자가 취소해도 해당 command는 timeout 또는 자체 종료까지 계속될 수 있다.
 
 Background local command는 managed process ID를 반환하고 명시적 stop 또는 자연 종료까지 chat보다 오래 남을 수 있다. 또한 profile 목록 조회 경로는 renderer가 준 profile-list command를 platform shell로 실행하므로 trusted renderer compromise 시 임의 local command surface가 된다. 동일 request ID가 충돌하면 현재 in-memory controller를 교체할 수 있어 요청 ID uniqueness도 renderer와 main 양쪽에서 강제할 필요가 있다.
+
+### 15.5 예약 지시와 결과 저장
+
+현재 신규 예약은 서버 Hermes Cron이 아니라 사용자 PC의 renderer가 소유한다.
+
+```text
+renderer `useSamwooScheduleRunner`
+  -> 30초마다 localStorage 실행 원장 평가
+  -> 등록 당시 고정한 local worktree/folder project 확인
+  -> 독립 Hermes Team Chat 요청 실행
+  -> preload `samwooScheduleResults.write`
+  -> main `src/main/ipc/samwoo-schedule-results.ts`
+  -> Store의 local project ID/path authority 재검증
+  -> `SAMWOO-예약결과/<예약 ID>/<실행 시각>.md` 신규 저장
+```
+
+- Orca가 실행 중이고 SAMWOO 로그인이 유지된 동안만 due 작업을 실행한다.
+- 30초 tick 지연을 고려한 90초 catch-up window 밖의 작업은 재생하지 않고 건너뛴다.
+- 예약은 최대 20개, 지시문은 2,000자이며 등록한 local Git worktree 또는 folder workspace에 고정된다.
+- SSH·paired runtime project는 로컬 결과 저장 권한이 없으므로 등록 대상이 아니다.
+- 같은 실행 ID의 결과 파일은 덮어쓰지 않는다. main이 renderer가 준 path만 믿지 않고 Store의 project ID와 현재 path를 다시 대조한다.
+- 구버전 `remoteJobId`가 남은 예약은 원격 작업 삭제가 확인될 때까지 로컬 실행·수정·삭제를 막아 서버 Cron과의 중복 실행을 방지한다.
+- 서버 Cron 코드와 API는 구버전 호환과 운영 이력 때문에 남아 있지만 신규 `1.4.193` 예약의 실행 정본은 아니다.
 
 ## 16. KPI Excel 작업에서 발생한 오류의 정확한 위치
 
@@ -712,6 +742,7 @@ Background local command는 managed process ID를 반환하고 명시적 stop �
 | Plugin | consent/integrity, capability deny, host restart, panel navigation |
 | SAMWOO auth | expired session, auth server restart, wrong profile, unreachable Tailnet |
 | Workspace share | permission, conflict, confirmed delete, excluded secret, 16 MiB/5,000 limits |
+| SAMWOO schedule | app/login gate, 90초 catch-up, local worktree와 folder, stale `remoteJobId`, duplicate result path, project authority mismatch |
 | Hermes artifact | binary input conversion, 512 KiB source limit, dependency miss, timeout, cancel, render validation |
 
 ## 20. 핵심 코드 인덱스
@@ -750,7 +781,9 @@ Background local command는 managed process ID를 반환하고 명시적 stop �
 - Hermes launch/server: `src/renderer/src/lib/hermes-chat-launch.ts`, `src/main/ipc/hermes-chat-server.ts`
 - Hermes profile command: `src/main/ipc/hermes-profiles.ts`
 - Hermes model/tool loop: `src/main/ipc/hermes-team-chat-runner.ts`, `src/main/ipc/hermes-local-project-tool-loop.ts`
+- Hermes result preservation: `src/main/ipc/hermes-team-chat-local-tool-turn.ts`, `src/shared/hermes-team-chat-result.ts`, `src/renderer/src/components/hermes-team-chat/hermes-team-chat-tool-execution-summary.ts`
 - Hermes local files/commands: `src/main/ipc/hermes-local-project-files.ts`, `src/main/ipc/hermes-local-project-commands.ts`
+- SAMWOO local schedules/results: `src/shared/samwoo-schedule.ts`, `src/renderer/src/lib/samwoo-schedule-runner.ts`, `src/main/ipc/samwoo-schedule-results.ts`
 - Build/package: `package.json`, `config/electron-builder.config.cjs`
 
 ## 21. 문서 유지 규칙
@@ -764,5 +797,6 @@ Background local command는 managed process ID를 반환하고 명시적 stop �
 - SSH relay, browser sandbox, plugin capability 경계 변경
 - SAMWOO auth/session/mail/share token 처리 변경
 - Hermes local file/command 제한이나 artifact workflow 변경
+- SAMWOO 예약 실행 owner, catch-up 정책 또는 결과 저장 authority 변경
 
 문서의 설명과 코드가 충돌하면 코드를 현재 사실로 보되, 그 차이는 문서 누락으로 처리한다. 배포 장애 분석에서는 반드시 installer 버전, Git commit, active Orca profile, execution host, workspace scope, PTY provider와 Runtime ID를 함께 기록한다.
