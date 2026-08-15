@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.198 구현·로컬 검증 완료, Windows draft build 준비            | b730f5494, b12d4ede7, b6ce7fd75, 81adb6770, 463c01f4a                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.198 draft 검증 완료·설치본 GUI 재실측 대기                   | b6ce7fd75, 81adb6770, 463c01f4a, run 31874259265                       |
 
 ## 웨이브 상세
 
@@ -166,4 +166,5 @@
 - v1.4.196 GUI 실측에서 Explorer 첨부와 XLSX `inspect`는 성공했지만 Hermes가 후속 `extract`에 `limit:500`을 사용했고 strict parser의 200 상한 때문에 envelope 전체가 거부됐다. `81adb6770`에서 양의 초과값은 200으로 낮춰 실행하고 `nextCursor` 페이지네이션을 prompt에 명시했다. 0·음수·비정수와 다른 malformed 요청은 계속 거부한다.
 - Actions run `31871806940`에서 v1.4.197 Windows package/sign과 draft 업로드가 성공했다. 설치본 241,428,792바이트의 GitHub SHA-256, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했고, 회귀가 있는 v1.4.196 미공개 draft는 삭제했다.
 - v1.4.197 GUI 실측에서 XLSX 구조와 문자열은 읽지만 숫자·증감률·수식 결과가 추출되지 않고, 첫 turn 종료 뒤 artifact가 삭제되어 후속 질문이 같은 첨부를 다시 읽지 못하는 회귀를 확인했다. `463c01f4a`에서 typed cell extraction과 conversation-scoped artifact 재사용을 추가했다.
-- 남은 단계: v1.4.198 Windows draft를 검증하고 설치본에서 두 XLSX 연속 추출·신규 XLSX 생성, PDF/PPTX의 Explorer 선택·첨부 버튼·native save GUI를 재실측한 뒤 공개한다.
+- Actions run `31874259265`에서 v1.4.198 Windows package/sign과 draft 업로드가 성공했다. 설치본 241,428,344바이트의 GitHub SHA-256 `330d1137dbd720d9a03ed7b92ef98571f54d740e6cd7005206a04ed610e152bd`, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했고, 회귀가 있는 v1.4.197 미공개 draft는 삭제했다.
+- 남은 단계: v1.4.198 설치본에서 두 XLSX 연속 추출·신규 XLSX 생성, PDF/PPTX의 Explorer 선택·첨부 버튼·native save GUI를 재실측한 뒤 공개한다.
