@@ -11,6 +11,7 @@ from typing import Any
 
 from orca_excel_artifact.artifact_store import ResolvedArtifact
 from orca_excel_artifact.capabilities import ExcelArtifactCapability, detect_capability
+from orca_excel_artifact.errors import ArtifactError
 from orca_excel_artifact.worker import WorkerContext, run_job
 from orca_document_worker import run_document_job
 
@@ -72,6 +73,8 @@ def main() -> int:
             continue
         try:
             response = _run(_request(json.loads(line.lstrip("\ufeff"))))
+        except ArtifactError as error:
+            response = {"ok": False, "error": error.to_dict()}
         except Exception:
             if os.environ.get("ORCA_ARTIFACT_DEBUG") == "1":
                 traceback.print_exc(file=sys.stderr)

@@ -107,6 +107,89 @@ if (process.platform === 'win32' && process.arch === 'x64') {
   }
   const directory = await mkdtemp(join(tmpdir(), 'orca-office-document-smoke-'))
   try {
+    const invalidWorkbook = await runOfficeWorker(executable, {
+      hostAction: 'run',
+      jobId: 'excel-smoke-invalid',
+      workspace: directory,
+      artifacts: [],
+      request: {
+        version: 1,
+        operationId: 'excel-smoke-invalid',
+        idempotencyKey: 'excel-smoke-invalid-key',
+        action: 'create',
+        output: { path: 'invalid.xlsx' },
+        workbookSpec: { version: 1, sheets: [{ name: 'Summary', state: 'visible' }] },
+        validation: { openXml: true, formulas: true, charts: true, renderPreview: false },
+        toolchain: { profile: 'excel-artifact-v1', version: '1' },
+        timeoutSeconds: 60
+      }
+    })
+    if (
+      invalidWorkbook.ok !== false ||
+      invalidWorkbook.error?.code !== 'protocol_invalid' ||
+      invalidWorkbook.error?.details?.stage !== 'schema'
+    ) {
+      throw new Error(`Bundled Excel error contract failed: ${JSON.stringify(invalidWorkbook)}`)
+    }
+
+    const workbookPath = join(directory, 'from-pdf.xlsx')
+    const workbook = await runOfficeWorker(executable, {
+      hostAction: 'run',
+      jobId: 'excel-smoke-create',
+      workspace: directory,
+      artifacts: [],
+      request: {
+        version: 1,
+        operationId: 'excel-smoke-create',
+        idempotencyKey: 'excel-smoke-create-key',
+        action: 'create',
+        output: { path: 'from-pdf.xlsx', overwrite: false, expectedSha256: null },
+        workbookSpec: {
+          version: 1,
+          preservationPolicy: 'fail_on_unsupported_loss',
+          sheets: [
+            {
+              name: 'Summary',
+              state: 'visible',
+              data: [
+                ['항목', '내용'],
+                ['문서', '무라타 회사 개요'],
+                ['페이지', 6]
+              ],
+              columns: [
+                { range: 'A', width: 18 },
+                { range: 'B', width: 36 }
+              ],
+              rows: [{ index: 1, height: 24 }],
+              autofilter: { range: 'A1:B3' },
+              pageSetup: { orientation: 'landscape', fitToWidth: 1 }
+            }
+          ]
+        },
+        validation: { openXml: true, formulas: true, charts: true, renderPreview: false },
+        toolchain: { profile: 'excel-artifact-v1', version: '1' },
+        timeoutSeconds: 60
+      }
+    })
+    if (workbook.state !== 'completed' || !workbook.committed || !existsSync(workbookPath)) {
+      throw new Error(`Bundled Excel creation failed: ${JSON.stringify(workbook)}`)
+    }
+    const verifiedWorkbook = await run({
+      kind: 'extract',
+      format: 'xlsx',
+      data: new Uint8Array(await readFile(workbookPath)),
+      cursor: 0,
+      limit: 20
+    })
+    if (
+      !verifiedWorkbook.ok ||
+      !verifiedWorkbook.value.items?.some((item) => item.text === '무라타 회사 개요')
+    ) {
+      throw new Error(
+        `Bundled created Excel verification failed: ${JSON.stringify(verifiedWorkbook)}`
+      )
+    }
+
     const outputPath = join(directory, '한국어-번역.pdf')
     const created = await runOfficeWorker(executable, {
       hostAction: 'document',
@@ -153,4 +236,4 @@ if (process.platform === 'win32' && process.arch === 'x64') {
   }
 }
 
-console.log('[hermes-local-document-bundle-smoke] extraction and visible PDF creation passed')
+console.log('[hermes-local-document-bundle-smoke] extraction and visible PDF/XLSX creation passed')

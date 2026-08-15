@@ -406,7 +406,7 @@ def _validate_page_setup(value: Any, path: str) -> None:
     page = _require_mapping(value, path)
     _strict_keys(
         page,
-        frozenset({"orientation", "printArea", "margins", "header", "footer"}),
+        frozenset({"orientation", "printArea", "margins", "header", "footer", "fitToWidth", "fitToHeight"}),
         path,
     )
     if "printArea" in page:
@@ -572,7 +572,10 @@ def _apply_xlsxwriter_sheet(
             worksheet.write_url(cell["address"], cell["hyperlink"], formats.get(cell.get("formatId")), display)
     for column in spec.get("columns", []):
         options = {"hidden": column.get("hidden", False)}
-        worksheet.set_column(column["range"], column.get("width"), formats.get(column.get("formatId")), options)
+        column_range = column["range"]
+        if ":" not in column_range:
+            column_range = f"{column_range}:{column_range}"
+        worksheet.set_column(column_range, column.get("width"), formats.get(column.get("formatId")), options)
     for row in spec.get("rows", []):
         options = {"hidden": row.get("hidden", False)}
         worksheet.set_row(row["index"] - 1, row.get("height"), formats.get(row.get("formatId")), options)
@@ -795,6 +798,8 @@ def _apply_xlsxwriter_page(worksheet: Any, page: Mapping[str, Any]) -> None:
         worksheet.set_portrait()
     if "printArea" in page:
         worksheet.print_area(page["printArea"])
+    if "fitToWidth" in page or "fitToHeight" in page:
+        worksheet.fit_to_pages(page.get("fitToWidth", 1), page.get("fitToHeight", 0))
     margins = page.get("margins", {})
     if margins:
         worksheet.set_margins(margins.get("left", 0.7), margins.get("right", 0.7), margins.get("top", 0.75), margins.get("bottom", 0.75))
@@ -1084,6 +1089,10 @@ def _apply_openpyxl_page(worksheet: Any, page: Mapping[str, Any]) -> None:
         worksheet.page_setup.orientation = page["orientation"]
     if "printArea" in page:
         worksheet.print_area = page["printArea"]
+    if "fitToWidth" in page or "fitToHeight" in page:
+        worksheet.sheet_properties.pageSetUpPr.fitToPage = True
+        worksheet.page_setup.fitToWidth = page.get("fitToWidth", 1)
+        worksheet.page_setup.fitToHeight = page.get("fitToHeight", 0)
     margins = page.get("margins", {})
     for key in ("left", "right", "top", "bottom", "header", "footer"):
         if key in margins:

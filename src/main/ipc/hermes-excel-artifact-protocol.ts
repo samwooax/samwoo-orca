@@ -3,6 +3,7 @@ import type {
   ExcelArtifactRequest,
   ExcelArtifactResult
 } from '../../shared/hermes-excel-artifact'
+import { normalizeExcelArtifactRequest } from './hermes-excel-artifact-request-normalizer'
 
 const OPEN = '<orca_excel_artifact>'
 const CLOSE = '</orca_excel_artifact>'
@@ -41,7 +42,7 @@ export function parseExcelArtifactRequest(reply: string): ExcelArtifactRequest |
     ) {
       return null
     }
-    return value as ExcelArtifactRequest
+    return normalizeExcelArtifactRequest(value)
   } catch {
     return null
   }
@@ -62,8 +63,10 @@ ${JSON.stringify(capability)}
 Excel 통합문서를 새로 만들거나 일반 수정할 때만 응답 전체를 다음 envelope 하나로 출력하세요.
 <orca_excel_artifact>{"version":1,"operationId":"8자 이상 고유 ID","idempotencyKey":"16자 이상 고유 ID","action":"create|modify|validate",...}</orca_excel_artifact>
 toolchain은 {"profile":"excel-artifact-v1","version":"1"}, timeoutSeconds는 1~${capability.maxTimeoutSeconds}입니다.
-create에는 output, workbookSpec, validation이 필요합니다. modify에는 정확히 한 XLSX input, 별도 output, preservationPolicy가 있는 workbookSpec, validation이 필요합니다.
+create의 공통 뼈대는 "output":{"path":"report.xlsx","overwrite":false,"expectedSha256":null}, "validation":{"openXml":true,"formulas":true,"charts":true,"renderPreview":false}입니다. modify에는 정확히 한 XLSX input, 별도 output, preservationPolicy가 있는 workbookSpec, 같은 validation이 필요합니다.
 workbookSpec은 version, preservationPolicy, properties, formats, namedRanges, sheets를 사용합니다. 각 sheet는 name과 state가 필수이며 data, cells, columns, rows, merges, freezePane, autofilter, tables, charts, dataValidations, conditionalFormats, images, pageSetup을 사용할 수 있습니다.
+preservationPolicy는 "fail_on_unsupported_loss" 또는 "warn_on_unsupported_loss"만 사용하세요. 새 통합문서도 "fail_on_unsupported_loss"를 사용합니다.
+columns는 {"range":"A"} 또는 {"range":"A:C","width":20}, rows는 {"index":1,"height":24}, autofilter는 {"range":"A1:C25"} 형식입니다. pageSetup은 orientation, printArea, header, footer, margins, fitToWidth, fitToHeight만 사용합니다.
 cells는 address와 value 또는 formula를 사용합니다. formats는 id/font/fill/alignment/border/numberFormat/locked를 사용하고 셀은 formatId로 참조합니다. 차트 series는 {sheet,range}, 첨부 이미지는 images 항목의 artifactPath에 @attachments/... 경로를 사용합니다.
 첨부 XLSX는 먼저 로컬 문서 도구로 inspect/extract하여 SHA-256을 얻은 뒤 input에 {"kind":"xlsx","path":"@attachments/...","sha256":"..."}를 사용하세요.
 binary, Base64, 절대 경로, shell, package, executable을 요청에 넣지 마세요. 지원되지 않는 기능을 추측하지 말고 capability의 workbookFeatures만 사용하세요.

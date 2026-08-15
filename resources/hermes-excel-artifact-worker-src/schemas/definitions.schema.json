@@ -911,6 +911,16 @@
           "type": "string",
           "maxLength": 255
         },
+        "fitToWidth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "fitToHeight": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
         "margins": {
           "type": "object",
           "additionalProperties": false,
