@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-15, Git commit `a44916c1a`, `package.json` 버전 `1.4.198`
+> 기준: 2026-08-15, Git commit `d471f4fc6`, `package.json` 버전 `1.4.199`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -577,13 +577,13 @@ Renderer HermesTeamChatView
 - 한 요청에 최대 4개 문서 operation을 허용한다. 읽기·번역 외에 `create_pptx`/`edit_pptx`와 `create_pdf`/`edit_pdf`가 신규 파일만 생성한다.
 - project 파일은 기존 canonical root authority를 재사용한다. 직접 첨부는 main artifact store에서 해시를 다시 확인한 뒤 요청 한정 `@attachments/...` virtual path로만 모델에 노출한다.
 - 입력·출력은 파일당 64MiB, 결과 합계는 768KiB다. legacy loopback Base64 경로는 호환용으로만 유지하고 96MiB body 상한을 둔다.
-- PDF는 최대 1,000페이지, 호출당 10페이지, 페이지당 32,000자까지 text layer를 추출한다. bundled worker는 텍스트 PDF 생성과 페이지 삭제·재배열·회전·병합, watermark, metadata 편집을 지원한다. 스캔 OCR과 기존 PDF의 임의 본문 치환은 아직 지원하지 않는다.
+- PDF는 최대 1,000페이지, 호출당 10페이지, 페이지당 32,000자까지 text layer를 추출한다. 생성 spec은 페이지별 비어 있지 않은 `text` element와 top-left 기준 inch 좌표·크기·글꼴 크기·행간·굵기·색·정렬만 허용한다. bundled worker는 이 요소를 실제 PDF text object로 그리고 페이지별 텍스트를 재추출해 하나라도 비면 실패한다. 페이지 삭제·재배열·회전·병합, watermark, metadata 편집도 지원하지만 스캔 OCR과 기존 PDF의 임의 본문 치환은 아직 지원하지 않는다.
 - XLSX는 OOXML ZIP/XML에서 문자열, 숫자, boolean, 날짜, 오류, 수식 셀을 추출한다. 각 item은 읽기용 `text`, 저장된 정밀 값을 보존하는 `rawValue`, 수식과 number format metadata를 구분해 반환한다. 계산 cache가 비어 있는 수식은 수식 자체와 참조 셀 값을 제공하며 임의의 Excel 계산 engine을 가장하지 않는다. 번역 대상은 문자열 셀로 제한하고 style·formula·chart·media archive entry를 유지한다.
 - XLSX 추출은 호출당 200셀, 적용은 128셀이다. 모델이 200보다 큰 양의 `limit`을 요청하면 main parser가 200으로 낮춰 실행하고 `nextCursor`로 페이지네이션한다. 0·음수·비정수는 계속 거부한다. 원문 문자열과 원본 SHA-256이 모두 같아야 하며 원본과 다른 신규 `.xlsx` project path로만 저장한다.
 - PPTX는 슬라이드 순서대로 텍스트 문단과 표·차트·이미지 개수를 추출한다. 번역은 추출 문단과 원본 SHA-256 일치를 요구한다. bundled worker는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트 교체, 슬라이드 추가·삭제, 표 셀·요소 편집을 신규 `.pptx`로 저장한다.
 - 선택된 local project가 없는 직접 첨부 번역은 Electron main이 native save dialog를 열어 사용자가 목적지를 승인한다. 기존 파일을 덮어쓰지 않는다.
 - ZIP은 최대 4,096 entry, entry당 64MiB, 총 비압축 256MiB, XML당 16MiB다. DOCTYPE/ENTITY, archive path 탈출, 매크로·ActiveX·OLE, 외부 OOXML 관계를 거부한다.
-- PDF.js와 OOXML 읽기·번역은 30초 timeout·memory limit이 있는 Node worker thread에서 실행한다. PDF.js는 PDF 요청에서만 lazy-load하고, Node용 DOMMatrix/ImageData/Path2D를 제공하는 플랫폼별 `@napi-rs/canvas`와 `pdf.worker.mjs`를 packaged resource 경계에서 확인한다. 일반 생성·편집은 Python 3.13과 고정된 openpyxl/XlsxWriter/python-pptx/pypdf/reportlab을 PyInstaller one-folder 실행파일로 빌드해 Windows 설치본의 `Resources/hermes-excel-artifact-worker`에 포함한다. 사용자의 Python·pip·Office package를 사용하지 않는다.
+- PDF.js와 OOXML 읽기·번역은 30초 timeout·memory limit이 있는 Node worker thread에서 실행한다. PDF.js는 PDF 요청에서만 lazy-load하고, Node용 DOMMatrix/ImageData/Path2D를 제공하는 플랫폼별 `@napi-rs/canvas`와 `pdf.worker.mjs`를 packaged resource 경계에서 확인한다. 일반 생성·편집은 Python 3.13과 고정된 openpyxl/XlsxWriter/python-pptx/pypdf/reportlab을 PyInstaller one-folder 실행파일로 빌드해 Windows 설치본의 `Resources/hermes-excel-artifact-worker`에 포함한다. Electron→Python JSONL은 환경과 host 양쪽에서 UTF-8로 고정하며, main은 사용자 파일명과 분리된 ASCII staging 이름을 생성하고 성공·실패 모두 `finally`에서 제거한다. 사용자의 Python·pip·Office package를 사용하지 않는다.
 - project-backed source/output은 local worktree와 folder workspace에서만 동작한다. SSH/Runtime 경로를 로컬 path로 해석하지 않으며, 요청 첨부의 추출만 project root 없이 가능하다.
 - Electron main은 worker bundle manifest와 실제 engine metadata를 probe한 경우에만 Excel Artifact v1의 `create`/`modify`/`validate`/`cancel` capability를 trusted instruction에 넣는다. `<orca_excel_artifact>`는 local file/document/command envelope와 하나의 union으로 parse하고, capability가 없거나 SSH/Runtime workspace이면 실행하지 않는다. LibreOffice render/preview capability는 계속 비활성이다.
 
@@ -652,6 +652,8 @@ renderer `useSamwooScheduleRunner`
 | `ModuleNotFoundError: xlsxwriter`            | v1.4.193 이하 또는 손상된 설치본                       | bundled Artifact worker가 없거나 구버전 command 환경을 사용함                   | 문서 worker가 포함된 Orca로 업데이트하고 capability probe 결과를 확인                                                        |
 | `local project tool execution limit reached` | Hermes Team Chat loop                                  | 최대 8번의 local tool 실행 뒤 최종 답변 전용 회차에서도 추가 실행을 요청함      | 추가 요청은 실행하지 않으며 보존된 이전 실행 결과를 확인하고 새 사용자 요청에서 이어서 수행                                  |
 | `invalid local document envelope`            | Hermes local document parser                           | v1.4.196에서 모델이 추출 상한보다 큰 `limit`을 요청해 envelope 전체가 거부됨    | v1.4.197부터 양의 초과값을 200으로 낮춰 실행하고 `nextCursor`로 후속 추출                                                     |
+| PDF가 페이지 수만 있고 비어 있음             | v1.4.198 PDF 생성 worker                               | 모델은 `pages[].elements`를 보냈지만 worker가 legacy `title/text`만 읽고 element를 무시했음 | v1.4.199부터 strict PDF element spec을 공유하고 생성 뒤 페이지별 텍스트 재추출과 양수 `textCharacterCount`를 요구             |
+| 한글명이 깨진 `.orca-*.tmp.pdf`가 남음        | v1.4.198 Windows frozen worker IPC                      | UTF-8 JSONL을 Python redirected stdin의 로컬 코드페이지로 해석해 staging path가 달라졌음 | v1.4.199부터 worker stdio를 UTF-8로 고정하고 ASCII staging 이름을 main이 소유하며 모든 종료 경로에서 제거                    |
 | `<orca_local_commands>`가 그대로 답변에 보임 | Hermes protocol parser                                 | 잘못된 field, JSON/schema 또는 복수 envelope 때문에 도구 요청으로 인정되지 않음 | `local_tool_protocol_invalid`로 일반 답변과 분리하며 `mode`·`timeoutSeconds`와 단일 envelope를 사용                          |
 | `exit code 0`, 파일 존재만 확인              | 검증 단계 부족                                         | 생성 process 성공만 증명하며 레이아웃·수식·Office 호환성은 증명하지 않음        | OOXML open 검사, workbook 구조 검사, LibreOffice/Excel render 기반 시각 검증 추가                                            |
 
@@ -662,7 +664,7 @@ renderer `useSamwooScheduleRunner`
 1. PDF/XLSX/PPTX 입력은 text file envelope가 아니라 main-owned 문서 첨부 또는 local document envelope로 전달한다.
 2. XLSX 번역은 source text와 SHA-256, 일반 생성·수정은 Workbook Spec v1과 durable idempotency receipt를 사용한다.
 3. PDF/PPTX 생성·편집은 bundled worker가 신규 파일로 저장한다. text가 없는 스캔 PDF는 OCR 필요 상태로 보고한다.
-4. 결과는 OOXML/PDF 재개방, sheet/slide/page, formula, chart, merged range와 output hash를 검증한다.
+4. 결과는 OOXML/PDF 재개방, sheet/slide/page, formula, chart, merged range와 output hash를 검증한다. 생성 PDF는 페이지별 text layer와 전체 `textCharacterCount`도 검증해 빈 문서를 성공으로 commit하지 않는다.
 
 이 방식은 Runtime, PTY, 범용 파일 권한과 Store schema를 바꾸지 않아 기존 시스템과의 충돌 위험이 가장 낮다.
 

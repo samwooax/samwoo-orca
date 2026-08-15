@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목             | 현재 상태                                     |
 | ---------------- | --------------------------------------------- |
-| 로컬 패키지 버전 | `1.4.197`                                     |
+| 로컬 패키지 버전 | `1.4.199`                                     |
 | 작업 브랜치      | `samwoo/upstream-v1.4.168`                    |
 | SAMWOO 원격      | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
@@ -145,11 +145,12 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - 직접 고른 PDF/XLSX/PPTX는 main private store의 opaque artifact ID로 관리하고 conversation 소유권과 request 배타 결합을 검증한 `@attachments/...` 경로로만 모델에 보인다. 같은 대화에서 첨부 chip을 유지하는 동안 후속 요청이 재사용할 수 있고, project 파일은 local worktree/folder root authority를 그대로 적용한다.
 - local project가 없는 직접 첨부 XLSX/PPTX 번역은 native save dialog로 사용자가 신규 저장 위치를 승인한다.
 - Excel Artifact v1은 verified bundled worker가 있는 Windows local host에서 workbook 생성·일반 수정·구조 검증을 제공한다. 수식, named range, 표, autofilter, freeze pane, 병합, style, 조건부서식, data validation, native chart, 이미지와 page setup을 Workbook Spec으로 선언한다.
-- PPTX는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트/슬라이드/표 편집, PDF는 텍스트 문서 생성과 페이지 삭제·재배열·회전·병합·watermark·metadata 편집을 신규 파일로 제공한다.
+- PPTX는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트/슬라이드/표 편집을 제공한다. PDF는 페이지별 text element를 top-left inch 좌표로 배치한 신규 문서를 만들고 페이지 삭제·재배열·회전·병합·watermark·metadata 편집을 제공한다. 생성 성공은 PDF 재개방, 페이지 수, 페이지별 text layer와 양수 `textCharacterCount`까지 확인해야 한다.
 - Python 3.13과 문서 engine은 Windows 설치본에 포함하며 사용자는 Python, pip, LibreOffice 또는 별도 package를 설치하지 않는다. capability는 main의 bundle integrity·engine probe가 성공할 때만 모델에 제공한다.
+- Electron과 frozen Python worker 사이의 JSONL은 UTF-8로 고정한다. worker staging은 사용자 파일명과 분리된 ASCII 이름이며 main이 성공·실패 모두 정리한 뒤 검증된 최종 파일만 원자적으로 commit한다.
 - 스캔 PDF OCR, 기존 PDF 본문의 무손실 임의 치환, LibreOffice 시각 preview, 매크로·ActiveX·OLE·전자서명 보존은 지원하지 않고 원본을 변경하지 않은 채 명시적으로 실패한다.
 
-문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.198` 릴리스 후보에 통합됐다. Windows package/sign과 draft 자산 검증은 완료했으며 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
+문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.199` 릴리스 후보까지 통합됐다. v1.4.198 GUI 실측에서 확인된 빈 PDF·한글 staging 경로 문제는 로컬 source/frozen worker와 당시 6쪽 실제 요청으로 수정 검증했으며, 새 Windows package/sign과 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
 
 앱에는 Electron IPC가 기본 경로이며 `127.0.0.1:47821`의 토큰 보호 loopback 호환 서버도 남아 있다. 포트가 이미 사용 중이면 임시 포트로 물러난다. 이는 외부 네트워크에 공개하지 않는다.
 
@@ -459,6 +460,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.196` | draft 폐기 완료          | Explorer 첨부는 복구됐으나 모델의 `extract limit:500`을 strict parser가 거부해 최종 요약이 실패하여 미공개 초안 삭제                           |
 | `v1.4.197` | draft 검증 완료          | 양의 문서 추출 초과값을 200으로 낮춰 실행하고 `nextCursor` 명시. Actions run `31871806940` 성공, 설치본 GUI 재실측 전                          |
 | `v1.4.198` | draft 검증 완료          | XLSX typed cell 추출과 같은 대화의 첨부 재사용. Actions run `31874259265` 성공, 설치본 GUI 실측 전                                             |
+| `v1.4.199` | draft 빌드 대기          | PDF element 실제 렌더링, UTF-8 worker 경로, 빈 PDF 검증·staging 정리와 정확한 `expectedSha256` prompt 보강                                     |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
