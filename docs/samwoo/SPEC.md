@@ -464,7 +464,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.200` | draft 검증 완료          | malformed envelope 최대 2회 자동 교정과 PDF text element 6pt 자동 맞춤. Actions run `31891310064` 성공, 설치본 GUI 재실측 전               |
 | `v1.4.201` | draft 유지·GUI 실측 실패 | PDF→XLSX 요청 정규화·단일 열 렌더링·구조화된 schema 오류 반환. Actions run `31894410900` 성공. 설치본 GUI에서 모델이 잉여 중괄호를 3회 반복해 PDF 생성 거부 확인 |
 | `v1.4.202` | draft 유지·공개 보류     | greedy delimiter 제거 1차 교정. Actions run `31896992503` 성공했으나 적대적 검토에서 스칼라 접합·다의성 결함을 확인해 공개하지 않고 v1.4.203으로 대체            |
-| `v1.4.203` | release candidate        | 닫는 delimiter 단일 삭제·토큰 경계·유일 복원 검증으로 교정을 강화. 실제 실패 응답 3건 재생·PDF→XLSX 순차 검증 통과, Windows Actions 대기                        |
+| `v1.4.203` | draft 검증 완료          | 닫는 delimiter 단일 삭제·토큰 경계·유일 복원 host 교정. 실제 실패 응답 3건 재생·PDF→XLSX 순차 검증 통과. Actions run `31898326884` 성공, 설치본 GUI 재실측 전    |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 

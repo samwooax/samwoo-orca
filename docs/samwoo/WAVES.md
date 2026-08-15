@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.203 유일 복원 교정·실제 실패 응답 재생 검증 완료·Actions 대기 | 5d3ff1a9a, 0f9ca9580, run 31896992503                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.203 draft 검증 완료·설치본 GUI 재실측 대기                   | 0f9ca9580, 706256780, run 31898326884                                  |
 
 ## 웨이브 상세
 
@@ -180,4 +180,5 @@
 - v1.4.203에서 교정을 강화했다: 닫는 delimiter 정확히 한 개를 삭제하는 후보 중 다음 토큰이 구조 문자인 위치만 고려하고(스칼라 접합 원천 차단), 파싱 가능한 복원 결과가 유일할 때만 채택하며(다의성 fail-closed), 후보 탐색은 64MB 작업 예산으로 제한한다. 잘린 JSON·문자열·값·필드는 바꾸지 않고 교정 후에도 기존 schema 검증을 그대로 통과해야 실행하며, host가 못 고치는 malformed는 기존 모델 교정 2회·세 번째 fail-closed 경로를 유지한다. 검토가 지적한 시험 공백(3개 파서 배선 고정, Excel 1MiB 게이트 선행 고정, 모델 교정 소진 경로의 truncated payload)도 회귀 테스트로 보강했다.
 - 실제 실패 응답 3건을 parser·tool loop에 그대로 재생해 강화된 교정에서도 모두 유일 복원됨을 확인했고, message `4853`을 frozen worker로 실행해 6쪽 한국어 PDF(pypdf 4,313자·전 페이지 text layer·PDF.js 재추출)와 후속 round의 실제 message `4847` Excel envelope로 `murataoverview_ko.xlsx`(25행×3열·문자열 73셀·openpyxl 재개방·Orca 재추출 유의사항 확인)까지 순차 생성했다.
 - 검증: CI 지정 Vitest 106개 파일 488개, TypeScript 3종, native/type-aware oxlint, reliability·max-lines·skill·localization 게이트, Python 서버 88개, frozen worker 재빌드와 production bundle smoke 통과.
-- 남은 단계: v1.4.203 Windows Actions package/sign·draft 자산을 검증하고 설치본에서 PDF→XLSX 순차 생성, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다. 공개 보류된 v1.4.201·v1.4.202 draft는 이력 보존을 위해 삭제하지 않는다.
+- Actions run `31898326884`에서 v1.4.203 Windows 통합 검사, frozen worker 빌드, package/sign과 draft 업로드가 성공했다. 설치본 241,455,664바이트의 GitHub·로컬 SHA-256 `726b478d750168d39d0ccfea79e6c45c307768e4aa9d29b9c9edb4f3356ffffd`, `latest.yml` 버전 `1.4.203`·크기·SHA-512·`isAdminRightsRequired: true`와 SAMWOO 내부 Authenticode 서명(Valid, thumbprint `81316CB47930717E9EB6949430BD80C2F4E6166D`)을 독립 검증했다.
+- 남은 단계: 설치본에서 PDF→XLSX 순차 생성, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다. 공개 보류된 v1.4.201·v1.4.202 draft는 이력 보존을 위해 삭제하지 않는다.
