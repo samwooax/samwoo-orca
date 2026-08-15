@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-15, Git commit `d471f4fc6`, `package.json` 버전 `1.4.199`
+> 기준: 2026-08-15, Git commit `cc680547f`, `package.json` 버전 `1.4.200`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -607,11 +607,11 @@ Renderer HermesTeamChatView
 - 사용자 approval dialog를 거쳐 실행
 - 실행 파일과 Python package는 사용자 PC의 PATH/환경에 실제로 존재해야 함
 
-모델이 요청할 수 있는 local tool 실행은 한 사용자 요청당 최대 8회다. 이 값은 화면 작업 범위나 Python 코드 줄 수 제한이 아니라 **모델 응답 -> local tool 실행 -> 결과 반환** 반복 횟수다. 8번째 실행 결과 뒤에는 도구를 실행하지 않는 최종 답변 전용 모델 회차를 한 번 허용한다. 해당 회차가 다시 도구를 요청하면 실행 전에 차단하고, 앞서 실행된 operation의 종류·대상·성공 여부를 실패 응답에 함께 반환한다.
+모델이 요청할 수 있는 local tool 실행은 한 사용자 요청당 최대 8회다. 이 값은 화면 작업 범위나 Python 코드 줄 수 제한이 아니라 **모델 응답 -> local tool 실행 -> 결과 반환** 반복 횟수다. JSON/schema가 잘못된 envelope는 아무 operation도 실행하지 않은 채 같은 모델 세션에 최대 두 번 교정 요청하며 이 회차는 실행 한도에 포함하지 않는다. 세 번째 malformed 응답은 `local_tool_protocol_invalid`로 종료한다. 8번째 실행 결과 뒤에는 도구를 실행하지 않는 최종 답변 전용 모델 회차를 한 번 허용한다. 해당 회차가 다시 도구를 요청하면 실행 전에 차단하고, 앞서 실행된 operation의 종류·대상·성공 여부를 실패 응답에 함께 반환한다.
 
 각 실행 결과는 `src/shared/hermes-team-chat-result.ts`의 `toolExecutions`로 최종 성공·실패·취소 응답에 보존된다. renderer는 이를 `hermes-team-chat-tool-execution-summary.ts`로 요약해 표시하므로, 마지막 모델 문장만 보고 이미 수행된 local write·command를 잃어버리지 않는다.
 
-파일·문서·명령 envelope는 답변 전체에 정확히 하나만 있어야 한다. 둘 이상을 같이 출력하거나 태그는 있지만 JSON/schema가 잘못된 응답은 일반 답변으로 통과시키지 않고 `local_tool_protocol_invalid`로 실패시킨다. 명령 요청은 `mode: "foreground" | "background"`와 초 단위 `timeoutSeconds`를 사용하며, `foreground` boolean이나 `timeoutMs`는 유효하지 않다.
+파일·문서·명령 envelope는 답변 전체에 정확히 하나만 있어야 한다. 둘 이상을 같이 출력하거나 태그는 있지만 JSON/schema가 잘못된 응답은 일반 답변으로 통과시키지 않는다. 최대 두 번의 모델 교정 뒤에도 유효하지 않을 때만 `local_tool_protocol_invalid`로 실패시킨다. 명령 요청은 `mode: "foreground" | "background"`와 초 단위 `timeoutSeconds`를 사용하며, `foreground` boolean이나 `timeoutMs`는 유효하지 않다.
 
 Team Chat cancellation controller는 원격 모델/SSH 전송과 요청 ID에 등록된 local document worker를 즉시 종료한다. 이미 시작한 foreground command process는 아직 직접 연결되지 않아 요청 timeout 또는 자체 종료까지 계속될 수 있다.
 
@@ -652,8 +652,10 @@ renderer `useSamwooScheduleRunner`
 | `ModuleNotFoundError: xlsxwriter`            | v1.4.193 이하 또는 손상된 설치본                       | bundled Artifact worker가 없거나 구버전 command 환경을 사용함                   | 문서 worker가 포함된 Orca로 업데이트하고 capability probe 결과를 확인                                                        |
 | `local project tool execution limit reached` | Hermes Team Chat loop                                  | 최대 8번의 local tool 실행 뒤 최종 답변 전용 회차에서도 추가 실행을 요청함      | 추가 요청은 실행하지 않으며 보존된 이전 실행 결과를 확인하고 새 사용자 요청에서 이어서 수행                                  |
 | `invalid local document envelope`            | Hermes local document parser                           | v1.4.196에서 모델이 추출 상한보다 큰 `limit`을 요청해 envelope 전체가 거부됨    | v1.4.197부터 양의 초과값을 200으로 낮춰 실행하고 `nextCursor`로 후속 추출                                                     |
+| 추출 성공 뒤 `invalid local document envelope` | v1.4.199 Hermes document follow-up                    | 긴 `create_pdf` JSON 끝에 닫는 중괄호 하나를 더 출력해 JSON parse가 실패함      | v1.4.200부터 실행 전 같은 세션에 최대 두 번 exact envelope 교정을 요청하고 세 번째 실패만 사용자에게 반환                   |
 | PDF가 페이지 수만 있고 비어 있음             | v1.4.198 PDF 생성 worker                               | 모델은 `pages[].elements`를 보냈지만 worker가 legacy `title/text`만 읽고 element를 무시했음 | v1.4.199부터 strict PDF element spec을 공유하고 생성 뒤 페이지별 텍스트 재추출과 양수 `textCharacterCount`를 요구             |
 | 한글명이 깨진 `.orca-*.tmp.pdf`가 남음        | v1.4.198 Windows frozen worker IPC                      | UTF-8 JSONL을 Python redirected stdin의 로컬 코드페이지로 해석해 staging path가 달라졌음 | v1.4.199부터 worker stdio를 UTF-8로 고정하고 ASCII staging 이름을 main이 소유하며 모든 종료 경로에서 제거                    |
+| `PDF text exceeds its element height`         | v1.4.199 PDF 생성 worker                               | 번역문이 모델이 지정한 text element 높이보다 길어 strict layout 검증이 실패함   | v1.4.200부터 원래 비율로 6pt까지 자동 축소하고 그래도 맞지 않을 때만 staging을 제거하며 실패                                 |
 | `<orca_local_commands>`가 그대로 답변에 보임 | Hermes protocol parser                                 | 잘못된 field, JSON/schema 또는 복수 envelope 때문에 도구 요청으로 인정되지 않음 | `local_tool_protocol_invalid`로 일반 답변과 분리하며 `mode`·`timeoutSeconds`와 단일 envelope를 사용                          |
 | `exit code 0`, 파일 존재만 확인              | 검증 단계 부족                                         | 생성 process 성공만 증명하며 레이아웃·수식·Office 호환성은 증명하지 않음        | OOXML open 검사, workbook 구조 검사, LibreOffice/Excel render 기반 시각 검증 추가                                            |
 

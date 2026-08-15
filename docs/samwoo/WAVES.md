@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.199 draft 검증 완료·설치본 GUI 재실측 대기                   | b6ce7fd75, 463c01f4a, 63fad0b08, run 31889692619                       |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.200 로컬 검증 완료·draft build/GUI 재실측 대기               | 463c01f4a, 63fad0b08, cc680547f, run 31889692619                       |
 
 ## 웨이브 상세
 
@@ -151,7 +151,7 @@
 
 ### W15 — Hermes PDF/XLSX/PPTX 로컬 문서 도구
 
-- `samwoo/upstream-v1.4.168`의 `v1.4.199` 릴리스 후보까지 text file bridge와 분리된 document protocol을 통합했다. native picker의 PDF/XLSX/PPTX/이미지는 main-owned artifact ID로만 전달한다.
+- `samwoo/upstream-v1.4.168`의 `v1.4.200` 릴리스 후보까지 text file bridge와 분리된 document protocol을 통합했다. native picker의 PDF/XLSX/PPTX/이미지는 main-owned artifact ID로만 전달한다.
 - PDF text layer, XLSX 문자열 셀, PPTX 슬라이드 문단을 분할 추출한다. XLSX/PPTX 번역은 source text·SHA-256을 검증하고 구조·style·media를 유지한 신규 파일로만 저장한다.
 - binary parsing은 30초·memory/ZIP/XML 상한이 있는 worker thread에서 실행한다. PDF.js worker asset이 배포 bundle에 포함되는 것을 확인했다.
 - Windows local host에서는 bundled Python 3.13 worker를 integrity·engine probe한 뒤 Excel Artifact v1 `create`/`modify`/`validate`를 광고한다. durable idempotency receipt, output lock, cancellation, private staging·atomic commit을 main이 소유하고 SSH/Runtime에는 광고하지 않는다.
@@ -170,4 +170,5 @@
 - v1.4.198 GUI 실측에서 Hermes의 `create_pdf` 요청은 `pages[].elements`에 6쪽 한국어 본문을 정상 제공했지만 worker가 legacy `title/text`만 읽어 빈 페이지만 만들었다. 첫 한글 output은 Windows redirected stdin 코드페이지 때문에 staging path가 깨져 main의 cleanup 대상과 달라졌다. `63fad0b08`에서 strict PDF element spec·실제 렌더링, worker UTF-8 JSONL, ASCII staging, 페이지별 text 재추출과 `textCharacterCount` gate를 추가하고 번역 operation의 정확한 `expectedSha256` field를 prompt에 명시했다.
 - 당시 `murataoverview` 6쪽 요청을 source worker에 그대로 재생해 6쪽·Pypdf 추출 3,552자와 PDF.js 전 페이지 한국어 재추출을 확인했다. PyInstaller frozen worker도 한글 파일명 생성→PDF.js 재추출을 통과했고, 빈 결과는 최종 commit 전 실패하며 staging만 제거하는 회귀 테스트를 추가했다.
 - Actions run `31889692619`에서 v1.4.199 Windows 통합 검사, 번들 워커 한글 PDF 생성·재추출, package/sign과 draft 업로드가 성공했다. 설치본 241,453,112바이트의 GitHub SHA-256 `c5c74f7f873b53e5a578092740728b88a23dd13564c57f711839e876db8009c9`, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했다.
-- 남은 단계: 설치본에서 XLSX 번역과 PDF 생성·실패 cleanup, PDF/PPTX Explorer 선택·첨부 버튼·native save GUI를 재실측한 뒤 공개한다.
+- v1.4.199 GUI 재실측에서 PDF extract는 성공했지만 Hermes message `4833`의 6쪽 `create_pdf` 응답 끝에 닫는 중괄호가 하나 더 있어 JSON parse 전에 거부됐다. delimiter 하나만 교정하면 번역문이 일부 text element 높이를 넘어 다음 단계에서도 실패하는 것을 확인했다. `cc680547f`에서 malformed envelope를 operation 실행 전 최대 두 번 모델에 교정시키고, PDF font/line-height를 원래 비율로 6pt까지 자동 맞춤한다. 해당 실제 응답은 6쪽·전 페이지 text·worker 4,909자로 생성됐고 반복 malformed 응답은 세 번째에 실행 없이 실패하는 테스트를 통과했다.
+- 남은 단계: v1.4.200 Windows package/sign·draft 자산을 검증하고, 설치본에서 PDF 번역 자동 교정·맞춤과 실패 cleanup, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다.
