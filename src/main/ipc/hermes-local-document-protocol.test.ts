@@ -123,6 +123,27 @@ describe('Hermes local document protocol', () => {
     expect(LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT).toContain('[일반 문서 생성·편집]')
   })
 
+  it('repairs the spurious create_pdf closing brace Hermes repeats and stays fail-closed', () => {
+    // Delimiter shape of production messages 4853/4855/4857: `"}]}}]}}]}` instead of `"}]}]}}]}`.
+    const brokenTail =
+      '<orca_local_documents>{"version":1,"operations":[{"id":"create-korean-pdf","kind":"create_pdf","outputPath":"murataoverview_ko.pdf","documentSpec":{"pageSize":"A4","pages":[{"elements":[{"type":"text","x":0.65,"y":0.65,"width":7,"height":10.1,"fontSize":15,"lineHeight":20,"bold":true,"color":"#111111","align":"left","text":"한국어 번역"}]}}]}}]}</orca_local_documents>'
+
+    expect(parseLocalDocumentRequest(brokenTail)).toMatchObject({
+      version: 1,
+      operations: [
+        { id: 'create-korean-pdf', kind: 'create_pdf', outputPath: 'murataoverview_ko.pdf' }
+      ]
+    })
+    expect(
+      parseLocalDocumentRequest(brokenTail.replace('"kind":"create_pdf"', '"kind":"create_pdf","extra":1'))
+    ).toBeNull()
+    expect(
+      parseLocalDocumentRequest(
+        '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"create_pdf","outputPath":"a.pdf","documentSpec":{"pageSize":"A4","pages":[{"elements":[{"type":"text","text":"본문"</orca_local_documents>'
+      )
+    ).toBeNull()
+  })
+
   it('accepts visible PDF text elements and rejects blank or unsupported pages', () => {
     const operation = {
       id: 'pdf',

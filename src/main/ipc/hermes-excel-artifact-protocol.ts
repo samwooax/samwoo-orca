@@ -4,6 +4,7 @@ import type {
   ExcelArtifactResult
 } from '../../shared/hermes-excel-artifact'
 import { normalizeExcelArtifactRequest } from './hermes-excel-artifact-request-normalizer'
+import { parseEnvelopeJson } from './hermes-local-envelope-json-repair'
 
 const OPEN = '<orca_excel_artifact>'
 const CLOSE = '</orca_excel_artifact>'
@@ -29,8 +30,12 @@ export function parseExcelArtifactRequest(reply: string): ExcelArtifactRequest |
   ) {
     return null
   }
+  const parsed = parseEnvelopeJson(trimmed.slice(OPEN.length, -CLOSE.length))
+  if (!parsed) {
+    return null
+  }
   try {
-    const value = JSON.parse(trimmed.slice(OPEN.length, -CLOSE.length)) as unknown
+    const value = parsed.value
     if (
       !isRecord(value) ||
       value.version !== 1 ||

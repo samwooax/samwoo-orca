@@ -365,9 +365,52 @@ describe('runTeamChatMessage local file bridge', () => {
     expect(executeLocalFileRequestMock).toHaveBeenCalledTimes(8)
   })
 
-  it('repairs a malformed document envelope before executing it', async () => {
+  it('executes an envelope with the repeated spurious closing brace without a model repair round', async () => {
+    // Delimiter defect of production messages 4853/4855/4857, which the model reproduced verbatim through both repair rounds.
     const malformed =
       '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"create_pdf","outputPath":"translated.pdf","documentSpec":{"pages":[{"elements":[{"type":"text","text":"번역"}]}}]}}]}</orca_local_documents>'
+    spawnMock.mockReturnValue(fakeProcess(''))
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: malformed })
+      .mockResolvedValueOnce({ ok: true, reply: '번역 PDF를 생성했습니다.' })
+    executeLocalDocumentToolRequestMock.mockResolvedValue({
+      reply:
+        '<orca_local_document_results>{"version":1,"results":[{"id":"pdf","ok":true,"path":"translated.pdf","textCharacterCount":2}]}</orca_local_document_results>',
+      execution: {
+        kind: 'local_document',
+        operations: [{ id: 'pdf', kind: 'create_pdf', ok: true, target: 'translated.pdf' }]
+      }
+    })
+
+    const result = await runTeamChatMessage({
+      requestId: 'request-host-delimiter-repair',
+      conversationId: 'conversation-host-delimiter-repair',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: '실행',
+      imageAttachments: [],
+      history: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      reply: '번역 PDF를 생성했습니다.',
+      toolExecutions: [{ sequence: 1, kind: 'local_document' }]
+    })
+    expect(runHermesAcpProcessMock).toHaveBeenCalledTimes(2)
+    expect(runHermesAcpProcessMock.mock.calls[1][0].message).toContain(
+      '<orca_local_document_results>'
+    )
+    expect(executeLocalDocumentToolRequestMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('still asks the model to repair an envelope the host cannot fix deterministically', async () => {
+    const malformed =
+      '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"create_pdf","outputPath":"translated.pdf","documentSpec":{"pages":[{"elements":[{"type":"text","text":"번역"}]}]}}]</orca_local_documents>'
     const corrected =
       '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"create_pdf","outputPath":"translated.pdf","documentSpec":{"pages":[{"elements":[{"type":"text","text":"번역"}]}]}}]}</orca_local_documents>'
     spawnMock.mockReturnValue(fakeProcess(''))

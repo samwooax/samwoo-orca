@@ -1,3 +1,5 @@
+import { parseEnvelopeJson } from './hermes-local-envelope-json-repair'
+
 const REQUEST_OPEN = '<orca_local_commands>'
 const REQUEST_CLOSE = '</orca_local_commands>'
 const MAX_OPERATIONS = 4
@@ -122,8 +124,12 @@ export function parseLocalCommandRequest(reply: string): LocalCommandRequest | n
   if (!trimmed.startsWith(REQUEST_OPEN) || !trimmed.endsWith(REQUEST_CLOSE)) {
     return null
   }
+  const parsed = parseEnvelopeJson(trimmed.slice(REQUEST_OPEN.length, -REQUEST_CLOSE.length))
+  if (!parsed) {
+    return null
+  }
   try {
-    const value = JSON.parse(trimmed.slice(REQUEST_OPEN.length, -REQUEST_CLOSE.length)) as unknown
+    const value = parsed.value
     if (
       !isRecord(value) ||
       value.version !== 1 ||

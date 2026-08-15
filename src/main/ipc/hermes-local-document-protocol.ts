@@ -1,4 +1,5 @@
 import { LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT } from './hermes-local-document-prompt'
+import { parseEnvelopeJson } from './hermes-local-envelope-json-repair'
 import type {
   LocalDocumentOperation,
   LocalDocumentRequest,
@@ -232,8 +233,12 @@ export function parseLocalDocumentRequest(reply: string): LocalDocumentRequest |
   if (!trimmed.startsWith(REQUEST_OPEN) || !trimmed.endsWith(REQUEST_CLOSE)) {
     return null
   }
+  const parsed = parseEnvelopeJson(trimmed.slice(REQUEST_OPEN.length, -REQUEST_CLOSE.length))
+  if (!parsed) {
+    return null
+  }
   try {
-    const value = JSON.parse(trimmed.slice(REQUEST_OPEN.length, -REQUEST_CLOSE.length)) as unknown
+    const value = parsed.value
     if (
       !isRecord(value) ||
       !hasOnlyKeys(value, ['version', 'operations']) ||
