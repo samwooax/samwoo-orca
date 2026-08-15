@@ -72,6 +72,21 @@ describe('parseLocalCommandRequest', () => {
     ).toBeNull()
   })
 
+  it('repairs one spurious trailing brace but rejects truncated envelopes', () => {
+    expect(
+      parseLocalCommandRequest(
+        '<orca_local_commands>{"version":1,"operations":[{"id":"run-1","kind":"run","command":"uv","args":["run","app.py"],"mode":"foreground"}]}}</orca_local_commands>'
+      )?.operations
+    ).toEqual([
+      { id: 'run-1', kind: 'run', command: 'uv', args: ['run', 'app.py'], mode: 'foreground' }
+    ])
+    expect(
+      parseLocalCommandRequest(
+        '<orca_local_commands>{"version":1,"operations":[{"id":"run-1","kind":"run"</orca_local_commands>'
+      )
+    ).toBeNull()
+  })
+
   it('rejects duplicate ids and malformed stop requests', () => {
     expect(
       parseLocalCommandRequest(

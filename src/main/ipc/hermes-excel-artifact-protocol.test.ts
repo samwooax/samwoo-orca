@@ -25,6 +25,54 @@ describe('Excel Artifact protocol', () => {
     expect(parseExcelArtifactRequest(`${envelope}\ntext`)).toBeNull()
   })
 
+  it('repairs one unambiguous spurious brace but keeps the 1MiB gate and refuses ambiguity', () => {
+    const request = {
+      version: 1,
+      operationId: 'operation-001',
+      idempotencyKey: 'idempotency-key-0001',
+      action: 'create',
+      output: { path: 'reports/kpi.xlsx', overwrite: false, expectedSha256: null },
+      workbookSpec: { version: 1, sheets: [{ name: 'Summary', state: 'visible' }] },
+      validation: { openXml: true, formulas: true, charts: true, renderPreview: false },
+      toolchain: { profile: 'excel-artifact-v1', version: '1' },
+      timeoutSeconds: 60
+    }
+    const brokenInsideArray = `<orca_excel_artifact>${JSON.stringify(request).replace(
+      '"state":"visible"}',
+      '"state":"visible"}}'
+    )}</orca_excel_artifact>`
+    expect(parseExcelArtifactRequest(brokenInsideArray)).toEqual(request)
+
+    // A trailing brace after a flat top-level object admits two single-deletion
+    // readings (drop the tail vs. re-parent trailing keys), so it fails closed.
+    expect(
+      parseExcelArtifactRequest(`<orca_excel_artifact>${JSON.stringify(request)}}</orca_excel_artifact>`)
+    ).toBeNull()
+
+    const oversized = {
+      ...request,
+      workbookSpec: {
+        version: 1,
+        sheets: [
+          {
+            name: 'Summary',
+            state: 'visible',
+            cells: [{ address: 'A1', value: 'x'.repeat(1024 * 1024) }]
+          }
+        ]
+      }
+    }
+    // The byte gate runs on the raw reply before any repair is attempted.
+    expect(
+      parseExcelArtifactRequest(
+        `<orca_excel_artifact>${JSON.stringify(oversized).replace(
+          '"state":"visible"',
+          '"state":"visible"}'
+        )}</orca_excel_artifact>`
+      )
+    ).toBeNull()
+  })
+
   it('normalizes safe model aliases before worker validation', () => {
     const request = {
       version: 1,

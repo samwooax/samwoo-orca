@@ -51,6 +51,19 @@ describe('parseLocalFileRequest', () => {
     ).toBeNull()
   })
 
+  it('repairs one spurious trailing brace but rejects truncated envelopes', () => {
+    expect(
+      parseLocalFileRequest(
+        '<orca_local_files>{"version":1,"operations":[{"id":"one","kind":"read","path":"src/a.ts"}]}}</orca_local_files>'
+      )?.operations
+    ).toEqual([{ id: 'one', kind: 'read', path: 'src/a.ts' }])
+    expect(
+      parseLocalFileRequest(
+        '<orca_local_files>{"version":1,"operations":[{"id":"one","kind":"read"</orca_local_files>'
+      )
+    ).toBeNull()
+  })
+
   it('rejects duplicate operation ids and oversized batches', () => {
     const duplicate =
       '<orca_local_files>{"version":1,"operations":[{"id":"x","kind":"list","path":"."},{"id":"x","kind":"read","path":"a"}]}</orca_local_files>'

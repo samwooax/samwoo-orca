@@ -453,7 +453,8 @@ describe('runTeamChatMessage local file bridge', () => {
   })
 
   it('fails closed after two malformed envelope repair attempts', async () => {
-    const malformed = '<orca_local_documents>{"version":1,"operations":[]}}</orca_local_documents>'
+    // Truncated JSON stays host-unrepairable, so this pins the model-repair exhaustion path.
+    const malformed = '<orca_local_documents>{"version":1,"operations":[</orca_local_documents>'
     spawnMock.mockReturnValue(fakeProcess(''))
     runHermesAcpProcessMock.mockResolvedValue({ ok: true, reply: malformed })
 

@@ -41,17 +41,28 @@ describe('Hermes envelope JSON delimiter repair', () => {
     })
   })
 
+  it('never splices scalar tokens together by deleting the closer between them', () => {
+    expect(parseEnvelopeJson('{"a":[1}2]}')).toBeNull()
+    expect(parseEnvelopeJson('{"a":[1}.5]}')).toBeNull()
+    expect(parseEnvelopeJson('{"a":[n}ull]}')).toBeNull()
+    expect(parseEnvelopeJson('{"a":[tru}e]}')).toBeNull()
+  })
+
+  it('fails closed when more than one distinct single-deletion reading parses', () => {
+    // A spurious `]` after the 1 and the model's final `]` are both deletable;
+    // the two readings regroup values differently, so neither may be chosen.
+    expect(parseEnvelopeJson('{"a":[[1],2]]}')).toBeNull()
+    expect(parseEnvelopeJson('{"a":[[1,2],[3],4]]}')).toBeNull()
+  })
+
   it('fails closed on truncated JSON instead of completing it', () => {
     expect(parseEnvelopeJson('{"version":1,"operations":[{"id":"a"')).toBeNull()
     expect(parseEnvelopeJson('{"version":1,"operations":[{"id":"a"}]')).toBeNull()
     expect(parseEnvelopeJson('{"text":"unterminated')).toBeNull()
   })
 
-  it('fails closed when repairs exceed the bounded delimiter budget', () => {
+  it('fails closed when no single deletion yields valid JSON', () => {
     expect(parseEnvelopeJson('{"a":[1]}}}}}}')).toBeNull()
-  })
-
-  it('fails closed when dropping impossible closers still leaves invalid JSON', () => {
     expect(parseEnvelopeJson('{"a":[1]}} "trailing"')).toBeNull()
     expect(parseEnvelopeJson('{"a":1,}')).toBeNull()
   })
