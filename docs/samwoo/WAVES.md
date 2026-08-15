@@ -3,7 +3,7 @@
 > 역할 분담: **`docs/samwoo/SPEC.md` = 무엇을·왜 (제품 결정·아키텍처·상태·기준)** / **이 문서 = 어떻게·언제 (웨이브별 실행·상태 추적)**.
 > 갱신 규칙: 웨이브 상태·완료 커밋은 코덱스가 작업 완료 시 갱신. 새 웨이브 추가·범위 변경은 Claude(검증자)가 반영.
 > 완료된 웨이브의 상세 지시서는 `_claude-proposals/archive/`로 이동한다 (파일명 유지).
-> 최종 갱신: 2026-08-13
+> 최종 갱신: 2026-08-16
 
 ## 웨이브 현황판
 
@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.200 draft 검증 완료·설치본 GUI 재실측 대기                   | 63fad0b08, cc680547f, f145a0d12, run 31891310064                       |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.201 로컬 실제 요청 검증 완료·Windows Actions 대기            | 63fad0b08, cc680547f, 5d3ff1a9a, run 31891310064                       |
 
 ## 웨이브 상세
 
@@ -151,7 +151,7 @@
 
 ### W15 — Hermes PDF/XLSX/PPTX 로컬 문서 도구
 
-- `samwoo/upstream-v1.4.168`의 `v1.4.200` 릴리스 후보까지 text file bridge와 분리된 document protocol을 통합했다. native picker의 PDF/XLSX/PPTX/이미지는 main-owned artifact ID로만 전달한다.
+- `samwoo/upstream-v1.4.168`의 `v1.4.201` 릴리스 후보까지 text file bridge와 분리된 document protocol을 통합했다. native picker의 PDF/XLSX/PPTX/이미지는 main-owned artifact ID로만 전달한다.
 - PDF text layer, XLSX 문자열 셀, PPTX 슬라이드 문단을 분할 추출한다. XLSX/PPTX 번역은 source text·SHA-256을 검증하고 구조·style·media를 유지한 신규 파일로만 저장한다.
 - binary parsing은 30초·memory/ZIP/XML 상한이 있는 worker thread에서 실행한다. PDF.js worker asset이 배포 bundle에 포함되는 것을 확인했다.
 - Windows local host에서는 bundled Python 3.13 worker를 integrity·engine probe한 뒤 Excel Artifact v1 `create`/`modify`/`validate`를 광고한다. durable idempotency receipt, output lock, cancellation, private staging·atomic commit을 main이 소유하고 SSH/Runtime에는 광고하지 않는다.
@@ -172,4 +172,6 @@
 - Actions run `31889692619`에서 v1.4.199 Windows 통합 검사, 번들 워커 한글 PDF 생성·재추출, package/sign과 draft 업로드가 성공했다. 설치본 241,453,112바이트의 GitHub SHA-256 `c5c74f7f873b53e5a578092740728b88a23dd13564c57f711839e876db8009c9`, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했다.
 - v1.4.199 GUI 재실측에서 PDF extract는 성공했지만 Hermes message `4833`의 6쪽 `create_pdf` 응답 끝에 닫는 중괄호가 하나 더 있어 JSON parse 전에 거부됐다. delimiter 하나만 교정하면 번역문이 일부 text element 높이를 넘어 다음 단계에서도 실패하는 것을 확인했다. `cc680547f`에서 malformed envelope를 operation 실행 전 최대 두 번 모델에 교정시키고, PDF font/line-height를 원래 비율로 6pt까지 자동 맞춤한다. 해당 실제 응답은 6쪽·전 페이지 text·worker 4,909자로 생성됐고 반복 malformed 응답은 세 번째에 실행 없이 실패하는 테스트를 통과했다.
 - Actions run `31891310064`에서 v1.4.200 Windows 통합 검사, 긴 한국어 본문의 번들 worker 자동 맞춤·재추출, package/sign과 draft 업로드가 성공했다. 설치본 241,454,176바이트의 GitHub SHA-256 `f628bd2b3533d21b13954ea949a3b0ee5696186488bbdce4c3db8bfe6e491c72`, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했다.
-- 남은 단계: 설치본에서 PDF 번역 자동 교정·맞춤과 실패 cleanup, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다.
+- v1.4.200 GUI에서 PDF→XLSX 후속 요청은 Hermes message `4847`이 `output.overwrite`를 생략하고 `validation.requiredSheets/requiredCells`, `preservationPolicy:new_workbook`, column/row/autofilter 별칭을 사용해 worker schema에서 거부됐다. 필드를 정규화한 뒤에는 schema가 허용한 단일 열 `range:"A"`를 XlsxWriter가 거부하는 두 번째 결함도 확인했다.
+- `5d3ff1a9a`에서 정확한 v1 JSON 예시와 안전한 요청 정규화, 단일 열 `A:A` 렌더링, `fitToWidth/fitToHeight`, schema 오류의 sanitized 구조 반환을 추가했다. 같은 실제 6.8KB 요청을 frozen worker에 재생해 25행·3열 XLSX atomic commit과 OOXML 검증을 통과했고, openpyxl 재개방과 Orca 재추출 73셀에서 제목·유의사항을 확인했다.
+- 남은 단계: v1.4.201 Windows Actions package/sign·draft 자산을 검증하고 설치본에서 PDF→XLSX, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다.
