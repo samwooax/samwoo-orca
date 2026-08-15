@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.203 draft 검증 완료·설치본 GUI 재실측 대기                   | 0f9ca9580, 706256780, run 31898326884                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.204 대용량 XLSX 스트리밍 추출·실제 재생 검증 완료·Actions 대기 | 706256780, run 31898326884                                             |
 
 ## 웨이브 상세
 
@@ -181,4 +181,9 @@
 - 실제 실패 응답 3건을 parser·tool loop에 그대로 재생해 강화된 교정에서도 모두 유일 복원됨을 확인했고, message `4853`을 frozen worker로 실행해 6쪽 한국어 PDF(pypdf 4,313자·전 페이지 text layer·PDF.js 재추출)와 후속 round의 실제 message `4847` Excel envelope로 `murataoverview_ko.xlsx`(25행×3열·문자열 73셀·openpyxl 재개방·Orca 재추출 유의사항 확인)까지 순차 생성했다.
 - 검증: CI 지정 Vitest 106개 파일 488개, TypeScript 3종, native/type-aware oxlint, reliability·max-lines·skill·localization 게이트, Python 서버 88개, frozen worker 재빌드와 production bundle smoke 통과.
 - Actions run `31898326884`에서 v1.4.203 Windows 통합 검사, frozen worker 빌드, package/sign과 draft 업로드가 성공했다. 설치본 241,455,664바이트의 GitHub·로컬 SHA-256 `726b478d750168d39d0ccfea79e6c45c307768e4aa9d29b9c9edb4f3356ffffd`, `latest.yml` 버전 `1.4.203`·크기·SHA-512·`isAdminRightsRequired: true`와 SAMWOO 내부 Authenticode 서명(Valid, thumbprint `81316CB47930717E9EB6949430BD80C2F4E6166D`)을 독립 검증했다.
-- 남은 단계: 설치본에서 PDF→XLSX 순차 생성, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다. 공개 보류된 v1.4.201·v1.4.202 draft는 이력 보존을 위해 삭제하지 않는다.
+- v1.4.203 설치본 GUI 실측에서 murataoverview의 PDF extract→한국어 PDF 생성→XLSX 생성→PPTX 생성 순차 흐름이 정상 동작함을 실제 대화(message 4858~4871)로 확인했다. delimiter 교정 대상 재발 없이 첫 시도에 성공한 회차도 있었다.
+- 같은 실측에서 대용량 ERP XLSX 첨부 2건이 새로 실패했다: `수주대비출고미납_260517.xlsx`(2.1MB, 시트 XML 16.8MB·415,176셀)는 in-process parser의 XML당 16MiB 상한으로 `worksheet Sheet1 is missing or too large`, `2026 거래명세서 품목조회 (~260531).xlsx`(1.5MB, 시트 XML 10.6MB·241,394셀)는 DOM·셀 map이 worker thread 256MB heap을 초과해 `JS heap out of memory`로 거부됐다.
+- v1.4.204에서 `orca_xlsx_extraction.py`를 frozen worker에 추가하고 `hermes-local-document-xlsx-worker-extraction.ts`가 XLSX inspect/extract를 worker로 라우팅한다. worker는 ZIP 캡·압축 비율·macro/OLE/외부 relationship·DOCTYPE·SHA-256을 자체 검증한 뒤 openpyxl read-only 스트리밍으로 counts와 200셀 창을 반환하며(스캔 상한 800만 셀, 수식 cache는 필요 시 2차 스트리밍), main은 결과 shape를 재검증하고 capability가 없으면 기존 in-process parser로 fallback한다. 사용자에게 파일 분할·CSV 변환을 요구하지 않는다.
+- 실제 실패 envelope 2건(message 4873·4877)을 artifact store와 frozen worker를 포함한 실제 tool loop에 재생해 415,176셀·241,394셀 inspect와 200셀 창 extract(nextCursor 포함)를 확인했고, 실측 1,827,148셀(66MB XML) 파일도 44초에 스캔됐다. typed 워크북(문자·천단위 숫자·백분율·날짜·불리언·수식 cache)으로 worker 경로와 in-process 경로의 valueType·text·numberFormat 일치도 검증했다.
+- 검증: CI 지정 Vitest 107개 파일 495개, TypeScript 3종, native/type-aware oxlint, reliability·max-lines·skill·localization 게이트, frozen worker 재빌드와 production bundle smoke 통과.
+- 남은 단계: v1.4.204 Windows Actions package/sign·draft 자산을 검증하고 설치본에서 대용량 XLSX 분석, PDF→XLSX 순차 생성, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다. 공개 보류된 v1.4.201·v1.4.202 draft는 이력 보존을 위해 삭제하지 않는다.

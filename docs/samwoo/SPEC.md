@@ -3,7 +3,7 @@
 > 이 문서는 SAMWOO-ORCA의 제품 결정, 현재 구현, 실제 배포 상태, 네트워크 구성, 제한값, 작업 대기열과 검증 기준을 함께 관리하는 **단일 진실(source of truth)**이다.
 > Codex와 Claude는 작업 전에 이 문서를 읽는다. 대화·지시서와 이 문서가 충돌하면 이 문서가 우선한다.
 > 비밀번호, Tailscale 인증 키, 코드서명 개인키, 메일 자격 증명 등 비밀값은 이 문서에 기록하지 않는다.
-> 최종 코드·운영 감사: 2026-08-16 · 저장소 버전: `1.4.203`
+> 최종 코드·운영 감사: 2026-08-16 · 저장소 버전: `1.4.204`
 
 ## 0. 상태 표기와 감사 범위
 
@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목             | 현재 상태                                     |
 | ---------------- | --------------------------------------------- |
-| 로컬 패키지 버전 | `1.4.203`                                     |
+| 로컬 패키지 버전 | `1.4.204`                                     |
 | 작업 브랜치      | `samwoo/upstream-v1.4.168`                    |
 | SAMWOO 원격      | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
@@ -140,6 +140,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - 백그라운드 프로세스 실행·중지와 localhost URL 감지를 지원하며 출력은 최대 64KiB다.
 - 문서: PDF text layer, XLSX 문자열·숫자·boolean·날짜·오류·수식 셀, PPTX 텍스트 문단을 별도 worker에서 확인·분할 추출한다. 일반 UTF-8 파일 제한을 넓히지 않는다.
 - 문서 입력은 파일당 64MiB다. PDF는 최대 1,000페이지·호출당 10페이지, XLSX/PPTX는 호출당 200개 셀/문단을 반환한다.
+- XLSX inspect/extract는 bundled frozen worker가 있는 host에서 openpyxl read-only 스트리밍으로 실행해, ERP 내보내기류 대형 워크북(실측 182만 셀·시트 XML 66MB)도 파일 분할 없이 200셀 창으로 나눠 읽는다. 스캔 상한은 800만 셀이며 worker가 없으면 기존 in-process parser(XML당 16MiB)로 동작한다. 번역 적용 경로는 기존 in-process 한도를 유지한다.
 - XLSX 번역 적용은 호출당 128셀, 추출 원문과 원본 SHA-256 일치를 요구한다. 수식·숫자·style·chart·media는 유지하고 원본이 아닌 신규 `.xlsx` project path에 저장한다.
 - PPTX 번역도 최대 128문단과 원문·SHA-256 일치를 요구하며 run formatting·도형·chart·media를 유지한 신규 `.pptx`에 저장한다.
 - 직접 고른 PDF/XLSX/PPTX는 main private store의 opaque artifact ID로 관리하고 conversation 소유권과 request 배타 결합을 검증한 `@attachments/...` 경로로만 모델에 보인다. 같은 대화에서 첨부 chip을 유지하는 동안 후속 요청이 재사용할 수 있고, project 파일은 local worktree/folder root authority를 그대로 적용한다.
@@ -464,7 +465,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.200` | draft 검증 완료          | malformed envelope 최대 2회 자동 교정과 PDF text element 6pt 자동 맞춤. Actions run `31891310064` 성공, 설치본 GUI 재실측 전               |
 | `v1.4.201` | draft 유지·GUI 실측 실패 | PDF→XLSX 요청 정규화·단일 열 렌더링·구조화된 schema 오류 반환. Actions run `31894410900` 성공. 설치본 GUI에서 모델이 잉여 중괄호를 3회 반복해 PDF 생성 거부 확인 |
 | `v1.4.202` | draft 유지·공개 보류     | greedy delimiter 제거 1차 교정. Actions run `31896992503` 성공했으나 적대적 검토에서 스칼라 접합·다의성 결함을 확인해 공개하지 않고 v1.4.203으로 대체            |
-| `v1.4.203` | draft 검증 완료          | 닫는 delimiter 단일 삭제·토큰 경계·유일 복원 host 교정. 실제 실패 응답 3건 재생·PDF→XLSX 순차 검증 통과. Actions run `31898326884` 성공, 설치본 GUI 재실측 전    |
+| `v1.4.203` | draft 유지·부분 실측     | 유일 복원 host 교정. Actions run `31898326884` 성공. GUI 실측에서 PDF→XLSX→PPTX 생성 흐름 정상, 대용량 ERP XLSX 추출 실패 2건 발견                               |
+| `v1.4.204` | release candidate        | 대용량 XLSX inspect/extract를 frozen worker openpyxl 스트리밍으로 라우팅. 실제 실패 envelope 2건·182만 셀 실측 재생 통과, Windows Actions 대기                    |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 

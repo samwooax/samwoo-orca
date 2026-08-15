@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-16, Git commit `706256780`, `package.json` 버전 `1.4.203`
+> 기준: 2026-08-16, Git commit `067f65a9a`, `package.json` 버전 `1.4.204`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -85,7 +85,7 @@ flowchart LR
 | SSH relay                  | SSH 대상 호스트                                    | 원격 PTY, 파일, Git, hook, 포트, 자동화                              | SSH 사용자 권한으로 업로드·실행되며 재연결 가능한 daemon 모드가 있음                                                       |
 | Agent CLI                  | 로컬 또는 원격 PTY                                 | Codex, Claude Code, OpenCode 등 실제 모델 상호작용                   | Orca가 모델을 내장 실행하는 것이 아님                                                                                      |
 | Plugin host                | 사용자 PC의 별도 Node child process                | 제3자 플러그인 JavaScript 실행                                       | Electron 권한 없이 capability bridge를 사용하지만 OS sandbox는 아님                                                        |
-| Hermes document worker     | 사용자 PC의 main-owned frozen Python child process | XLSX/PPTX/PDF 생성·수정·검증                                         | Windows x64 설치본에 고정 engine과 함께 포함하며 main만 실행·취소·파일 commit 권한을 가짐. SSH/Runtime에서는 실행하지 않음 |
+| Hermes document worker     | 사용자 PC의 main-owned frozen Python child process | 대형 XLSX 스트리밍 추출과 XLSX/PPTX/PDF 생성·수정·검증               | Windows x64 설치본에 고정 engine과 함께 포함하며 main만 실행·취소·파일 commit 권한을 가짐. SSH/Runtime에서는 실행하지 않음 |
 | Web client                 | 브라우저                                           | 데스크톱 renderer를 web preload shim과 함께 재사용                   | Runtime-scope pairing이 필요하며 호스트 상태를 소유하지 않음                                                               |
 | Mobile app                 | iOS/Android                                        | 모니터링, 명령, 터미널, 작업공간 조작                                | mobile allowlist 범위의 Runtime RPC만 사용                                                                                 |
 | SAMWOO auth service        | 사내 서버                                          | 로그인, 세션, 메일 중계, 공유 카탈로그·메시지                        | 전체 서버 본체는 이 저장소에 없음                                                                                          |
@@ -579,6 +579,7 @@ Renderer HermesTeamChatView
 - 입력·출력은 파일당 64MiB, 결과 합계는 768KiB다. legacy loopback Base64 경로는 호환용으로만 유지하고 96MiB body 상한을 둔다.
 - PDF는 최대 1,000페이지, 호출당 10페이지, 페이지당 32,000자까지 text layer를 추출한다. 생성 spec은 페이지별 비어 있지 않은 `text` element와 top-left 기준 inch 좌표·크기·글꼴 크기·행간·굵기·색·정렬만 허용한다. bundled worker는 이 요소를 실제 PDF text object로 그리고 페이지별 텍스트를 재추출해 하나라도 비면 실패한다. 페이지 삭제·재배열·회전·병합, watermark, metadata 편집도 지원하지만 스캔 OCR과 기존 PDF의 임의 본문 치환은 아직 지원하지 않는다.
 - XLSX는 OOXML ZIP/XML에서 문자열, 숫자, boolean, 날짜, 오류, 수식 셀을 추출한다. 각 item은 읽기용 `text`, 저장된 정밀 값을 보존하는 `rawValue`, 수식과 number format metadata를 구분해 반환한다. 계산 cache가 비어 있는 수식은 수식 자체와 참조 셀 값을 제공하며 임의의 Excel 계산 engine을 가장하지 않는다. 번역 대상은 문자열 셀로 제한하고 style·formula·chart·media archive entry를 유지한다.
+- XLSX inspect/extract는 frozen worker capability가 있으면 `hermes-local-document-xlsx-worker-extraction.ts`가 admission된 파일 경로와 SHA-256을 worker에 넘겨 openpyxl read-only 스트리밍으로 실행한다. worker는 ZIP 구조·압축 비율·macro/ActiveX/OLE·외부 relationship·DOCTYPE을 자체 검증하고 800만 셀 스캔 상한을 적용하며, 결과는 main이 shape를 재검증한 뒤에만 반환한다. capability가 없으면 기존 in-process DOM parser(XML당 16MiB, worker thread 256MB heap)로 fallback한다.
 - XLSX 추출은 호출당 200셀, 적용은 128셀이다. 모델이 200보다 큰 양의 `limit`을 요청하면 main parser가 200으로 낮춰 실행하고 `nextCursor`로 페이지네이션한다. 0·음수·비정수는 계속 거부한다. 원문 문자열과 원본 SHA-256이 모두 같아야 하며 원본과 다른 신규 `.xlsx` project path로만 저장한다.
 - PPTX는 슬라이드 순서대로 텍스트 문단과 표·차트·이미지 개수를 추출한다. 번역은 추출 문단과 원본 SHA-256 일치를 요구한다. bundled worker는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트 교체, 슬라이드 추가·삭제, 표 셀·요소 편집을 신규 `.pptx`로 저장한다.
 - 선택된 local project가 없는 직접 첨부 번역은 Electron main이 native save dialog를 열어 사용자가 목적지를 승인한다. 기존 파일을 덮어쓰지 않는다.
@@ -655,6 +656,8 @@ renderer `useSamwooScheduleRunner`
 | `invalid local document envelope`              | Hermes local document parser                           | v1.4.196에서 모델이 추출 상한보다 큰 `limit`을 요청해 envelope 전체가 거부됨                                                                | v1.4.197부터 양의 초과값을 200으로 낮춰 실행하고 `nextCursor`로 후속 추출                                                        |
 | 추출 성공 뒤 `invalid local document envelope` | v1.4.199 Hermes document follow-up                     | 긴 `create_pdf` JSON 끝에 닫는 중괄호 하나를 더 출력해 JSON parse가 실패함                                                                  | v1.4.200부터 실행 전 같은 세션에 최대 두 번 exact envelope 교정을 요청하고 세 번째 실패만 사용자에게 반환                        |
 | 교정 요청 2회 뒤에도 같은 오류로 최종 실패     | v1.4.201 Hermes document follow-up                     | GPT-5.6 Terra가 message 4853/4855/4857에서 마지막 page 뒤 잉여 `}` 하나를 세 번 모두 동일하게 재출력해 모델 교정이 수렴하지 않음            | v1.4.203부터 main이 유일하게 복원되는 닫는 delimiter 한 개만 결정적으로 제거해 즉시 실행하고, 다의성·그 외 malformed는 모델 교정으로 보냄 |
+| `worksheet Sheet1 is missing or too large`     | v1.4.203 XLSX in-process parser                        | ERP 내보내기 시트 XML(실측 16.8MB)이 in-process parser의 XML당 16MiB 상한을 초과함                                                          | v1.4.204부터 frozen worker의 openpyxl read-only 스트리밍으로 라우팅해 파일 분할 없이 추출                                        |
+| `Worker terminated due to reaching memory limit` | v1.4.203 XLSX document worker thread                 | 10.6MB 시트 XML의 DOM·전체 셀 map이 worker thread 256MB heap을 초과함                                                                       | v1.4.204부터 동일한 frozen worker 스트리밍 경로로 라우팅하고, worker가 없는 host만 기존 in-process 한도로 동작                    |
 | PDF가 페이지 수만 있고 비어 있음               | v1.4.198 PDF 생성 worker                               | 모델은 `pages[].elements`를 보냈지만 worker가 legacy `title/text`만 읽고 element를 무시했음                                                 | v1.4.199부터 strict PDF element spec을 공유하고 생성 뒤 페이지별 텍스트 재추출과 양수 `textCharacterCount`를 요구                |
 | 한글명이 깨진 `.orca-*.tmp.pdf`가 남음         | v1.4.198 Windows frozen worker IPC                     | UTF-8 JSONL을 Python redirected stdin의 로컬 코드페이지로 해석해 staging path가 달라졌음                                                    | v1.4.199부터 worker stdio를 UTF-8로 고정하고 ASCII staging 이름을 main이 소유하며 모든 종료 경로에서 제거                        |
 | `PDF text exceeds its element height`          | v1.4.199 PDF 생성 worker                               | 번역문이 모델이 지정한 text element 높이보다 길어 strict layout 검증이 실패함                                                               | v1.4.200부터 원래 비율로 6pt까지 자동 축소하고 그래도 맞지 않을 때만 staging을 제거하며 실패                                     |
