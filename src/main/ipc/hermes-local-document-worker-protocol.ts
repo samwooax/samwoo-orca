@@ -1,5 +1,6 @@
 import type {
   LocalDocumentItem,
+  LocalDocumentSheetSummary,
   LocalDocumentTranslation,
   LocalPresentationTranslation
 } from './hermes-local-document-protocol'
@@ -30,7 +31,7 @@ export type LocalDocumentWorkerValue = {
   format: 'pdf' | 'xlsx' | 'pptx'
   pageCount?: number
   slideCount?: number
-  sheets?: { name: string; textCellCount: number }[]
+  sheets?: LocalDocumentSheetSummary[]
   slides?: {
     index: number
     textParagraphCount: number

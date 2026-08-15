@@ -99,7 +99,8 @@ describe('useHermesTeamChatAttachments', () => {
     expect(latest().attachments).toEqual([attachment])
     expect(latest().attachmentNotice).toBeNull()
 
-    act(() => latest().clearAttachments())
+    act(() => latest().completeAttachmentSend())
+    expect(latest().attachments).toEqual([attachment])
     expect(mocks.releaseHermesTeamChatArtifact).not.toHaveBeenCalled()
   })
 
@@ -118,6 +119,9 @@ describe('useHermesTeamChatAttachments', () => {
     expect(latest().attachments).toEqual([
       { kind: 'image', name: 'pasted-image.png', path: '/tmp/orca-paste-1-id.png' }
     ])
+
+    act(() => latest().completeAttachmentSend())
+    expect(latest().attachments).toEqual([])
   })
 
   it('admits an Explorer file as an attachment without adding an @ path', async () => {

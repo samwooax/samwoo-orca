@@ -549,7 +549,7 @@ Renderer HermesTeamChatView
 - chat URL query에는 profile, label, host, cwd와 현재 `mailtoken`이 포함된다. 실제 화면은 BrowserPane이 해당 route를 인식해 native React view로 대체한다.
 - native file picker는 96KB 이하 UTF-8 텍스트와 64MiB 이하 PDF/XLSX/PPTX/PNG/JPEG를 구분한다. binary는 renderer/Base64에 싣지 않고 Electron main의 private artifact store로 복사·해시한 뒤 opaque ID만 renderer에 반환한다.
 - Hermes Team Chat 탭이 활성일 때 project Explorer의 파일 선택은 Native Chat용 `@상대경로` 문자열을 삽입하지 않는다. Renderer는 현재 chat route의 local project root와 Explorer relative path를 main에 보내고, main은 Store 허용 root·canonical containment·regular file을 다시 확인한 뒤 binary는 같은 private artifact store로, 96KB 이하 UTF-8 파일은 text attachment로 admission한다.
-- artifact는 conversation/request에 결합하고 1시간 TTL, 요청 종료·제거·앱 종료 시 정리한다. 붙여넣은 이미지는 기존 임시 파일·SSH upload 호환 경로를 사용한다.
+- artifact는 conversation에 귀속하고 동시에 하나의 request에만 배타적으로 결합한다. request 종료 시 결합만 해제해 같은 대화의 후속 질문에서 재사용하며, 사용자가 첨부를 제거하거나 대화를 닫을 때, 1시간 TTL 만료 또는 앱 종료 시 실제 파일을 정리한다. 붙여넣은 이미지는 기존 임시 파일·SSH upload 호환 경로를 사용하고 turn 종료 뒤 재사용하지 않는다.
 
 표시 history, model/effort와 conversation ID는 renderer localStorage가 소유하고, main은 in-flight controller와 Hermes ACP process를 소유한다. Conversation당 active request는 하나로 직렬화하며 host/profile/mail token이 바뀌거나 process가 닫히면 session을 교체하고 30분 idle 뒤 정리한다. Loopback server의 send/cancel/close는 chat token을 요구하지만 direct Electron IPC는 trusted preload/renderer 경계를 신뢰한다.
 
@@ -578,7 +578,7 @@ Renderer HermesTeamChatView
 - project 파일은 기존 canonical root authority를 재사용한다. 직접 첨부는 main artifact store에서 해시를 다시 확인한 뒤 요청 한정 `@attachments/...` virtual path로만 모델에 노출한다.
 - 입력·출력은 파일당 64MiB, 결과 합계는 768KiB다. legacy loopback Base64 경로는 호환용으로만 유지하고 96MiB body 상한을 둔다.
 - PDF는 최대 1,000페이지, 호출당 10페이지, 페이지당 32,000자까지 text layer를 추출한다. bundled worker는 텍스트 PDF 생성과 페이지 삭제·재배열·회전·병합, watermark, metadata 편집을 지원한다. 스캔 OCR과 기존 PDF의 임의 본문 치환은 아직 지원하지 않는다.
-- XLSX는 OOXML ZIP/XML에서 문자열 셀만 추출한다. 수식·숫자는 대상에서 제외하고 style·formula·chart·media archive entry를 유지한다.
+- XLSX는 OOXML ZIP/XML에서 문자열, 숫자, boolean, 날짜, 오류, 수식 셀을 추출한다. 각 item은 읽기용 `text`, 저장된 정밀 값을 보존하는 `rawValue`, 수식과 number format metadata를 구분해 반환한다. 계산 cache가 비어 있는 수식은 수식 자체와 참조 셀 값을 제공하며 임의의 Excel 계산 engine을 가장하지 않는다. 번역 대상은 문자열 셀로 제한하고 style·formula·chart·media archive entry를 유지한다.
 - XLSX 추출은 호출당 200셀, 적용은 128셀이다. 모델이 200보다 큰 양의 `limit`을 요청하면 main parser가 200으로 낮춰 실행하고 `nextCursor`로 페이지네이션한다. 0·음수·비정수는 계속 거부한다. 원문 문자열과 원본 SHA-256이 모두 같아야 하며 원본과 다른 신규 `.xlsx` project path로만 저장한다.
 - PPTX는 슬라이드 순서대로 텍스트 문단과 표·차트·이미지 개수를 추출한다. 번역은 추출 문단과 원본 SHA-256 일치를 요구한다. bundled worker는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트 교체, 슬라이드 추가·삭제, 표 셀·요소 편집을 신규 `.pptx`로 저장한다.
 - 선택된 local project가 없는 직접 첨부 번역은 Electron main이 native save dialog를 열어 사용자가 목적지를 승인한다. 기존 파일을 덮어쓰지 않는다.
@@ -691,7 +691,7 @@ renderer `useSamwooScheduleRunner`
 | 중간     | SAMWOO bearer의 localStorage 저장   | renderer/XSS가 성공하면 token 탈취 가능, local shape만으로 시작 gate를 통과 가능                                 | main `safeStorage` 보관 + opaque session handle, 시작 시 server validation                                    |
 | 중간     | Hermes `mailtoken` query            | loopback URL·브라우저 history/state에 bearer가 나타남                                                            | main-side session ID로 치환하고 token은 main memory에서만 resolve                                             |
 | 중간     | Hermes file write 승인              | root/path/hash 검증은 있지만 write별 사용자 승인은 없음                                                          | 민감 파일 policy와 변경 preview/일괄 승인 추가                                                                |
-| 낮음     | Hermes binary attachment lifecycle  | private artifact가 crash 뒤 남거나 잘못된 conversation에 재사용될 수 있음                                        | startup stale cleanup, conversation/request binding, hash 재검증, TTL과 turn/app cleanup 유지                 |
+| 낮음     | Hermes binary attachment lifecycle  | private artifact가 crash 뒤 남거나 잘못된 conversation/request에 재사용될 수 있음                                | startup stale cleanup, conversation 소유권, request 배타 결합, hash 재검증, TTL과 remove/conversation/app cleanup 유지 |
 | 중간     | local command cancellation          | 채팅 취소가 foreground child process를 즉시 죽이지 않음                                                          | process를 in-flight controller에 등록하고 cross-platform process-tree 종료                                    |
 | 중간     | Hermes request/background lifecycle | request ID 충돌이 controller를 교체할 수 있고 background command가 chat보다 오래 생존                            | main 발급 ID, collision reject, app/workspace teardown에 process registry 연결                                |
 | 중간     | Hermes SSH TOFU                     | `accept-new`는 최초 접속 host key를 자동 신뢰                                                                    | 사전 배포된 known_hosts 또는 fingerprint pinning                                                              |

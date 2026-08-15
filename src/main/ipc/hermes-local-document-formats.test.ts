@@ -28,11 +28,14 @@ function xlsxFixture(): Uint8Array {
     'xl/sharedStrings.xml': strToU8(
       '<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>Revenue</t></si></sst>'
     ),
+    'xl/styles.xml': strToU8(
+      '<?xml version="1.0"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="+0.0%;-0.0%;0.0%"/></numFmts><cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="14" applyNumberFormat="1"/><xf numFmtId="0"/><xf numFmtId="164" applyNumberFormat="1"/></cellXfs></styleSheet>'
+    ),
     'xl/worksheets/sheet1.xml': strToU8(
-      '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" s="2" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t xml:space="preserve"> Keep </t></is></c><c r="C1" t="str"><f>CONCAT("x")</f><v>Formula</v></c><c r="D1"><v>42</v></c></row></sheetData></worksheet>'
+      '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" s="2" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t xml:space="preserve"> Keep </t></is></c><c r="C1" t="str"><f>CONCAT("x")</f><v>Formula</v></c><c r="D1"><v>42</v></c><c r="E1" t="b"><v>1</v></c><c r="F1" t="e"><v>#DIV/0!</v></c><c r="G1" s="1"><v>1</v></c><c r="H1" s="3"><v>0.125</v></c></row></sheetData></worksheet>'
     ),
     'xl/worksheets/sheet2.xml': strToU8(
-      '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1"><f>SUM(1,2)</f><v>3</v></c></row></sheetData></worksheet>'
+      '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1"><f>SUM(1,2)</f><v>3</v></c><c r="B1"><f>D2/(C2-D2)</f><v /></c></row></sheetData></worksheet>'
     ),
     'xl/media/image1.png': new Uint8Array([1, 2, 3, 4])
   }
@@ -83,19 +86,115 @@ function pptxFixture(): Uint8Array {
 }
 
 describe('Hermes XLSX document processing', () => {
-  it('extracts only text cells and preserves formulas, styles, and binary entries', () => {
+  it('extracts typed cell values and preserves formulas, styles, and binary entries', () => {
     const fixture = xlsxFixture()
     const originalArchive = unzipSync(fixture)
     const parsed = parseXlsx(fixture)
 
     expect(inspectXlsx(parsed)).toEqual([
-      { name: 'Dashboard', textCellCount: 2 },
-      { name: 'Formula', textCellCount: 0 }
+      {
+        name: 'Dashboard',
+        cellCount: 8,
+        textCellCount: 2,
+        numericCellCount: 2,
+        formulaCellCount: 1
+      },
+      {
+        name: 'Formula',
+        cellCount: 2,
+        textCellCount: 0,
+        numericCellCount: 0,
+        formulaCellCount: 2
+      }
     ])
     expect(extractXlsxCells(parsed, 0, 200)).toEqual({
       items: [
-        { kind: 'xlsx_cell', sheet: 'Dashboard', cell: 'A1', text: 'Revenue' },
-        { kind: 'xlsx_cell', sheet: 'Dashboard', cell: 'B1', text: ' Keep ' }
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Dashboard',
+          cell: 'A1',
+          text: 'Revenue',
+          valueType: 'text',
+          rawValue: '0'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Dashboard',
+          cell: 'B1',
+          text: ' Keep ',
+          valueType: 'text'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Dashboard',
+          cell: 'C1',
+          text: 'Formula',
+          valueType: 'formula',
+          rawValue: 'Formula',
+          formula: 'CONCAT("x")'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Dashboard',
+          cell: 'D1',
+          text: '42',
+          valueType: 'number',
+          rawValue: '42',
+          numberFormat: 'General'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Dashboard',
+          cell: 'E1',
+          text: 'TRUE',
+          valueType: 'boolean',
+          rawValue: '1'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Dashboard',
+          cell: 'F1',
+          text: '#DIV/0!',
+          valueType: 'error',
+          rawValue: '#DIV/0!'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Dashboard',
+          cell: 'G1',
+          text: '1900-01-01',
+          valueType: 'date',
+          rawValue: '1',
+          numberFormat: 'm/d/yy'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Dashboard',
+          cell: 'H1',
+          text: '12.5%',
+          valueType: 'number',
+          rawValue: '0.125',
+          numberFormat: '+0.0%;-0.0%;0.0%'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Formula',
+          cell: 'A1',
+          text: '3',
+          valueType: 'formula',
+          rawValue: '3',
+          formula: 'SUM(1,2)',
+          numberFormat: 'General'
+        },
+        {
+          kind: 'xlsx_cell',
+          sheet: 'Formula',
+          cell: 'B1',
+          text: '=D2/(C2-D2)',
+          valueType: 'formula',
+          formula: 'D2/(C2-D2)',
+          numberFormat: 'General'
+        }
       ]
     })
 

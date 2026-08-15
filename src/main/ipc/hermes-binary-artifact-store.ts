@@ -209,6 +209,19 @@ export class HermesBinaryArtifactStore {
     return this.publicMetadata(this.bind(artifactId, conversationId, requestId))
   }
 
+  releaseRequestBindings(
+    artifactIds: Iterable<string>,
+    conversationId: string,
+    requestId: string
+  ): void {
+    for (const artifactId of new Set(artifactIds)) {
+      const record = this.records.get(artifactId)
+      if (record?.conversationId === conversationId && record.requestId === requestId) {
+        record.requestId = null
+      }
+    }
+  }
+
   async read(artifactId: string, conversationId: string, requestId: string): Promise<Buffer> {
     const record = this.bind(artifactId, conversationId, requestId)
     const content = await readFile(record.path)
@@ -301,10 +314,9 @@ export class HermesBinaryArtifactStore {
   }
 
   private async cleanupExpired(): Promise<void> {
-    const now = Date.now()
     await this.cleanupMany(
       [...this.records.values()]
-        .filter((record) => record.expiresAt <= now)
+        .filter((record) => record.expiresAt <= Date.now())
         .map((record) => record.artifactId)
     )
   }

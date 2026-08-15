@@ -129,7 +129,8 @@ async function handleTeamChatRequest(
     typeof parsed.mailtoken === 'string' && MAIL_TOKEN_RE.test(parsed.mailtoken)
       ? parsed.mailtoken
       : undefined
-  let artifactIds: string[] = []
+  let reusableArtifactIds: string[] = []
+  let ephemeralArtifactIds: string[] = []
   try {
     const preparedAttachments = await prepareTeamChatAttachments({
       message,
@@ -138,7 +139,8 @@ async function handleTeamChatRequest(
       requestId,
       artifactStore
     })
-    artifactIds = preparedAttachments.artifactIds
+    reusableArtifactIds = preparedAttachments.reusableArtifactIds
+    ephemeralArtifactIds = preparedAttachments.ephemeralArtifactIds
     return await runTeamChatMessage({
       requestId,
       conversationId,
@@ -159,7 +161,8 @@ async function handleTeamChatRequest(
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   } finally {
-    await artifactStore.cleanupMany(artifactIds)
+    artifactStore.releaseRequestBindings(reusableArtifactIds, conversationId, requestId)
+    await artifactStore.cleanupMany(ephemeralArtifactIds)
   }
 }
 

@@ -38,6 +38,37 @@ describe('Hermes team chat document attachments', () => {
         artifactId: 'artifact-00000000-0000-4000-8000-000000000000'
       }
     ])
+    expect(prepared.reusableArtifactIds).toEqual([])
+    expect(prepared.ephemeralArtifactIds).toEqual(['artifact-00000000-0000-4000-8000-000000000000'])
+  })
+
+  it('keeps admitted artifacts reusable after each request releases its binding', async () => {
+    const artifact = {
+      kind: 'artifact' as const,
+      artifactId: 'artifact-00000000-0000-4000-8000-000000000001',
+      name: 'KPI.xlsx',
+      artifactKind: 'xlsx' as const,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      sizeBytes: 4,
+      sha256: 'b'.repeat(64)
+    }
+    const artifactStore = { bindMetadata: vi.fn().mockReturnValue(artifact) }
+
+    const prepared = await prepareTeamChatAttachments({
+      message: 'summarize',
+      attachments: [artifact],
+      conversationId: 'conversation',
+      requestId: 'request',
+      artifactStore: artifactStore as never
+    })
+
+    expect(artifactStore.bindMetadata).toHaveBeenCalledWith(
+      artifact.artifactId,
+      'conversation',
+      'request'
+    )
+    expect(prepared.reusableArtifactIds).toEqual([artifact.artifactId])
+    expect(prepared.ephemeralArtifactIds).toEqual([])
   })
 
   it('drops malformed base64 and unsupported binary extensions', () => {

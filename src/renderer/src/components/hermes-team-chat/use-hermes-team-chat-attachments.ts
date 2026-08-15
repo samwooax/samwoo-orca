@@ -28,7 +28,7 @@ export function useHermesTeamChatAttachments(
 ): {
   attachments: TeamChatAttachment[]
   attachmentNotice: string | null
-  clearAttachments: () => void
+  completeAttachmentSend: () => void
   attachProjectFile: (relativePath: string) => boolean
   pickAttachments: () => Promise<void>
   pasteClipboardImage: ClipboardEventHandler<HTMLTextAreaElement>
@@ -278,11 +278,11 @@ export function useHermesTeamChatAttachments(
     [conversationId, releaseArtifacts, updateItems]
   )
 
-  const clearAttachments = useCallback(() => {
-    // Ownership moves to main when the send IPC consumes the captured attachment list.
-    const next: AttachmentState = { conversationId, items: [], notice: null }
+  const completeAttachmentSend = useCallback(() => {
+    const reusable = attachmentsRef.current.filter((attachment) => attachment.kind !== 'image')
+    const next: AttachmentState = { conversationId, items: reusable, notice: null }
     stateRef.current = next
-    attachmentsRef.current = []
+    attachmentsRef.current = reusable
     setState(next)
   }, [conversationId])
 
@@ -290,7 +290,7 @@ export function useHermesTeamChatAttachments(
     attachments,
     attachmentNotice,
     attachProjectFile,
-    clearAttachments,
+    completeAttachmentSend,
     pickAttachments,
     pasteClipboardImage,
     removeAttachment

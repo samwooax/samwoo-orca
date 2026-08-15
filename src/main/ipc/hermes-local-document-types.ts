@@ -52,9 +52,26 @@ export type LocalDocumentOperation =
 export type LocalDocumentRequest = { version: 1; operations: LocalDocumentOperation[] }
 export type LocalDocumentAttachment = { path: string; artifactId: string }
 
+export type LocalDocumentSheetSummary = {
+  name: string
+  cellCount: number
+  textCellCount: number
+  numericCellCount: number
+  formulaCellCount: number
+}
+
 export type LocalDocumentItem =
   | { kind: 'pdf_page'; page: number; text: string; truncated?: boolean }
-  | { kind: 'xlsx_cell'; sheet: string; cell: string; text: string }
+  | {
+      kind: 'xlsx_cell'
+      sheet: string
+      cell: string
+      text: string
+      valueType: 'text' | 'number' | 'boolean' | 'date' | 'error' | 'formula'
+      rawValue?: string
+      formula?: string
+      numberFormat?: string
+    }
   | { kind: 'pptx_paragraph'; slide: number; paragraph: number; text: string }
 
 export type LocalDocumentResult = {
@@ -66,7 +83,7 @@ export type LocalDocumentResult = {
   sha256?: string
   pageCount?: number
   slideCount?: number
-  sheets?: { name: string; textCellCount: number }[]
+  sheets?: LocalDocumentSheetSummary[]
   slides?: {
     index: number
     textParagraphCount: number

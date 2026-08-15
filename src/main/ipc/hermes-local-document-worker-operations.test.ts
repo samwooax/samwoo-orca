@@ -7,7 +7,15 @@ vi.mock('./hermes-local-document-pdf', () => {
 vi.mock('./hermes-local-document-xlsx', () => ({
   applyXlsxTranslations: vi.fn(),
   extractXlsxCells: vi.fn(),
-  inspectXlsx: vi.fn(() => [{ name: 'Dashboard', textCellCount: 2 }]),
+  inspectXlsx: vi.fn(() => [
+    {
+      name: 'Dashboard',
+      cellCount: 2,
+      textCellCount: 2,
+      numericCellCount: 0,
+      formulaCellCount: 0
+    }
+  ]),
   parseXlsx: vi.fn(() => ({}))
 }))
 
@@ -23,7 +31,15 @@ describe('Hermes local document worker operation isolation', () => {
       })
     ).resolves.toEqual({
       format: 'xlsx',
-      sheets: [{ name: 'Dashboard', textCellCount: 2 }]
+      sheets: [
+        {
+          name: 'Dashboard',
+          cellCount: 2,
+          textCellCount: 2,
+          numericCellCount: 0,
+          formulaCellCount: 0
+        }
+      ]
     })
   })
 })

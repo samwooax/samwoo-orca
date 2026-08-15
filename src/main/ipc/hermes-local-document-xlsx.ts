@@ -2,6 +2,12 @@ import { posix } from 'node:path'
 import { DOMParser, XMLSerializer, type Document, type Element } from '@xmldom/xmldom'
 import { strToU8, unzipSync, zipSync, type Unzipped } from 'fflate'
 import type { LocalDocumentItem, LocalDocumentTranslation } from './hermes-local-document-protocol'
+import {
+  readXlsxCellValue,
+  styleNumberFormats,
+  workbookUses1904Dates,
+  type XlsxCellValue
+} from './hermes-local-document-xlsx-cell-values'
 
 const MAX_ARCHIVE_ENTRIES = 4_096
 const MAX_ARCHIVE_ENTRY_BYTES = 32 * 1024 * 1024
@@ -13,8 +19,10 @@ type XlsxSheet = {
   name: string
   path: string
   document: Document
-  cells: Map<string, { element: Element; text: string }>
+  cells: Map<string, XlsxCell>
 }
+
+type XlsxCell = XlsxCellValue & { element: Element }
 
 export type ParsedXlsx = {
   archive: Unzipped
@@ -58,10 +66,6 @@ function elements(parent: Document | Element, localName: string): Element[] {
     }
   }
   return matches
-}
-
-function firstElement(parent: Document | Element, localName: string): Element | null {
-  return elements(parent, localName)[0] ?? null
 }
 
 function descendantText(parent: Element): string {
@@ -139,22 +143,6 @@ function sharedStrings(archive: Unzipped): string[] {
   return elements(parseXml(content, 'shared strings'), 'si').map(descendantText)
 }
 
-function cellText(cell: Element, strings: string[]): string | null {
-  if (firstElement(cell, 'f')) {
-    return null
-  }
-  const type = cell.getAttribute('t')
-  if (type === 'inlineStr') {
-    return descendantText(cell)
-  }
-  const value = firstElement(cell, 'v')?.textContent ?? ''
-  if (type === 's') {
-    const index = Number(value)
-    return Number.isInteger(index) && index >= 0 ? (strings[index] ?? null) : null
-  }
-  return type === 'str' ? value : null
-}
-
 function worksheetPaths(archive: Unzipped): { name: string; path: string }[] {
   const workbook = parseXml(archive['xl/workbook.xml'], 'workbook')
   const relationships = parseXml(archive['xl/_rels/workbook.xml.rels'], 'workbook relationships')
@@ -178,15 +166,21 @@ function worksheetPaths(archive: Unzipped): { name: string; path: string }[] {
 export function parseXlsx(content: Uint8Array): ParsedXlsx {
   const archive = unzipWorkbook(content)
   validatePackage(archive)
+  const workbook = parseXml(archive['xl/workbook.xml'], 'workbook')
+  const date1904 = workbookUses1904Dates(workbook)
+  const styles = archive['xl/styles.xml']
+    ? parseXml(archive['xl/styles.xml'], 'workbook styles')
+    : null
+  const numberFormats = styleNumberFormats(styles)
   const strings = sharedStrings(archive)
   const sheets = worksheetPaths(archive).map(({ name, path }) => {
     const document = parseXml(archive[path], `worksheet ${name}`)
-    const cells = new Map<string, { element: Element; text: string }>()
+    const cells = new Map<string, XlsxCell>()
     for (const element of elements(document, 'c')) {
       const address = element.getAttribute('r')
-      const text = cellText(element, strings)
-      if (address && text !== null && text.length > 0) {
-        cells.set(address, { element, text })
+      const value = readXlsxCellValue(element, strings, numberFormats, date1904)
+      if (address && value) {
+        cells.set(address, { element, ...value })
       }
     }
     return { name, path, document, cells }
@@ -194,8 +188,23 @@ export function parseXlsx(content: Uint8Array): ParsedXlsx {
   return { archive, sheets }
 }
 
-export function inspectXlsx(parsed: ParsedXlsx): { name: string; textCellCount: number }[] {
-  return parsed.sheets.map((sheet) => ({ name: sheet.name, textCellCount: sheet.cells.size }))
+export function inspectXlsx(parsed: ParsedXlsx): {
+  name: string
+  cellCount: number
+  textCellCount: number
+  numericCellCount: number
+  formulaCellCount: number
+}[] {
+  return parsed.sheets.map((sheet) => {
+    const cells = [...sheet.cells.values()]
+    return {
+      name: sheet.name,
+      cellCount: cells.length,
+      textCellCount: cells.filter((cell) => cell.valueType === 'text').length,
+      numericCellCount: cells.filter((cell) => cell.valueType === 'number').length,
+      formulaCellCount: cells.filter((cell) => cell.valueType === 'formula').length
+    }
+  })
 }
 
 export function extractXlsxCells(
@@ -208,7 +217,11 @@ export function extractXlsxCells(
       kind: 'xlsx_cell' as const,
       sheet: sheet.name,
       cell,
-      text: value.text
+      text: value.text,
+      valueType: value.valueType,
+      ...(value.rawValue === undefined ? {} : { rawValue: value.rawValue }),
+      ...(value.formula === undefined ? {} : { formula: value.formula }),
+      ...(value.numberFormat === undefined ? {} : { numberFormat: value.numberFormat })
     }))
   )
   const items = cells.slice(cursor, cursor + limit)
@@ -247,7 +260,7 @@ export function applyXlsxTranslations(
   for (const translation of translations) {
     const sheet = sheetMap.get(translation.sheet)
     const cell = sheet?.cells.get(translation.cell)
-    if (!sheet || !cell) {
+    if (!sheet || !cell || !cell.translatable) {
       throw new Error(`XLSX text cell was not found: ${translation.sheet}!${translation.cell}`)
     }
     if (cell.text !== translation.sourceText) {

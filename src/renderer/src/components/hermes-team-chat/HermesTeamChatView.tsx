@@ -76,7 +76,7 @@ export function HermesTeamChatView({
     attachments,
     attachmentNotice,
     attachProjectFile,
-    clearAttachments,
+    completeAttachmentSend,
     pasteClipboardImage,
     pickAttachments,
     removeAttachment
@@ -138,7 +138,7 @@ export function HermesTeamChatView({
         removeAttachment(attachment)
       }
     } else {
-      clearAttachments()
+      completeAttachmentSend()
     }
     try {
       if (directCommand) {
@@ -187,9 +187,6 @@ export function HermesTeamChatView({
         }
       ])
     } catch (error) {
-      for (const attachment of outgoingAttachments) {
-        removeAttachment(attachment)
-      }
       if (requestIdRef.current !== requestId) {
         return
       }
@@ -208,7 +205,7 @@ export function HermesTeamChatView({
   }, [
     attachments,
     busy,
-    clearAttachments,
+    completeAttachmentSend,
     conversationId,
     currentMailToken,
     draft,

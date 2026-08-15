@@ -137,12 +137,14 @@ export async function prepareTeamChatAttachments(args: {
   message: string
   documents: LocalDocumentAttachment[]
   images: TeamChatImageAttachment[]
-  artifactIds: string[]
+  reusableArtifactIds: string[]
+  ephemeralArtifactIds: string[]
 }> {
   const blocks: string[] = []
   const documents: LocalDocumentAttachment[] = []
   const images: TeamChatImageAttachment[] = []
-  const artifactIds: string[] = []
+  const reusableArtifactIds: string[] = []
+  const ephemeralArtifactIds: string[] = []
   try {
     for (const attachment of args.attachments) {
       if (attachment.kind === 'text') {
@@ -153,19 +155,23 @@ export async function prepareTeamChatAttachments(args: {
         images.push(attachment)
         continue
       }
-      const artifact =
-        attachment.kind === 'artifact'
-          ? args.artifactStore.bindMetadata(
-              attachment.artifactId,
-              args.conversationId,
-              args.requestId
-            )
-          : await args.artifactStore.ingestBytes(
-              attachment.name,
-              decodeLegacyAttachment(attachment, MAX_DOCUMENT_ATTACHMENT_BYTES) ?? new Uint8Array(),
-              args.conversationId
-            )
-      artifactIds.push(artifact.artifactId)
+      const reusable = attachment.kind === 'artifact'
+      const artifact = reusable
+        ? args.artifactStore.bindMetadata(
+            attachment.artifactId,
+            args.conversationId,
+            args.requestId
+          )
+        : await args.artifactStore.ingestBytes(
+            attachment.name,
+            decodeLegacyAttachment(attachment, MAX_DOCUMENT_ATTACHMENT_BYTES) ?? new Uint8Array(),
+            args.conversationId
+          )
+      if (reusable) {
+        reusableArtifactIds.push(artifact.artifactId)
+      } else {
+        ephemeralArtifactIds.push(artifact.artifactId)
+      }
       if (artifact.artifactKind === 'png' || artifact.artifactKind === 'jpeg') {
         const path = virtualDocumentPath(documents.length, artifact.name)
         documents.push({ path, artifactId: artifact.artifactId })
@@ -196,10 +202,16 @@ export async function prepareTeamChatAttachments(args: {
           : args.message,
       documents,
       images,
-      artifactIds
+      reusableArtifactIds,
+      ephemeralArtifactIds
     }
   } catch (error) {
-    await args.artifactStore.cleanupMany(artifactIds)
+    args.artifactStore.releaseRequestBindings(
+      reusableArtifactIds,
+      args.conversationId,
+      args.requestId
+    )
+    await args.artifactStore.cleanupMany(ephemeralArtifactIds)
     throw error
   }
 }

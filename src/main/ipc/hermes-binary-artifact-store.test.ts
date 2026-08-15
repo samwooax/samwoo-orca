@@ -40,6 +40,15 @@ describe('HermesBinaryArtifactStore', () => {
     await expect(
       store.read(artifact.artifactId, 'conversation-one', 'request-two')
     ).rejects.toThrow('already bound to another request')
+    store.releaseRequestBindings([artifact.artifactId], 'conversation-two', 'request-one')
+    store.releaseRequestBindings([artifact.artifactId], 'conversation-one', 'request-two')
+    await expect(
+      store.read(artifact.artifactId, 'conversation-one', 'request-two')
+    ).rejects.toThrow('already bound to another request')
+    store.releaseRequestBindings([artifact.artifactId], 'conversation-one', 'request-one')
+    await expect(
+      store.read(artifact.artifactId, 'conversation-one', 'request-two')
+    ).resolves.toEqual(Buffer.from(xlsxFixture()))
     await store.close()
   })
 

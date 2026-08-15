@@ -138,11 +138,11 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - 로컬 파일 왕복은 최대 8라운드다.
 - 명령은 `shell: false` 직접 실행, 허용된 설치 명령만 사용하며 기본 전경 제한은 120초다.
 - 백그라운드 프로세스 실행·중지와 localhost URL 감지를 지원하며 출력은 최대 64KiB다.
-- 문서: PDF text layer, XLSX 문자열 셀, PPTX 텍스트 문단을 별도 worker에서 확인·분할 추출한다. 일반 UTF-8 파일 제한을 넓히지 않는다.
+- 문서: PDF text layer, XLSX 문자열·숫자·boolean·날짜·오류·수식 셀, PPTX 텍스트 문단을 별도 worker에서 확인·분할 추출한다. 일반 UTF-8 파일 제한을 넓히지 않는다.
 - 문서 입력은 파일당 64MiB다. PDF는 최대 1,000페이지·호출당 10페이지, XLSX/PPTX는 호출당 200개 셀/문단을 반환한다.
 - XLSX 번역 적용은 호출당 128셀, 추출 원문과 원본 SHA-256 일치를 요구한다. 수식·숫자·style·chart·media는 유지하고 원본이 아닌 신규 `.xlsx` project path에 저장한다.
 - PPTX 번역도 최대 128문단과 원문·SHA-256 일치를 요구하며 run formatting·도형·chart·media를 유지한 신규 `.pptx`에 저장한다.
-- 직접 고른 PDF/XLSX/PPTX는 main private store의 opaque artifact ID로 관리하고 요청 한정 `@attachments/...` 경로로만 모델에 보인다. project 파일은 local worktree/folder root authority를 그대로 적용한다.
+- 직접 고른 PDF/XLSX/PPTX는 main private store의 opaque artifact ID로 관리하고 conversation 소유권과 request 배타 결합을 검증한 `@attachments/...` 경로로만 모델에 보인다. 같은 대화에서 첨부 chip을 유지하는 동안 후속 요청이 재사용할 수 있고, project 파일은 local worktree/folder root authority를 그대로 적용한다.
 - local project가 없는 직접 첨부 XLSX/PPTX 번역은 native save dialog로 사용자가 신규 저장 위치를 승인한다.
 - Excel Artifact v1은 verified bundled worker가 있는 Windows local host에서 workbook 생성·일반 수정·구조 검증을 제공한다. 수식, named range, 표, autofilter, freeze pane, 병합, style, 조건부서식, data validation, native chart, 이미지와 page setup을 Workbook Spec으로 선언한다.
 - PPTX는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트/슬라이드/표 편집, PDF는 텍스트 문서 생성과 페이지 삭제·재배열·회전·병합·watermark·metadata 편집을 신규 파일로 제공한다.
@@ -159,6 +159,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - 텍스트 허용 확장자는 `.txt`, `.md`, `.csv`, `.json`, `.yaml`, `.yml`, `.log`이며 1개 최대 96KB다.
 - PDF/XLSX/PPTX/PNG/JPEG는 파일당 64MiB까지 허용하며 Electron main이 signature·확장자·해시를 확인하고 private artifact store에 보관한다.
 - Hermes Team Chat 탭에서 프로젝트 Explorer 파일을 선택하면 `@상대경로` 텍스트를 넣지 않고 main이 현재 local project root와 실제 파일을 다시 검증해 첨부한다. PDF/XLSX/PPTX/이미지는 private artifact로, 96KB 이하 UTF-8 파일은 text attachment로 전달한다.
+- 전송한 text/artifact 첨부는 같은 대화의 composer에 남아 후속 질문에도 다시 전달한다. 붙여넣기 임시 이미지는 turn 한정이며, 첨부 제거·대화 교체·view 종료 시 main-owned artifact를 해제한다.
 - 문서 추출은 호출당 최대 200개 item이다. 모델이 더 큰 양의 `limit`을 요청하면 main이 200으로 낮춰 실행하고 `nextCursor`로 이어 읽는다. 잘못된 0·음수·비정수 요청은 실행하지 않는다.
 - 클립보드 이미지는 임시 파일로 만든 뒤 원격에 전송하고 턴 종료 후 정리한다.
 - 일반 PNG/JPEG 파일 선택형 첨부도 같은 native picker에서 제공한다.
