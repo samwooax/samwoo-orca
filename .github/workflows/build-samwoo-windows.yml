@@ -108,6 +108,7 @@ jobs:
             src/main/ipc/messenger-popout.test.ts `
             src/main/ipc/hermes-team-chat-runner.test.ts `
             src/main/ipc/hermes-binary-artifact-store.test.ts `
+            src/main/ipc/hermes-team-chat-project-attachment.test.ts `
             src/main/ipc/hermes-excel-artifact-job-registry.test.ts `
             src/main/ipc/hermes-excel-artifact-protocol.test.ts `
             src/main/ipc/hermes-local-document-formats.test.ts `
@@ -148,6 +149,7 @@ jobs:
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-stored-session.test.ts `
             src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-attachments.test.tsx `
             src/renderer/src/components/native-chat/NativeChatComposerActions.test.tsx `
+            src/renderer/src/components/right-sidebar/useFileExplorerHandlers.test.ts `
             src/renderer/src/components/native-chat/NativeChatSessionOptionPickers.test.tsx `
             src/renderer/src/components/SamwooLoginGate.test.tsx `
             src/renderer/src/components/sidebar/create-shared-workspace-with-upload.test.ts `
