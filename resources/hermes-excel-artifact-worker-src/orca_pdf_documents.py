@@ -112,6 +112,25 @@ def _wrapped_lines(text: str, font: str, font_size: float, width: float) -> list
     return result or [""]
 
 
+def _fit_text(
+    text: str,
+    font: str,
+    font_size: float,
+    line_height: float,
+    width: float,
+    height: float,
+) -> tuple[float, float, list[str]]:
+    fitted_size = font_size
+    while True:
+        fitted_line_height = max(fitted_size, line_height * fitted_size / font_size)
+        lines = _wrapped_lines(text, font, fitted_size, width)
+        if fitted_size + (len(lines) - 1) * fitted_line_height <= height:
+            return fitted_size, fitted_line_height, lines
+        if fitted_size <= 6:
+            raise ValueError("PDF text exceeds its element height")
+        fitted_size = max(6, fitted_size - 0.25)
+
+
 def _draw_text_element(
     target: Any,
     element: Mapping[str, Any],
@@ -133,11 +152,13 @@ def _draw_text_element(
         raise ValueError("PDF text sizing is invalid")
     regular_font, bold_font = _pdf_fonts()
     font = bold_font if element.get("bold") else regular_font
-    lines = _wrapped_lines(text, font, font_size, width)
+    font_size, line_height, lines = _fit_text(
+        text, font, font_size, line_height, width, height
+    )
     baseline = page_height - y - font_size
     bottom = page_height - y - height
-    if baseline - (len(lines) - 1) * line_height < bottom:
-        raise ValueError("PDF text exceeds its element height")
+    if baseline - (len(lines) - 1) * line_height < bottom - 0.01:
+        raise ValueError("PDF text layout is outside its element")
     target.setFont(font, font_size)
     target.setFillColor(HexColor(str(element.get("color", "#111111"))))
     align = str(element.get("align", "left"))

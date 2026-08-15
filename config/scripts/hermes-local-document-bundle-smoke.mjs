@@ -124,10 +124,10 @@ if (process.platform === 'win32' && process.arch === 'x64') {
                   x: 0.7,
                   y: 0.7,
                   width: 6.9,
-                  height: 9.5,
+                  height: 2,
                   fontSize: 11,
                   lineHeight: 15,
-                  text: '한국어 PDF 번역 검증'
+                  text: '한국어 PDF 번역 검증 본문이 실제로 보여야 합니다. '.repeat(25).trim()
                 }
               ]
             }

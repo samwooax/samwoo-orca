@@ -5,6 +5,7 @@ import { closeTeamChatConversation, runTeamChatMessage } from './hermes-team-cha
 const {
   executeLocalFileRequestMock,
   executeLocalCommandRequestMock,
+  executeLocalDocumentToolRequestMock,
   approveLocalCommandRequestMock,
   getTeamChatDeviceContextMock,
   hermesAcpSessionMock,
@@ -14,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   executeLocalFileRequestMock: vi.fn(),
   executeLocalCommandRequestMock: vi.fn(),
+  executeLocalDocumentToolRequestMock: vi.fn(),
   approveLocalCommandRequestMock: vi.fn(),
   getTeamChatDeviceContextMock: vi.fn(),
   hermesAcpSessionMock: vi.fn(),
@@ -28,6 +30,9 @@ vi.mock('./hermes-local-project-files', () => ({
 }))
 vi.mock('./hermes-local-project-commands', () => ({
   executeLocalCommandRequest: executeLocalCommandRequestMock
+}))
+vi.mock('./hermes-local-document-tool-handler', () => ({
+  executeLocalDocumentToolRequest: executeLocalDocumentToolRequestMock
 }))
 vi.mock('./hermes-local-command-approval', () => ({
   approveLocalCommandRequest: approveLocalCommandRequestMock
@@ -72,6 +77,7 @@ beforeEach(() => {
   spawnMock.mockReset()
   executeLocalFileRequestMock.mockReset()
   executeLocalCommandRequestMock.mockReset()
+  executeLocalDocumentToolRequestMock.mockReset()
   approveLocalCommandRequestMock.mockReset().mockResolvedValue(true)
   getTeamChatDeviceContextMock.mockReset().mockResolvedValue({
     laptopName: 'EMPLOYEE-PC',
@@ -359,15 +365,58 @@ describe('runTeamChatMessage local file bridge', () => {
     expect(executeLocalFileRequestMock).toHaveBeenCalledTimes(8)
   })
 
-  it('returns a protocol error instead of exposing a malformed tool envelope', async () => {
+  it('repairs a malformed document envelope before executing it', async () => {
     const malformed =
-      '<orca_local_commands>{"version":1,"operations":[{"id":"run","kind":"run","command":"uv","args":["run","app.py"],"foreground":true,"timeoutMs":120000}]}</orca_local_commands>'
+      '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"create_pdf","outputPath":"translated.pdf","documentSpec":{"pages":[{"elements":[{"type":"text","text":"번역"}]}}]}}]}</orca_local_documents>'
+    const corrected =
+      '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"create_pdf","outputPath":"translated.pdf","documentSpec":{"pages":[{"elements":[{"type":"text","text":"번역"}]}]}}]}</orca_local_documents>'
     spawnMock.mockReturnValue(fakeProcess(''))
-    runHermesAcpProcessMock.mockResolvedValueOnce({ ok: true, reply: malformed })
+    runHermesAcpProcessMock
+      .mockResolvedValueOnce({ ok: true, reply: malformed })
+      .mockResolvedValueOnce({ ok: true, reply: corrected })
+      .mockResolvedValueOnce({ ok: true, reply: '번역 PDF를 생성했습니다.' })
+    executeLocalDocumentToolRequestMock.mockResolvedValue({
+      reply:
+        '<orca_local_document_results>{"version":1,"results":[{"id":"pdf","ok":true,"path":"translated.pdf","textCharacterCount":2}]}</orca_local_document_results>',
+      execution: {
+        kind: 'local_document',
+        operations: [{ id: 'pdf', kind: 'create_pdf', ok: true, target: 'translated.pdf' }]
+      }
+    })
 
     const result = await runTeamChatMessage({
-      requestId: 'request-invalid-protocol',
-      conversationId: 'conversation-invalid-protocol',
+      requestId: 'request-invalid-protocol-limit',
+      conversationId: 'conversation-invalid-protocol-limit',
+      host: 'hermes@100.68.242.83',
+      profile: 'hr',
+      modelId: 'gpt-5.5',
+      effort: 'medium',
+      message: '실행',
+      imageAttachments: [],
+      history: [],
+      cwd: 'C:\\selected',
+      store: {} as never
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      reply: '번역 PDF를 생성했습니다.',
+      toolExecutions: [{ sequence: 1, kind: 'local_document' }]
+    })
+    expect(runHermesAcpProcessMock.mock.calls[1][0].message).toContain(
+      'invalid local document envelope'
+    )
+    expect(executeLocalDocumentToolRequestMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails closed after two malformed envelope repair attempts', async () => {
+    const malformed = '<orca_local_documents>{"version":1,"operations":[]}}</orca_local_documents>'
+    spawnMock.mockReturnValue(fakeProcess(''))
+    runHermesAcpProcessMock.mockResolvedValue({ ok: true, reply: malformed })
+
+    const result = await runTeamChatMessage({
+      requestId: 'request-protocol-repair',
+      conversationId: 'conversation-protocol-repair',
       host: 'hermes@100.68.242.83',
       profile: 'hr',
       modelId: 'gpt-5.5',
@@ -382,9 +431,10 @@ describe('runTeamChatMessage local file bridge', () => {
     expect(result).toEqual({
       ok: false,
       errorCode: 'local_tool_protocol_invalid',
-      error: 'invalid local command envelope; use mode and timeoutSeconds fields'
+      error: 'invalid local document envelope; use one exact version 1 envelope'
     })
-    expect(executeLocalCommandRequestMock).not.toHaveBeenCalled()
+    expect(runHermesAcpProcessMock).toHaveBeenCalledTimes(3)
+    expect(executeLocalDocumentToolRequestMock).not.toHaveBeenCalled()
   })
 
   it('preserves completed local work when the follow-up model request fails', async () => {

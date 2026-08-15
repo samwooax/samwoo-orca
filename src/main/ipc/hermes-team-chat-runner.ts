@@ -42,7 +42,8 @@ import type {
 import {
   advanceTeamChatLocalToolTurn,
   attachTeamChatToolExecutions,
-  MAX_LOCAL_TOOL_EXECUTIONS
+  MAX_LOCAL_TOOL_EXECUTIONS,
+  MAX_LOCAL_TOOL_PROTOCOL_REPAIRS
 } from './hermes-team-chat-local-tool-turn'
 import {
   cancelRegisteredTeamChatRun,
@@ -138,6 +139,7 @@ export async function runTeamChatMessage(args: {
     void controller.stop('timeout')
   }, TEAM_CHAT_MESSAGE_TIMEOUT_MS)
   let sessionHandle: TeamChatSessionHandle | null = null
+  let protocolRepairAttempts = 0
   const toolExecutions: TeamChatLocalToolExecution[] = []
 
   try {
@@ -195,7 +197,7 @@ export async function runTeamChatMessage(args: {
       }
     }
     let conversationMessage = appendRemoteImageInstructions(args.message, remoteImages)
-    for (let round = 0; round <= MAX_LOCAL_TOOL_EXECUTIONS; round += 1) {
+    for (let round = 0; round <= MAX_LOCAL_TOOL_EXECUTIONS + MAX_LOCAL_TOOL_PROTOCOL_REPAIRS; round += 1) {
       const cancelled = cancellationResult(controller.cancelledReason)
       if (cancelled) {
         return attachTeamChatToolExecutions(cancelled, toolExecutions)
@@ -242,6 +244,7 @@ export async function runTeamChatMessage(args: {
         excelCapability,
         conversationId: args.conversationId,
         requestId: args.requestId,
+        protocolRepairAttempts,
         toolExecutions,
         documentAttachments: args.documentAttachments,
         onProgress: args.onProgress
@@ -251,6 +254,9 @@ export async function runTeamChatMessage(args: {
       }
       if (toolTurn.kind === 'failed') {
         return toolTurn.result
+      }
+      if (toolTurn.kind === 'repair') {
+        protocolRepairAttempts += 1
       }
       conversationMessage = toolTurn.message
     }

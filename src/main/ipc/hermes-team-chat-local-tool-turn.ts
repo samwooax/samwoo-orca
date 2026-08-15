@@ -10,6 +10,7 @@ import type { LocalDocumentAttachment } from './hermes-local-document-protocol'
 import type { ExcelArtifactCapability } from '../../shared/hermes-excel-artifact'
 
 export const MAX_LOCAL_TOOL_EXECUTIONS = 8
+export const MAX_LOCAL_TOOL_PROTOCOL_REPAIRS = 2
 
 export function attachTeamChatToolExecutions(
   result: HermesTeamChatResult,
@@ -26,12 +27,14 @@ export async function advanceTeamChatLocalToolTurn(args: {
   excelCapability?: ExcelArtifactCapability | null
   conversationId?: string
   requestId: string
+  protocolRepairAttempts: number
   toolExecutions: TeamChatLocalToolExecution[]
   documentAttachments?: LocalDocumentAttachment[]
   onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<
   | { kind: 'complete' }
   | { kind: 'failed'; result: HermesTeamChatResult }
+  | { kind: 'repair'; message: string }
   | { kind: 'continue'; message: string }
 > {
   const toolReply = await executeLocalProjectToolReply({
@@ -50,6 +53,16 @@ export async function advanceTeamChatLocalToolTurn(args: {
     return { kind: 'complete' }
   }
   if (toolReply.kind === 'invalid') {
+    if (args.protocolRepairAttempts < MAX_LOCAL_TOOL_PROTOCOL_REPAIRS) {
+      return {
+        kind: 'repair',
+        message: [
+          `Orca가 이전 로컬 도구 요청을 실행하지 않았습니다: ${toolReply.error}`,
+          '직전 요청의 의도와 내용을 유지하면서 응답 전체를 올바른 로컬 도구 envelope 하나로만 다시 출력하세요.',
+          '설명이나 Markdown을 넣지 말고 JSON의 따옴표, 쉼표, 괄호와 허용된 필드를 확인하세요.'
+        ].join('\n')
+      }
+    }
     return {
       kind: 'failed',
       result: attachTeamChatToolExecutions(
