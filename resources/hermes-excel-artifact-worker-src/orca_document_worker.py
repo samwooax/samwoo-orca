@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import os
 from pathlib import Path
 from typing import Any, Mapping
@@ -14,13 +13,8 @@ from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Inches, Pt
-from pypdf import PdfReader, PdfWriter, Transformation
-from reportlab.lib.pagesizes import A4, LETTER
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen import canvas
-
 from orca_excel_artifact.inputs import inspect_input
+from orca_pdf_documents import create_pdf, edit_pdf
 
 
 MAX_FILE_BYTES = 64 * 1024 * 1024
@@ -286,128 +280,6 @@ def _edit_pptx(request: Mapping[str, Any], output: Path, artifacts: Mapping[str,
     return {"slideCount": len(presentation.slides), "appliedCount": applied}
 
 
-def _pdf_font() -> str:
-    candidates = [
-        Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts" / "malgun.ttf",
-        Path("/System/Library/Fonts/AppleSDGothicNeo.ttc"),
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-    ]
-    for path in candidates:
-        if path.is_file():
-            try:
-                pdfmetrics.registerFont(TTFont("OrcaDocumentFont", path))
-                return "OrcaDocumentFont"
-            except Exception:
-                continue
-    return "Helvetica"
-
-
-def _draw_text_page(target: Any, page: Mapping[str, Any], size: tuple[float, float]) -> None:
-    font = _pdf_font()
-    _, height = size
-    y = height - 54
-    if page.get("title"):
-        target.setFont(font, 18)
-        target.drawString(54, y, str(page["title"])[:200])
-        y -= 36
-    font_size = float(page.get("fontSize", 11))
-    target.setFont(font, font_size)
-    for logical_line in str(page.get("text", "")).splitlines():
-        chunks = [logical_line[index:index + 90] for index in range(0, len(logical_line), 90)] or [""]
-        for line in chunks:
-            if y < 54:
-                target.showPage()
-                target.setFont(font, font_size)
-                y = height - 54
-            target.drawString(54, y, line)
-            y -= float(page.get("lineHeight", 16))
-    target.showPage()
-
-
-def _create_pdf(request: Mapping[str, Any], output: Path) -> dict[str, Any]:
-    spec = _record(request.get("documentSpec"), "documentSpec")
-    pages = _list(spec.get("pages"), "pages", 1000)
-    if not pages:
-        raise ValueError("PDF requires at least one page")
-    page_size = LETTER if spec.get("pageSize") == "letter" else A4
-    document = canvas.Canvas(str(output), pagesize=page_size, pageCompression=1)
-    for page in pages:
-        _draw_text_page(document, _record(page, "page"), page_size)
-    document.save()
-    return {"pageCount": len(PdfReader(output).pages), "appliedCount": len(pages)}
-
-
-def _watermark(text: str, width: float, height: float) -> Any:
-    stream = io.BytesIO()
-    layer = canvas.Canvas(stream, pagesize=(width, height))
-    layer.setFont(_pdf_font(), 36)
-    layer.setFillAlpha(0.2)
-    layer.saveState()
-    layer.translate(width / 2, height / 2)
-    layer.rotate(35)
-    layer.drawCentredString(0, 0, text[:200])
-    layer.restoreState()
-    layer.save()
-    stream.seek(0)
-    return PdfReader(stream).pages[0]
-
-
-def _edit_pdf(request: Mapping[str, Any], output: Path, artifacts: Mapping[str, Path]) -> dict[str, Any]:
-    pages = list(PdfReader(_verify_source(request, "pdf")).pages)
-    metadata: dict[str, str] = {}
-    applied = 0
-    for raw in _list(request.get("operations"), "operations", MAX_OPERATIONS):
-        operation = _record(raw, "operation")
-        kind = operation.get("kind")
-        if kind == "delete_pages":
-            removed = {int(value) for value in _list(operation.get("pages"), "pages", 1000)}
-            pages = [page for index, page in enumerate(pages, 1) if index not in removed]
-        elif kind == "reorder_pages":
-            order = [int(value) for value in _list(operation.get("pages"), "pages", 1000)]
-            pages = [pages[index - 1] for index in order]
-        elif kind == "rotate_pages":
-            selected = {int(value) for value in _list(operation.get("pages"), "pages", 1000)}
-            angle = int(operation.get("degrees", 0))
-            for index, page in enumerate(pages, 1):
-                if index in selected:
-                    page.rotate(angle)
-        elif kind == "merge_pdf":
-            artifact = artifacts.get(str(operation.get("artifactId", "")))
-            if artifact is None:
-                raise ValueError("merged PDF artifact is unavailable")
-            inspect_input(artifact, "pdf")
-            pages.extend(PdfReader(artifact).pages)
-        elif kind == "watermark":
-            for page in pages:
-                page.merge_transformed_page(
-                    _watermark(
-                        str(operation.get("text", "")),
-                        float(page.mediabox.width),
-                        float(page.mediabox.height),
-                    ),
-                    Transformation(),
-                )
-        elif kind == "metadata":
-            values = _record(operation.get("values"), "metadata")
-            metadata = {f"/{key.title()}": str(value) for key, value in values.items()}
-        else:
-            raise ValueError("PDF edit operation is unsupported")
-        applied += 1
-    if not pages:
-        raise ValueError("PDF cannot be empty")
-    writer = PdfWriter()
-    for page in pages:
-        writer.add_page(page)
-    if metadata:
-        writer.add_metadata(metadata)
-    with output.open("xb") as stream:
-        writer.write(stream)
-        stream.flush()
-        os.fsync(stream.fileno())
-    PdfReader(output)
-    return {"pageCount": len(pages), "appliedCount": applied}
-
-
 def run_document_job(value: Mapping[str, Any]) -> dict[str, Any]:
     action = str(value.get("action"))
     output = _path(value.get("outputPath"), must_exist=False)
@@ -422,9 +294,9 @@ def run_document_job(value: Mapping[str, Any]) -> dict[str, Any]:
         elif action == "edit_pptx":
             details = _edit_pptx(value, output, artifacts)
         elif action == "create_pdf":
-            details = _create_pdf(value, output)
+            details = create_pdf(value, output)
         elif action == "edit_pdf":
-            details = _edit_pdf(value, output, artifacts)
+            details = edit_pdf(value, output, artifacts)
         else:
             raise ValueError("document action is unsupported")
         size = output.stat().st_size

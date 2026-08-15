@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { link, lstat, mkdir, open, readFile, rm, stat } from 'node:fs/promises'
-import { basename, dirname, extname, isAbsolute, relative, resolve } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { BrowserWindow, dialog } from 'electron'
 import type { Store } from '../persistence'
 import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
@@ -217,7 +217,7 @@ export async function executeOfficeDocumentOperation(args: {
     ? await pickOutput(args.operation.outputPath, format)
     : await projectOutput(args.cwd, args.operation.outputPath, args.store)
   await mkdir(dirname(output), { recursive: true })
-  const staging = `${output}.orca-${randomUUID()}.tmp.${format}`
+  const staging = join(dirname(output), `.orca-document-${randomUUID()}.tmp.${format}`)
   const admitted = await admittedArtifacts(args)
   let source: { path: string; sha256: string } | undefined
   try {
@@ -245,6 +245,12 @@ export async function executeOfficeDocumentOperation(args: {
     if (processed.ok !== true) {
       throw new Error('document worker could not produce an output')
     }
+    if (
+      args.operation.kind === 'create_pdf' &&
+      (!Number.isInteger(processed.textCharacterCount) || Number(processed.textCharacterCount) < 1)
+    ) {
+      throw new Error('document worker produced a PDF without extractable text')
+    }
     const content = await readFile(staging)
     const outputHash = createHash('sha256').update(content).digest('hex')
     if (processed.sha256 !== outputHash) {
@@ -268,6 +274,9 @@ export async function executeOfficeDocumentOperation(args: {
       sha256: outputHash,
       ...(typeof processed.slideCount === 'number' ? { slideCount: processed.slideCount } : {}),
       ...(typeof processed.pageCount === 'number' ? { pageCount: processed.pageCount } : {}),
+      ...(typeof processed.textCharacterCount === 'number'
+        ? { textCharacterCount: processed.textCharacterCount }
+        : {}),
       ...(typeof processed.appliedCount === 'number'
         ? { appliedCount: processed.appliedCount }
         : {})

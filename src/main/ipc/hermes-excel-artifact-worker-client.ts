@@ -69,7 +69,8 @@ function runWorkerLine(
     const proc = spawn(workerExecutable(root), [], {
       cwd: root,
       stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true
+      windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
     })
     activeWorkers.set(requestId, proc)
     let stdout = Buffer.alloc(0)

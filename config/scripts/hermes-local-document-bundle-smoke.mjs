@@ -1,5 +1,9 @@
+import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { Worker } from 'node:worker_threads'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { strToU8, zipSync } from 'fflate'
 
 const workerPath = resolve('out/main/hermes-local-document-worker-entry.js')
@@ -9,6 +13,27 @@ function run(workerData) {
     const worker = new Worker(workerPath, { workerData })
     worker.once('message', resolveResult)
     worker.once('error', reject)
+  })
+}
+
+function runOfficeWorker(executable, payload) {
+  return new Promise((resolveResult, reject) => {
+    const worker = spawn(executable, [], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    worker.stdout.setEncoding('utf8')
+    worker.stderr.setEncoding('utf8')
+    worker.stdout.on('data', (chunk) => (stdout += chunk))
+    worker.stderr.on('data', (chunk) => (stderr += chunk))
+    worker.once('error', reject)
+    worker.once('close', (code) => {
+      if (code !== 0 || !stdout.trim()) {
+        reject(new Error(`Office document worker failed (${code}): ${stderr}`))
+        return
+      }
+      resolveResult(JSON.parse(stdout.trim()))
+    })
+    worker.stdin.end(`${JSON.stringify(payload)}\n`)
   })
 }
 
@@ -68,4 +93,64 @@ if (!xlsx.ok || xlsx.value.items?.[0]?.text !== 'Revenue') {
 if (!pdf.ok || pdf.value.items?.[0]?.text !== 'Hello PDF') {
   throw new Error(`Bundled PDF worker smoke failed: ${JSON.stringify(pdf)}`)
 }
-console.log('[hermes-local-document-bundle-smoke] XLSX and PDF extraction passed')
+
+if (process.platform === 'win32' && process.arch === 'x64') {
+  const executable = resolve(
+    'resources',
+    'hermes-excel-artifact-worker',
+    'win32-x64',
+    'orca-excel-artifact-worker',
+    'orca-excel-artifact-worker.exe'
+  )
+  if (!existsSync(executable)) {
+    throw new Error(`Bundled office document worker is missing: ${executable}`)
+  }
+  const directory = await mkdtemp(join(tmpdir(), 'orca-office-document-smoke-'))
+  try {
+    const outputPath = join(directory, '한국어-번역.pdf')
+    const created = await runOfficeWorker(executable, {
+      hostAction: 'document',
+      documentRequest: {
+        action: 'create_pdf',
+        outputPath,
+        artifacts: [],
+        documentSpec: {
+          pageSize: 'A4',
+          pages: [
+            {
+              elements: [
+                {
+                  type: 'text',
+                  x: 0.7,
+                  y: 0.7,
+                  width: 6.9,
+                  height: 9.5,
+                  fontSize: 11,
+                  lineHeight: 15,
+                  text: '한국어 PDF 번역 검증'
+                }
+              ]
+            }
+          ]
+        }
+      }
+    })
+    if (!created.ok || created.textCharacterCount < 1) {
+      throw new Error(`Bundled PDF creation failed: ${JSON.stringify(created)}`)
+    }
+    const verified = await run({
+      kind: 'extract',
+      format: 'pdf',
+      data: new Uint8Array(await readFile(outputPath)),
+      cursor: 0,
+      limit: 10
+    })
+    if (!verified.ok || !verified.value.items?.[0]?.text.includes('한국어 PDF 번역 검증')) {
+      throw new Error(`Bundled created PDF verification failed: ${JSON.stringify(verified)}`)
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+}
+
+console.log('[hermes-local-document-bundle-smoke] extraction and visible PDF creation passed')

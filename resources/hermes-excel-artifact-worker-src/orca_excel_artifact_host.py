@@ -64,6 +64,9 @@ def _run(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     for line in sys.stdin:
         if not line.strip():
             continue

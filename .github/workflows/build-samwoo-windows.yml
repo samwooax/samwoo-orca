@@ -112,6 +112,7 @@ jobs:
             src/main/ipc/hermes-excel-artifact-job-registry.test.ts `
             src/main/ipc/hermes-excel-artifact-protocol.test.ts `
             src/main/ipc/hermes-local-document-formats.test.ts `
+            src/main/ipc/hermes-local-office-documents.test.ts `
             src/main/ipc/hermes-local-document-protocol.test.ts `
             src/main/ipc/hermes-local-document-worker-operations.test.ts `
             src/main/ipc/hermes-local-project-documents.test.ts `

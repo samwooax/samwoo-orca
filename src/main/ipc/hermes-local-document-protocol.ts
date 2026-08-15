@@ -7,6 +7,7 @@ import type {
   LocalOfficeDocumentEdit,
   LocalPresentationTranslation
 } from './hermes-local-document-types'
+import { validPdfDocumentSpec } from './hermes-local-document-pdf-spec'
 
 export { LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT }
 export type * from './hermes-local-document-types'
@@ -96,6 +97,9 @@ function parseOfficeOperation(value: Record<string, unknown>): LocalDocumentOper
       !isRecord(value.documentSpec) ||
       JSON.stringify(value.documentSpec).length > 512_000
     ) {
+      return null
+    }
+    if (value.kind === 'create_pdf' && !validPdfDocumentSpec(value.documentSpec)) {
       return null
     }
     return {
@@ -206,8 +210,7 @@ function parseOperation(value: unknown): LocalDocumentOperation | null {
       !hasOnlyKeys(value, ['id', 'kind', 'path', 'cursor', 'limit']) ||
       (value.cursor !== undefined &&
         (!Number.isInteger(value.cursor) || Number(value.cursor) < 0)) ||
-      (value.limit !== undefined &&
-        (!Number.isInteger(value.limit) || Number(value.limit) < 1))
+      (value.limit !== undefined && (!Number.isInteger(value.limit) || Number(value.limit) < 1))
     ) {
       return null
     }

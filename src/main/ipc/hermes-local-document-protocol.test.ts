@@ -122,4 +122,55 @@ describe('Hermes local document protocol', () => {
     })
     expect(LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT).toContain('[일반 문서 생성·편집]')
   })
+
+  it('accepts visible PDF text elements and rejects blank or unsupported pages', () => {
+    const operation = {
+      id: 'pdf',
+      kind: 'create_pdf',
+      outputPath: 'translated.pdf',
+      documentSpec: {
+        pageSize: 'A4',
+        pages: [
+          {
+            elements: [
+              {
+                type: 'text',
+                x: 0.7,
+                y: 0.7,
+                width: 6.9,
+                height: 9.5,
+                fontSize: 11,
+                lineHeight: 15,
+                bold: false,
+                color: '#111111',
+                align: 'left',
+                text: '한국어 번역'
+              }
+            ]
+          }
+        ]
+      }
+    }
+    const envelope = (value: unknown): string =>
+      `<orca_local_documents>${JSON.stringify({ version: 1, operations: [value] })}</orca_local_documents>`
+
+    expect(parseLocalDocumentRequest(envelope(operation))).toMatchObject({
+      operations: [{ id: 'pdf', kind: 'create_pdf', outputPath: 'translated.pdf' }]
+    })
+    expect(
+      parseLocalDocumentRequest(
+        envelope({ ...operation, documentSpec: { pageSize: 'A4', pages: [{ elements: [] }] } })
+      )
+    ).toBeNull()
+    expect(
+      parseLocalDocumentRequest(
+        envelope({
+          ...operation,
+          documentSpec: { pageSize: 'A4', pages: [{ elements: [{ type: 'image' }] }] }
+        })
+      )
+    ).toBeNull()
+    expect(LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT).toContain('expectedSha256')
+    expect(LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT).toContain('textCharacterCount')
+  })
 })

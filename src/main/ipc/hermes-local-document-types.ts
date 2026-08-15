@@ -82,6 +82,7 @@ export type LocalDocumentResult = {
   format?: 'pdf' | 'xlsx' | 'pptx'
   sha256?: string
   pageCount?: number
+  textCharacterCount?: number
   slideCount?: number
   sheets?: LocalDocumentSheetSummary[]
   slides?: {
