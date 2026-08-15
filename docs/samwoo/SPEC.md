@@ -3,7 +3,7 @@
 > 이 문서는 SAMWOO-ORCA의 제품 결정, 현재 구현, 실제 배포 상태, 네트워크 구성, 제한값, 작업 대기열과 검증 기준을 함께 관리하는 **단일 진실(source of truth)**이다.
 > Codex와 Claude는 작업 전에 이 문서를 읽는다. 대화·지시서와 이 문서가 충돌하면 이 문서가 우선한다.
 > 비밀번호, Tailscale 인증 키, 코드서명 개인키, 메일 자격 증명 등 비밀값은 이 문서에 기록하지 않는다.
-> 최종 코드·운영 감사: 2026-08-16 · 저장소 버전: `1.4.201`
+> 최종 코드·운영 감사: 2026-08-16 · 저장소 버전: `1.4.202`
 
 ## 0. 상태 표기와 감사 범위
 
@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목             | 현재 상태                                     |
 | ---------------- | --------------------------------------------- |
-| 로컬 패키지 버전 | `1.4.201`                                     |
+| 로컬 패키지 버전 | `1.4.202`                                     |
 | 작업 브랜치      | `samwoo/upstream-v1.4.168`                    |
 | SAMWOO 원격      | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
@@ -150,7 +150,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - Electron과 frozen Python worker 사이의 JSONL은 UTF-8로 고정한다. worker staging은 사용자 파일명과 분리된 ASCII 이름이며 main이 성공·실패 모두 정리한 뒤 검증된 최종 파일만 원자적으로 commit한다.
 - 스캔 PDF OCR, 기존 PDF 본문의 무손실 임의 치환, LibreOffice 시각 preview, 매크로·ActiveX·OLE·전자서명 보존은 지원하지 않고 원본을 변경하지 않은 채 명시적으로 실패한다.
 
-문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.201` 릴리스 후보까지 통합됐다. malformed local tool envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청하고, PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. Excel create는 정확한 v1 필드 예시를 모델에 제공하고, `overwrite` 누락과 관측된 column/row/autofilter/validation 별칭만 충돌 없이 정규화한 뒤 동일한 worker schema·semantic validation을 적용한다. 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
+문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.202` 릴리스 후보까지 통합됐다. envelope JSON에 구조적으로 불가능한 위치의 닫는 delimiter가 있으면 main이 그 delimiter만 결정적으로 제거해 파싱하고, 문자열·값·필드는 바꾸지 않으며 잘린 JSON은 완성하지 않는다. 교정 후에도 기존 schema 검증을 통과해야 실행하며, 그 외 malformed envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청한다. PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. Excel create는 정확한 v1 필드 예시를 모델에 제공하고, `overwrite` 누락과 관측된 column/row/autofilter/validation 별칭만 충돌 없이 정규화한 뒤 동일한 worker schema·semantic validation을 적용한다. 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
 
 앱에는 Electron IPC가 기본 경로이며 `127.0.0.1:47821`의 토큰 보호 loopback 호환 서버도 남아 있다. 포트가 이미 사용 중이면 임시 포트로 물러난다. 이는 외부 네트워크에 공개하지 않는다.
 
@@ -462,7 +462,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.198` | draft 검증 완료          | XLSX typed cell 추출과 같은 대화의 첨부 재사용. Actions run `31874259265` 성공, 설치본 GUI 실측 전                                         |
 | `v1.4.199` | draft 검증 완료          | PDF element 실제 렌더링, UTF-8 worker 경로, 빈 PDF 검증·staging 정리와 정확한 `expectedSha256` prompt 보강. Actions run `31889692619` 성공 |
 | `v1.4.200` | draft 검증 완료          | malformed envelope 최대 2회 자동 교정과 PDF text element 6pt 자동 맞춤. Actions run `31891310064` 성공, 설치본 GUI 재실측 전               |
-| `v1.4.201` | draft 검증 완료          | PDF→XLSX 요청 정규화·단일 열 렌더링·구조화된 schema 오류 반환. Actions run `31894410900` 성공, 설치본 GUI 재실측 전                        |
+| `v1.4.201` | draft 유지·GUI 실측 실패 | PDF→XLSX 요청 정규화·단일 열 렌더링·구조화된 schema 오류 반환. Actions run `31894410900` 성공. 설치본 GUI에서 모델이 잉여 중괄호를 3회 반복해 PDF 생성 거부 확인 |
+| `v1.4.202` | release candidate        | envelope JSON의 구조적으로 불가능한 닫는 delimiter를 main이 결정적으로 제거해 실행. 실제 실패 응답 3건 재생·PDF→XLSX 순차 검증 통과, Windows Actions 대기       |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 

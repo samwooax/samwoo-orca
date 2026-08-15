@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-16, Git commit `5d3ff1a9a`, `package.json` 버전 `1.4.201`
+> 기준: 2026-08-16, Git commit `0f9ca9580`, `package.json` 버전 `1.4.202`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -608,7 +608,7 @@ Renderer HermesTeamChatView
 - 사용자 approval dialog를 거쳐 실행
 - 실행 파일과 Python package는 사용자 PC의 PATH/환경에 실제로 존재해야 함
 
-모델이 요청할 수 있는 local tool 실행은 한 사용자 요청당 최대 8회다. 이 값은 화면 작업 범위나 Python 코드 줄 수 제한이 아니라 **모델 응답 -> local tool 실행 -> 결과 반환** 반복 횟수다. JSON/schema가 잘못된 envelope는 아무 operation도 실행하지 않은 채 같은 모델 세션에 최대 두 번 교정 요청하며 이 회차는 실행 한도에 포함하지 않는다. 세 번째 malformed 응답은 `local_tool_protocol_invalid`로 종료한다. 8번째 실행 결과 뒤에는 도구를 실행하지 않는 최종 답변 전용 모델 회차를 한 번 허용한다. 해당 회차가 다시 도구를 요청하면 실행 전에 차단하고, 앞서 실행된 operation의 종류·대상·성공 여부를 실패 응답에 함께 반환한다.
+모델이 요청할 수 있는 local tool 실행은 한 사용자 요청당 최대 8회다. 이 값은 화면 작업 범위나 Python 코드 줄 수 제한이 아니라 **모델 응답 -> local tool 실행 -> 결과 반환** 반복 횟수다. envelope JSON에 구조적으로 불가능한 위치의 닫는 중괄호·대괄호가 있으면 main이 먼저 해당 delimiter만 결정적으로 제거해 파싱을 시도한다(`hermes-local-envelope-json-repair.ts`). 이 교정은 문자열·값·필드를 바꾸지 않고 잘린 JSON을 완성하지 않으며, 교정 후에도 기존 schema 검증을 그대로 통과해야 실행된다. 그 외의 잘못된 envelope는 아무 operation도 실행하지 않은 채 같은 모델 세션에 최대 두 번 교정 요청하며 이 회차는 실행 한도에 포함하지 않는다. 세 번째 malformed 응답은 `local_tool_protocol_invalid`로 종료한다. 8번째 실행 결과 뒤에는 도구를 실행하지 않는 최종 답변 전용 모델 회차를 한 번 허용한다. 해당 회차가 다시 도구를 요청하면 실행 전에 차단하고, 앞서 실행된 operation의 종류·대상·성공 여부를 실패 응답에 함께 반환한다.
 
 각 실행 결과는 `src/shared/hermes-team-chat-result.ts`의 `toolExecutions`로 최종 성공·실패·취소 응답에 보존된다. renderer는 이를 `hermes-team-chat-tool-execution-summary.ts`로 요약해 표시하므로, 마지막 모델 문장만 보고 이미 수행된 local write·command를 잃어버리지 않는다.
 
@@ -654,6 +654,7 @@ renderer `useSamwooScheduleRunner`
 | `local project tool execution limit reached`   | Hermes Team Chat loop                                  | 최대 8번의 local tool 실행 뒤 최종 답변 전용 회차에서도 추가 실행을 요청함                                                                  | 추가 요청은 실행하지 않으며 보존된 이전 실행 결과를 확인하고 새 사용자 요청에서 이어서 수행                                      |
 | `invalid local document envelope`              | Hermes local document parser                           | v1.4.196에서 모델이 추출 상한보다 큰 `limit`을 요청해 envelope 전체가 거부됨                                                                | v1.4.197부터 양의 초과값을 200으로 낮춰 실행하고 `nextCursor`로 후속 추출                                                        |
 | 추출 성공 뒤 `invalid local document envelope` | v1.4.199 Hermes document follow-up                     | 긴 `create_pdf` JSON 끝에 닫는 중괄호 하나를 더 출력해 JSON parse가 실패함                                                                  | v1.4.200부터 실행 전 같은 세션에 최대 두 번 exact envelope 교정을 요청하고 세 번째 실패만 사용자에게 반환                        |
+| 교정 요청 2회 뒤에도 같은 오류로 최종 실패     | v1.4.201 Hermes document follow-up                     | GPT-5.6 Terra가 message 4853/4855/4857에서 마지막 page 뒤 잉여 `}` 하나를 세 번 모두 동일하게 재출력해 모델 교정이 수렴하지 않음            | v1.4.202부터 main이 구조적으로 불가능한 닫는 delimiter만 결정적으로 제거해 즉시 실행하고, 그 외 malformed만 모델 교정으로 보냄   |
 | PDF가 페이지 수만 있고 비어 있음               | v1.4.198 PDF 생성 worker                               | 모델은 `pages[].elements`를 보냈지만 worker가 legacy `title/text`만 읽고 element를 무시했음                                                 | v1.4.199부터 strict PDF element spec을 공유하고 생성 뒤 페이지별 텍스트 재추출과 양수 `textCharacterCount`를 요구                |
 | 한글명이 깨진 `.orca-*.tmp.pdf`가 남음         | v1.4.198 Windows frozen worker IPC                     | UTF-8 JSONL을 Python redirected stdin의 로컬 코드페이지로 해석해 staging path가 달라졌음                                                    | v1.4.199부터 worker stdio를 UTF-8로 고정하고 ASCII staging 이름을 main이 소유하며 모든 종료 경로에서 제거                        |
 | `PDF text exceeds its element height`          | v1.4.199 PDF 생성 worker                               | 번역문이 모델이 지정한 text element 높이보다 길어 strict layout 검증이 실패함                                                               | v1.4.200부터 원래 비율로 6pt까지 자동 축소하고 그래도 맞지 않을 때만 staging을 제거하며 실패                                     |
