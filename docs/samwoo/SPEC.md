@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목             | 현재 상태                                     |
 | ---------------- | --------------------------------------------- |
-| 로컬 패키지 버전 | `1.4.196`                                     |
+| 로컬 패키지 버전 | `1.4.197`                                     |
 | 작업 브랜치      | `samwoo/upstream-v1.4.168`                    |
 | SAMWOO 원격      | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
@@ -149,7 +149,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - Python 3.13과 문서 engine은 Windows 설치본에 포함하며 사용자는 Python, pip, LibreOffice 또는 별도 package를 설치하지 않는다. capability는 main의 bundle integrity·engine probe가 성공할 때만 모델에 제공한다.
 - 스캔 PDF OCR, 기존 PDF 본문의 무손실 임의 치환, LibreOffice 시각 preview, 매크로·ActiveX·OLE·전자서명 보존은 지원하지 않고 원본을 변경하지 않은 채 명시적으로 실패한다.
 
-문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.196` 릴리스 후보에 통합됐다. Windows package/sign과 draft 자산 검증은 완료했으며 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
+문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.197` 릴리스 후보에 통합됐다. Windows package/sign과 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
 
 앱에는 Electron IPC가 기본 경로이며 `127.0.0.1:47821`의 토큰 보호 loopback 호환 서버도 남아 있다. 포트가 이미 사용 중이면 임시 포트로 물러난다. 이는 외부 네트워크에 공개하지 않는다.
 
@@ -159,6 +159,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - 텍스트 허용 확장자는 `.txt`, `.md`, `.csv`, `.json`, `.yaml`, `.yml`, `.log`이며 1개 최대 96KB다.
 - PDF/XLSX/PPTX/PNG/JPEG는 파일당 64MiB까지 허용하며 Electron main이 signature·확장자·해시를 확인하고 private artifact store에 보관한다.
 - Hermes Team Chat 탭에서 프로젝트 Explorer 파일을 선택하면 `@상대경로` 텍스트를 넣지 않고 main이 현재 local project root와 실제 파일을 다시 검증해 첨부한다. PDF/XLSX/PPTX/이미지는 private artifact로, 96KB 이하 UTF-8 파일은 text attachment로 전달한다.
+- 문서 추출은 호출당 최대 200개 item이다. 모델이 더 큰 양의 `limit`을 요청하면 main이 200으로 낮춰 실행하고 `nextCursor`로 이어 읽는다. 잘못된 0·음수·비정수 요청은 실행하지 않는다.
 - 클립보드 이미지는 임시 파일로 만든 뒤 원격에 전송하고 턴 종료 후 정리한다.
 - 일반 PNG/JPEG 파일 선택형 첨부도 같은 native picker에서 제공한다.
 - 과거 기록 정규화: 최대 24개 메시지, 메시지당 12,000자, 총 48,000자.
@@ -454,7 +455,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.193` | **공개 — 최신**          | Hermes 로컬 도구 프로토콜 검증·라운드 경계 수정·실행 결과 보존. Actions run `31581558831` 성공 및 공개 `latest.yml` 버전 `1.4.193` 확인   |
 | `v1.4.194` | draft 폐기 완료          | 최초 문서 도구 설치본. GUI 실측에서 packaged PDF.js의 `DOMMatrix` 런타임 누락이 XLSX까지 전파되어 미공개 초안 삭제                        |
 | `v1.4.195` | draft 폐기 완료          | PDF.js·생산 번들 추출은 검증됐으나 Explorer가 `@경로`만 넣는 첨부 회귀가 있어 미공개 초안 삭제                                             |
-| `v1.4.196` | draft 검증 완료          | Explorer 파일을 main 검증 뒤 실제 Team Chat 첨부로 admission. Actions run `31868556602` 성공, 설치본 GUI 재실측 전                          |
+| `v1.4.196` | draft 공개 금지          | Explorer 첨부는 복구됐으나 모델의 `extract limit:500`을 strict parser가 거부해 최종 요약이 실패                                               |
+| `v1.4.197` | build 대기               | 양의 문서 추출 초과값을 200으로 낮춰 실행하고 `nextCursor` 페이지네이션을 명시. Windows Actions·설치본 GUI 재실측 전                          |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 

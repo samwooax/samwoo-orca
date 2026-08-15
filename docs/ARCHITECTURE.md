@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-15, Git commit `b6ce7fd75`, `package.json` 버전 `1.4.196`
+> 기준: 2026-08-15, Git commit `81adb6770`, `package.json` 버전 `1.4.197`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -579,7 +579,7 @@ Renderer HermesTeamChatView
 - 입력·출력은 파일당 64MiB, 결과 합계는 768KiB다. legacy loopback Base64 경로는 호환용으로만 유지하고 96MiB body 상한을 둔다.
 - PDF는 최대 1,000페이지, 호출당 10페이지, 페이지당 32,000자까지 text layer를 추출한다. bundled worker는 텍스트 PDF 생성과 페이지 삭제·재배열·회전·병합, watermark, metadata 편집을 지원한다. 스캔 OCR과 기존 PDF의 임의 본문 치환은 아직 지원하지 않는다.
 - XLSX는 OOXML ZIP/XML에서 문자열 셀만 추출한다. 수식·숫자는 대상에서 제외하고 style·formula·chart·media archive entry를 유지한다.
-- XLSX 추출은 호출당 200셀, 적용은 128셀이다. 원문 문자열과 원본 SHA-256이 모두 같아야 하며 원본과 다른 신규 `.xlsx` project path로만 저장한다.
+- XLSX 추출은 호출당 200셀, 적용은 128셀이다. 모델이 200보다 큰 양의 `limit`을 요청하면 main parser가 200으로 낮춰 실행하고 `nextCursor`로 페이지네이션한다. 0·음수·비정수는 계속 거부한다. 원문 문자열과 원본 SHA-256이 모두 같아야 하며 원본과 다른 신규 `.xlsx` project path로만 저장한다.
 - PPTX는 슬라이드 순서대로 텍스트 문단과 표·차트·이미지 개수를 추출한다. 번역은 추출 문단과 원본 SHA-256 일치를 요구한다. bundled worker는 슬라이드·텍스트·도형·표·차트·이미지 생성과 텍스트 교체, 슬라이드 추가·삭제, 표 셀·요소 편집을 신규 `.pptx`로 저장한다.
 - 선택된 local project가 없는 직접 첨부 번역은 Electron main이 native save dialog를 열어 사용자가 목적지를 승인한다. 기존 파일을 덮어쓰지 않는다.
 - ZIP은 최대 4,096 entry, entry당 64MiB, 총 비압축 256MiB, XML당 16MiB다. DOCTYPE/ENTITY, archive path 탈출, 매크로·ActiveX·OLE, 외부 OOXML 관계를 거부한다.
@@ -651,6 +651,7 @@ renderer `useSamwooScheduleRunner`
 | `zlib.error: incorrect data check`           | 생성 스크립트 내부                                     | 모델이 만든 zlib/Base64 wrapper가 잘렸거나 잘못 생성됨                          | source 전송을 위해 임의 압축 wrapper를 쓰지 말고 content hash 기반 일반 text write 사용                                      |
 | `ModuleNotFoundError: xlsxwriter`            | v1.4.193 이하 또는 손상된 설치본                       | bundled Artifact worker가 없거나 구버전 command 환경을 사용함                   | 문서 worker가 포함된 Orca로 업데이트하고 capability probe 결과를 확인                                                        |
 | `local project tool execution limit reached` | Hermes Team Chat loop                                  | 최대 8번의 local tool 실행 뒤 최종 답변 전용 회차에서도 추가 실행을 요청함      | 추가 요청은 실행하지 않으며 보존된 이전 실행 결과를 확인하고 새 사용자 요청에서 이어서 수행                                  |
+| `invalid local document envelope`            | Hermes local document parser                           | v1.4.196에서 모델이 추출 상한보다 큰 `limit`을 요청해 envelope 전체가 거부됨    | v1.4.197부터 양의 초과값을 200으로 낮춰 실행하고 `nextCursor`로 후속 추출                                                     |
 | `<orca_local_commands>`가 그대로 답변에 보임 | Hermes protocol parser                                 | 잘못된 field, JSON/schema 또는 복수 envelope 때문에 도구 요청으로 인정되지 않음 | `local_tool_protocol_invalid`로 일반 답변과 분리하며 `mode`·`timeoutSeconds`와 단일 envelope를 사용                          |
 | `exit code 0`, 파일 존재만 확인              | 검증 단계 부족                                         | 생성 process 성공만 증명하며 레이아웃·수식·Office 호환성은 증명하지 않음        | OOXML open 검사, workbook 구조 검사, LibreOffice/Excel render 기반 시각 검증 추가                                            |
 
