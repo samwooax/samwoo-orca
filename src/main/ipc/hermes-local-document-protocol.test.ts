@@ -43,9 +43,9 @@ describe('Hermes local document protocol', () => {
     })
   })
 
-  it('rejects oversized extraction requests and duplicate translation targets', () => {
+  it('caps oversized extraction requests and rejects invalid translation targets', () => {
     const oversized =
-      '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"extract","path":"a.pdf","limit":201}]}</orca_local_documents>'
+      '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"extract","path":"a.pdf","limit":500}]}</orca_local_documents>'
     const duplicate = `<orca_local_documents>${JSON.stringify({
       version: 1,
       operations: [
@@ -63,7 +63,15 @@ describe('Hermes local document protocol', () => {
       ]
     })}</orca_local_documents>`
 
-    expect(parseLocalDocumentRequest(oversized)).toBeNull()
+    expect(parseLocalDocumentRequest(oversized)).toEqual({
+      version: 1,
+      operations: [{ id: 'pdf', kind: 'extract', path: 'a.pdf', limit: 200 }]
+    })
+    expect(
+      parseLocalDocumentRequest(
+        '<orca_local_documents>{"version":1,"operations":[{"id":"pdf","kind":"extract","path":"a.pdf","limit":0}]}</orca_local_documents>'
+      )
+    ).toBeNull()
     expect(parseLocalDocumentRequest(duplicate)).toBeNull()
     expect(
       parseLocalDocumentRequest(
@@ -74,6 +82,8 @@ describe('Hermes local document protocol', () => {
 
   it('keeps binary-document guidance and results in dedicated envelopes', () => {
     expect(LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT).toContain('PDF/XLSX/PPTX가 바이너리라')
+    expect(LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT).toContain('limit must be 1..200')
+    expect(LOCAL_PROJECT_DOCUMENT_PROTOCOL_PROMPT).toContain('nextCursor')
     expect(formatLocalDocumentResults([{ id: 'pdf', ok: true, pageCount: 3 }])).toBe(
       '<orca_local_document_results>{"version":1,"results":[{"id":"pdf","ok":true,"pageCount":3}]}</orca_local_document_results>'
     )

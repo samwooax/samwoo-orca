@@ -207,9 +207,7 @@ function parseOperation(value: unknown): LocalDocumentOperation | null {
       (value.cursor !== undefined &&
         (!Number.isInteger(value.cursor) || Number(value.cursor) < 0)) ||
       (value.limit !== undefined &&
-        (!Number.isInteger(value.limit) ||
-          Number(value.limit) < 1 ||
-          Number(value.limit) > MAX_EXTRACT_ITEMS))
+        (!Number.isInteger(value.limit) || Number(value.limit) < 1))
     ) {
       return null
     }
@@ -218,7 +216,9 @@ function parseOperation(value: unknown): LocalDocumentOperation | null {
       kind: value.kind,
       path: value.path,
       ...(value.cursor === undefined ? {} : { cursor: Number(value.cursor) }),
-      ...(value.limit === undefined ? {} : { limit: Number(value.limit) })
+      ...(value.limit === undefined
+        ? {}
+        : { limit: Math.min(Number(value.limit), MAX_EXTRACT_ITEMS) })
     }
   }
   return parseTranslationOperation(value)

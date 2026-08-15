@@ -5,7 +5,7 @@ When work requires PDF, XLSX, or PPTX content, do not use UTF-8 file reads. Retu
 <orca_local_documents>{"version":1,"operations":[...]}</orca_local_documents>
 Use at most four operations, each with a unique id. Supported operations:
 - inspect: {"id":"inspect-1","kind":"inspect","path":"relative-or-attached-file.xlsx"}
-- extract: {"id":"extract-1","kind":"extract","path":"file.pdf","cursor":0,"limit":200}
+- extract: {"id":"extract-1","kind":"extract","path":"file.pdf","cursor":0,"limit":200}. limit must be 1..200; larger values are capped to 200. If the result has nextCursor, repeat extract with that cursor to read more.
 - apply_xlsx_translation: include path, a new .xlsx outputPath, extract SHA-256, and translations with sheet, cell, sourceText, translatedText.
 - apply_pptx_translation: include path, a new .pptx outputPath, extract SHA-256, and translations with one-based slide, paragraph, sourceText, translatedText.
 - create_pptx/create_pdf: include outputPath and documentSpec.

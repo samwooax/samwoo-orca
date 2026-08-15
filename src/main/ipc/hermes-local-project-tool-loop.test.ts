@@ -38,6 +38,10 @@ const DOCUMENT_REPLY = `<orca_local_documents>
 {"version":1,"operations":[{"id":"pdf","kind":"extract","path":"report.pdf","cursor":0,"limit":10}]}
 </orca_local_documents>`
 
+const OVERSIZED_DOCUMENT_REPLY = `<orca_local_documents>
+{"version":1,"operations":[{"id":"xlsx","kind":"inspect","path":"@attachments/1-KPI.xlsx"},{"id":"extract","kind":"extract","path":"@attachments/1-KPI.xlsx","cursor":0,"limit":500}]}
+</orca_local_documents>`
+
 const ATTACHMENT_DOCUMENT_REPLY = `<orca_local_documents>
 {"version":1,"operations":[{"id":"pdf","kind":"extract","path":"@attachments/1-report.pdf","cursor":0,"limit":10}]}
 </orca_local_documents>`
@@ -132,6 +136,40 @@ describe('executeLocalProjectToolReply protocol admission', () => {
       '<orca_local_document_results>'
     )
     expect(onProgress).toHaveBeenCalledTimes(2)
+  })
+
+  it('caps a model-requested extraction limit before executing an attached workbook request', async () => {
+    executeLocalDocumentRequestMock.mockResolvedValue([
+      { id: 'xlsx', ok: true, path: '@attachments/1-KPI.xlsx', format: 'xlsx', sheets: [] },
+      { id: 'extract', ok: true, path: '@attachments/1-KPI.xlsx', format: 'xlsx', items: [] }
+    ])
+
+    const result = await executeLocalProjectToolReply({
+      reply: OVERSIZED_DOCUMENT_REPLY,
+      cwd: 'C:\\selected',
+      store: {} as never,
+      requestId: 'request-xlsx-limit',
+      documentAttachments: [{ path: '@attachments/1-KPI.xlsx', artifactId: 'artifact-kpi' }]
+    })
+
+    expect(executeLocalDocumentRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: {
+          version: 1,
+          operations: [
+            { id: 'xlsx', kind: 'inspect', path: '@attachments/1-KPI.xlsx' },
+            {
+              id: 'extract',
+              kind: 'extract',
+              path: '@attachments/1-KPI.xlsx',
+              cursor: 0,
+              limit: 200
+            }
+          ]
+        }
+      })
+    )
+    expect(result.kind).toBe('executed')
   })
 })
 
