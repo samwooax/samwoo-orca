@@ -9,6 +9,7 @@ import type {
   LocalDocumentResult
 } from './hermes-local-document-protocol'
 import { runLocalDocumentWorker } from './hermes-local-document-worker-client'
+import { runWorkerXlsxExtraction } from './hermes-local-document-xlsx-worker-extraction'
 import type { OfficeDocumentOperation } from './hermes-local-office-documents'
 
 const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024
@@ -66,6 +67,31 @@ async function readDocument(args: {
   return { content, format: documentFormat(args.path), target, hash: sha256(content) }
 }
 
+async function workerXlsxSourcePath(
+  args: {
+    attachments?: LocalDocumentAttachment[]
+    artifactStore?: HermesBinaryArtifactStore
+    conversationId: string
+    requestId: string
+  },
+  operationPath: string,
+  target: string | null
+): Promise<string | null> {
+  const attachment = args.attachments?.find((candidate) => candidate.path === operationPath)
+  if (!attachment) {
+    return target
+  }
+  if (!args.artifactStore) {
+    return null
+  }
+  const resolved = await args.artifactStore.resolveForWorker(
+    attachment.artifactId,
+    args.conversationId,
+    args.requestId
+  )
+  return resolved.path
+}
+
 async function saveNewDocument(path: string, content: Uint8Array): Promise<void> {
   if (content.byteLength > MAX_DOCUMENT_BYTES) {
     throw new Error('translated document exceeds the 64 MiB output limit')
@@ -119,6 +145,22 @@ export async function executeDocumentTranslationOperation(args: {
   const { operation } = args
   const source = await readDocument({ path: operation.path, ...args })
   if (operation.kind === 'inspect' || operation.kind === 'extract') {
+    if (source.format === 'xlsx' && source.content[0] === 0x50 && source.content[1] === 0x4b) {
+      const workerSource = await workerXlsxSourcePath(args, operation.path, source.target)
+      const routed = workerSource
+        ? await runWorkerXlsxExtraction({
+            kind: operation.kind,
+            sourcePath: workerSource,
+            sha256: source.hash,
+            cursor: operation.kind === 'extract' ? (operation.cursor ?? 0) : 0,
+            limit: operation.kind === 'extract' ? (operation.limit ?? 200) : 200,
+            requestId: args.requestId
+          })
+        : null
+      if (routed) {
+        return { id: operation.id, ok: true, path: operation.path, sha256: source.hash, ...routed }
+      }
+    }
     const processed = await runLocalDocumentWorker(
       operation.kind === 'inspect'
         ? { kind: 'inspect', format: source.format, data: source.content }

@@ -5,14 +5,19 @@ import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { executeLocalDocumentRequest } from './hermes-local-project-documents'
 
-const { resolveAuthorizedPathMock, runLocalDocumentWorkerMock } = vi.hoisted(() => ({
-  resolveAuthorizedPathMock: vi.fn(async (path: string) => resolve(path)),
-  runLocalDocumentWorkerMock: vi.fn()
-}))
+const { resolveAuthorizedPathMock, runLocalDocumentWorkerMock, runWorkerXlsxExtractionMock } =
+  vi.hoisted(() => ({
+    resolveAuthorizedPathMock: vi.fn(async (path: string) => resolve(path)),
+    runLocalDocumentWorkerMock: vi.fn(),
+    runWorkerXlsxExtractionMock: vi.fn()
+  }))
 
 vi.mock('./filesystem-auth', () => ({ resolveAuthorizedPath: resolveAuthorizedPathMock }))
 vi.mock('./hermes-local-document-worker-client', () => ({
   runLocalDocumentWorker: runLocalDocumentWorkerMock
+}))
+vi.mock('./hermes-local-document-xlsx-worker-extraction', () => ({
+  runWorkerXlsxExtraction: runWorkerXlsxExtractionMock
 }))
 
 const temporaryDirectories: string[] = []
@@ -20,6 +25,7 @@ const temporaryDirectories: string[] = []
 beforeEach(() => {
   resolveAuthorizedPathMock.mockClear()
   runLocalDocumentWorkerMock.mockReset()
+  runWorkerXlsxExtractionMock.mockReset().mockResolvedValue(null)
 })
 
 afterEach(async () => {
@@ -70,6 +76,75 @@ describe('executeLocalDocumentRequest', () => {
       }
     ])
     expect(resolveAuthorizedPathMock).not.toHaveBeenCalled()
+  })
+
+  it('routes attached XLSX inspection through the streaming worker when available', async () => {
+    const content = Buffer.from([0x50, 0x4b, 0x03, 0x04])
+    const sheets = [
+      { name: 'Sheet1', cellCount: 3, textCellCount: 2, numericCellCount: 1, formulaCellCount: 0 }
+    ]
+    runWorkerXlsxExtractionMock.mockResolvedValue({ format: 'xlsx', sheets })
+
+    const results = await executeLocalDocumentRequest({
+      cwd: '',
+      store: {} as never,
+      artifactStore: {
+        read: vi.fn().mockResolvedValue(content),
+        resolveForWorker: vi
+          .fn()
+          .mockResolvedValue({ artifactId: 'artifact-arrears', path: 'C:\\artifacts\\arrears.xlsx' })
+      } as never,
+      conversationId: 'conversation',
+      requestId: 'request-worker-route',
+      attachments: [{ path: '@attachments/1-arrears.xlsx', artifactId: 'artifact-arrears' }],
+      request: {
+        version: 1,
+        operations: [{ id: 'xlsx', kind: 'inspect', path: '@attachments/1-arrears.xlsx' }]
+      }
+    })
+
+    expect(results).toMatchObject([{ id: 'xlsx', ok: true, format: 'xlsx', sheets }])
+    expect(runWorkerXlsxExtractionMock).toHaveBeenCalledWith({
+      kind: 'inspect',
+      sourcePath: 'C:\\artifacts\\arrears.xlsx',
+      sha256: createHash('sha256').update(content).digest('hex'),
+      cursor: 0,
+      limit: 200,
+      requestId: 'request-worker-route'
+    })
+    expect(runLocalDocumentWorkerMock).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the in-process parser when the streaming worker is unavailable', async () => {
+    const content = Buffer.from([0x50, 0x4b, 0x03, 0x04])
+    runWorkerXlsxExtractionMock.mockResolvedValue(null)
+    runLocalDocumentWorkerMock.mockResolvedValue({ format: 'xlsx', sheets: [], items: [] })
+
+    const results = await executeLocalDocumentRequest({
+      cwd: '',
+      store: {} as never,
+      artifactStore: {
+        read: vi.fn().mockResolvedValue(content),
+        resolveForWorker: vi
+          .fn()
+          .mockResolvedValue({ artifactId: 'artifact-small', path: 'C:\\artifacts\\small.xlsx' })
+      } as never,
+      conversationId: 'conversation',
+      requestId: 'request-node-fallback',
+      attachments: [{ path: '@attachments/1-small.xlsx', artifactId: 'artifact-small' }],
+      request: {
+        version: 1,
+        operations: [
+          { id: 'xlsx', kind: 'extract', path: '@attachments/1-small.xlsx', cursor: 0, limit: 10 }
+        ]
+      }
+    })
+
+    expect(results).toMatchObject([{ id: 'xlsx', ok: true, format: 'xlsx' }])
+    expect(runLocalDocumentWorkerMock).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'extract', format: 'xlsx', cursor: 0, limit: 10 }),
+      'request-node-fallback'
+    )
   })
 
   it('writes an attached XLSX translation to a new project file without overwriting', async () => {

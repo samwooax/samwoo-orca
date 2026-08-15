@@ -15,6 +15,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Inches, Pt
 from orca_excel_artifact.inputs import inspect_input
 from orca_pdf_documents import create_pdf, edit_pdf
+from orca_xlsx_extraction import run_xlsx_extraction_job
 
 
 MAX_FILE_BYTES = 64 * 1024 * 1024
@@ -282,6 +283,8 @@ def _edit_pptx(request: Mapping[str, Any], output: Path, artifacts: Mapping[str,
 
 def run_document_job(value: Mapping[str, Any]) -> dict[str, Any]:
     action = str(value.get("action"))
+    if action in ("inspect_xlsx", "extract_xlsx"):
+        return run_xlsx_extraction_job(value)
     output = _path(value.get("outputPath"), must_exist=False)
     output.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     artifacts = {

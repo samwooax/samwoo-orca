@@ -116,6 +116,7 @@ jobs:
             src/main/ipc/hermes-local-document-protocol.test.ts `
             src/main/ipc/hermes-local-envelope-json-repair.test.ts `
             src/main/ipc/hermes-local-document-worker-operations.test.ts `
+            src/main/ipc/hermes-local-document-xlsx-worker-extraction.test.ts `
             src/main/ipc/hermes-local-project-documents.test.ts `
             src/main/ipc/hermes-local-project-tool-loop.test.ts `
             src/main/ipc/hermes-team-chat-attachment-normalization.test.ts `
