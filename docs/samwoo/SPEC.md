@@ -150,7 +150,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - Electron과 frozen Python worker 사이의 JSONL은 UTF-8로 고정한다. worker staging은 사용자 파일명과 분리된 ASCII 이름이며 main이 성공·실패 모두 정리한 뒤 검증된 최종 파일만 원자적으로 commit한다.
 - 스캔 PDF OCR, 기존 PDF 본문의 무손실 임의 치환, LibreOffice 시각 preview, 매크로·ActiveX·OLE·전자서명 보존은 지원하지 않고 원본을 변경하지 않은 채 명시적으로 실패한다.
 
-문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.200` 릴리스 후보까지 통합됐다. malformed local tool envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청하고, PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. v1.4.199 GUI에서 실패한 실제 6쪽 응답은 JSON delimiter 하나만 교정한 뒤 6쪽 모두 4,909자 이상의 text layer로 생성됨을 확인했다. 새 Windows package/sign과 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
+문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.200` 릴리스 후보까지 통합됐다. malformed local tool envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청하고, PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. v1.4.199 GUI에서 실패한 실제 6쪽 응답은 JSON delimiter 하나만 교정한 뒤 6쪽 모두 4,909자 이상의 text layer로 생성됨을 확인했고 Actions run `31891310064`의 Windows package/sign·draft 자산 검증도 통과했다. 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
 
 앱에는 Electron IPC가 기본 경로이며 `127.0.0.1:47821`의 토큰 보호 loopback 호환 서버도 남아 있다. 포트가 이미 사용 중이면 임시 포트로 물러난다. 이는 외부 네트워크에 공개하지 않는다.
 
@@ -461,7 +461,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.197` | draft 검증 완료          | 양의 문서 추출 초과값을 200으로 낮춰 실행하고 `nextCursor` 명시. Actions run `31871806940` 성공, 설치본 GUI 재실측 전                          |
 | `v1.4.198` | draft 검증 완료          | XLSX typed cell 추출과 같은 대화의 첨부 재사용. Actions run `31874259265` 성공, 설치본 GUI 실측 전                                             |
 | `v1.4.199` | draft 검증 완료          | PDF element 실제 렌더링, UTF-8 worker 경로, 빈 PDF 검증·staging 정리와 정확한 `expectedSha256` prompt 보강. Actions run `31889692619` 성공        |
-| `v1.4.200` | draft 빌드 대기          | malformed envelope 최대 2회 자동 교정과 PDF text element 6pt 자동 맞춤. v1.4.199 실제 실패 응답 재생 검증                                    |
+| `v1.4.200` | draft 검증 완료          | malformed envelope 최대 2회 자동 교정과 PDF text element 6pt 자동 맞춤. Actions run `31891310064` 성공, 설치본 GUI 재실측 전                   |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 

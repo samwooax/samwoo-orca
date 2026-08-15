@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.200 로컬 검증 완료·draft build/GUI 재실측 대기               | 463c01f4a, 63fad0b08, cc680547f, run 31889692619                       |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.200 draft 검증 완료·설치본 GUI 재실측 대기                   | 63fad0b08, cc680547f, f145a0d12, run 31891310064                       |
 
 ## 웨이브 상세
 
@@ -171,4 +171,5 @@
 - 당시 `murataoverview` 6쪽 요청을 source worker에 그대로 재생해 6쪽·Pypdf 추출 3,552자와 PDF.js 전 페이지 한국어 재추출을 확인했다. PyInstaller frozen worker도 한글 파일명 생성→PDF.js 재추출을 통과했고, 빈 결과는 최종 commit 전 실패하며 staging만 제거하는 회귀 테스트를 추가했다.
 - Actions run `31889692619`에서 v1.4.199 Windows 통합 검사, 번들 워커 한글 PDF 생성·재추출, package/sign과 draft 업로드가 성공했다. 설치본 241,453,112바이트의 GitHub SHA-256 `c5c74f7f873b53e5a578092740728b88a23dd13564c57f711839e876db8009c9`, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했다.
 - v1.4.199 GUI 재실측에서 PDF extract는 성공했지만 Hermes message `4833`의 6쪽 `create_pdf` 응답 끝에 닫는 중괄호가 하나 더 있어 JSON parse 전에 거부됐다. delimiter 하나만 교정하면 번역문이 일부 text element 높이를 넘어 다음 단계에서도 실패하는 것을 확인했다. `cc680547f`에서 malformed envelope를 operation 실행 전 최대 두 번 모델에 교정시키고, PDF font/line-height를 원래 비율로 6pt까지 자동 맞춤한다. 해당 실제 응답은 6쪽·전 페이지 text·worker 4,909자로 생성됐고 반복 malformed 응답은 세 번째에 실행 없이 실패하는 테스트를 통과했다.
-- 남은 단계: v1.4.200 Windows package/sign·draft 자산을 검증하고, 설치본에서 PDF 번역 자동 교정·맞춤과 실패 cleanup, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다.
+- Actions run `31891310064`에서 v1.4.200 Windows 통합 검사, 긴 한국어 본문의 번들 worker 자동 맞춤·재추출, package/sign과 draft 업로드가 성공했다. 설치본 241,454,176바이트의 GitHub SHA-256 `f628bd2b3533d21b13954ea949a3b0ee5696186488bbdce4c3db8bfe6e491c72`, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했다.
+- 남은 단계: 설치본에서 PDF 번역 자동 교정·맞춤과 실패 cleanup, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다.
