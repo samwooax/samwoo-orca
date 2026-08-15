@@ -21,6 +21,25 @@ async function readTextAttachment(path: string): Promise<TeamChatTextAttachment>
   return { kind: 'text', name: path.split(/[\\/]/).at(-1) ?? 'attachment.txt', content }
 }
 
+export async function admitTeamChatAttachmentFile(args: {
+  path: string
+  conversationId: string
+  artifactStore: HermesBinaryArtifactStore
+  allowAnyUtf8Text?: boolean
+}): Promise<PickTeamChatAttachmentsResult['attachments'][number]> {
+  const extension = extname(args.path).toLowerCase()
+  if (
+    TEXT_EXTENSIONS.has(extension) ||
+    (args.allowAnyUtf8Text && !BINARY_EXTENSIONS.has(extension))
+  ) {
+    return readTextAttachment(args.path)
+  }
+  if (BINARY_EXTENSIONS.has(extension)) {
+    return args.artifactStore.ingestFile(args.path, args.conversationId)
+  }
+  throw new Error('unsupported attachment type')
+}
+
 export async function pickTeamChatAttachments(args: {
   event: IpcMainInvokeEvent
   conversationId: string
@@ -64,15 +83,14 @@ export async function pickTeamChatAttachments(args: {
   const attachments: PickTeamChatAttachmentsResult['attachments'] = []
   const rejected = result.filePaths.slice(paths.length).map((path) => path.split(/[\\/]/).at(-1)!)
   for (const path of paths) {
-    const extension = extname(path).toLowerCase()
     try {
-      if (TEXT_EXTENSIONS.has(extension)) {
-        attachments.push(await readTextAttachment(path))
-      } else if (BINARY_EXTENSIONS.has(extension)) {
-        attachments.push(await args.artifactStore.ingestFile(path, args.conversationId))
-      } else {
-        throw new Error('unsupported attachment type')
-      }
+      attachments.push(
+        await admitTeamChatAttachmentFile({
+          path,
+          conversationId: args.conversationId,
+          artifactStore: args.artifactStore
+        })
+      )
     } catch {
       rejected.push(path.split(/[\\/]/).at(-1) ?? 'attachment')
     }

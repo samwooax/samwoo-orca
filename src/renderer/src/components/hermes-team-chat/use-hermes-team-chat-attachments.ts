@@ -7,7 +7,10 @@ import {
   type RefObject
 } from 'react'
 import { translate } from '@/i18n/i18n'
-import type { TeamChatAttachment } from '../../../../shared/hermes-team-chat-attachments'
+import type {
+  PickTeamChatAttachmentsResult,
+  TeamChatAttachment
+} from '../../../../shared/hermes-team-chat-attachments'
 
 const MAX_ATTACHMENTS = 5
 
@@ -20,11 +23,13 @@ type AttachmentState = {
 export function useHermesTeamChatAttachments(
   textareaRef: RefObject<HTMLTextAreaElement | null>,
   disabled: boolean,
-  conversationId: string
+  conversationId: string,
+  projectRoot: string
 ): {
   attachments: TeamChatAttachment[]
   attachmentNotice: string | null
   clearAttachments: () => void
+  attachProjectFile: (relativePath: string) => boolean
   pickAttachments: () => Promise<void>
   pasteClipboardImage: ClipboardEventHandler<HTMLTextAreaElement>
   removeAttachment: (attachment: TeamChatAttachment) => void
@@ -45,6 +50,7 @@ export function useHermesTeamChatAttachments(
   const conversationIdRef = useRef(conversationId)
   conversationIdRef.current = conversationId
   const pickingRef = useRef(false)
+  const pendingProjectAttachmentsRef = useRef(0)
 
   const releaseArtifacts = useCallback(
     (items: TeamChatAttachment[], ownerConversationId: string) => {
@@ -96,6 +102,47 @@ export function useHermesTeamChatAttachments(
     [conversationId]
   )
 
+  const acceptAttachmentResult = useCallback(
+    (result: PickTeamChatAttachmentsResult, ownerConversationId: string) => {
+      if (
+        disabledRef.current ||
+        result.cancelled ||
+        conversationIdRef.current !== ownerConversationId
+      ) {
+        releaseArtifacts(result.attachments, ownerConversationId)
+        return
+      }
+      const current =
+        stateRef.current.conversationId === ownerConversationId ? stateRef.current.items : []
+      const available = Math.max(0, MAX_ATTACHMENTS - current.length)
+      const accepted = result.attachments.slice(0, available)
+      const overflow = result.attachments.slice(available)
+      releaseArtifacts(overflow, ownerConversationId)
+      const notice =
+        result.rejected.length > 0
+          ? translate(
+              'auto.components.HermesTeamChatView.attachmentRejected',
+              'Some files were not attached. Supported files are PDF, Excel, PowerPoint, images, and UTF-8 text.'
+            )
+          : overflow.length > 0
+            ? translate(
+                'auto.components.HermesTeamChatView.attachmentLimit',
+                'You can attach up to 5 files.'
+              )
+            : null
+      const next: AttachmentState = {
+        conversationId: ownerConversationId,
+        items: [...current, ...accepted],
+        notice
+      }
+      stateRef.current = next
+      attachmentsRef.current = next.items
+      setState(next)
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    },
+    [releaseArtifacts, textareaRef]
+  )
+
   const pickAttachments = useCallback(async () => {
     if (
       pickingRef.current ||
@@ -110,23 +157,7 @@ export function useHermesTeamChatAttachments(
         conversationId,
         remainingSlots: MAX_ATTACHMENTS - attachmentsRef.current.length
       })
-      if (disabledRef.current || result.cancelled || conversationIdRef.current !== conversationId) {
-        releaseArtifacts(result.attachments, conversationId)
-        return
-      }
-      const available = MAX_ATTACHMENTS - attachmentsRef.current.length
-      const accepted = result.attachments.slice(0, available)
-      releaseArtifacts(result.attachments.slice(available), conversationId)
-      updateItems((current) => [...current, ...accepted].slice(0, MAX_ATTACHMENTS))
-      updateNotice(
-        result.rejected.length > 0
-          ? translate(
-              'auto.components.HermesTeamChatView.attachmentRejected',
-              'Some files were not attached. Supported files are PDF, Excel, PowerPoint, images, and UTF-8 text.'
-            )
-          : null
-      )
-      requestAnimationFrame(() => textareaRef.current?.focus())
+      acceptAttachmentResult(result, conversationId)
     } catch (error) {
       if (!disabledRef.current && conversationIdRef.current === conversationId) {
         updateNotice(
@@ -141,7 +172,48 @@ export function useHermesTeamChatAttachments(
     } finally {
       pickingRef.current = false
     }
-  }, [conversationId, releaseArtifacts, textareaRef, updateItems, updateNotice])
+  }, [acceptAttachmentResult, conversationId, updateNotice])
+
+  const attachProjectFile = useCallback(
+    (relativePath: string): boolean => {
+      if (disabledRef.current || !projectRoot.trim()) {
+        return false
+      }
+      if (attachmentsRef.current.length + pendingProjectAttachmentsRef.current >= MAX_ATTACHMENTS) {
+        updateNotice(
+          translate(
+            'auto.components.HermesTeamChatView.attachmentLimit',
+            'You can attach up to 5 files.'
+          )
+        )
+        return true
+      }
+      pendingProjectAttachmentsRef.current += 1
+      void window.api.preflight
+        .attachHermesTeamChatProjectFile({ conversationId, cwd: projectRoot, relativePath })
+        .then((result) => acceptAttachmentResult(result, conversationId))
+        .catch((error: unknown) => {
+          if (!disabledRef.current && conversationIdRef.current === conversationId) {
+            updateNotice(
+              error instanceof Error
+                ? error.message
+                : translate(
+                    'auto.components.HermesTeamChatView.attachmentRejected',
+                    'Some files were not attached. Supported files are PDF, Excel, PowerPoint, images, and UTF-8 text.'
+                  )
+            )
+          }
+        })
+        .finally(() => {
+          pendingProjectAttachmentsRef.current = Math.max(
+            0,
+            pendingProjectAttachmentsRef.current - 1
+          )
+        })
+      return true
+    },
+    [acceptAttachmentResult, conversationId, projectRoot, updateNotice]
+  )
 
   const pasteClipboardImage = useCallback<ClipboardEventHandler<HTMLTextAreaElement>>(
     (event) => {
@@ -217,6 +289,7 @@ export function useHermesTeamChatAttachments(
   return {
     attachments,
     attachmentNotice,
+    attachProjectFile,
     clearAttachments,
     pickAttachments,
     pasteClipboardImage,

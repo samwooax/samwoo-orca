@@ -2173,6 +2173,8 @@ const api = {
       ipcRenderer.invoke('hermes:sendTeamChat', args),
     pickHermesTeamChatAttachments: (args) =>
       ipcRenderer.invoke('hermes:pickTeamChatAttachments', args),
+    attachHermesTeamChatProjectFile: (args) =>
+      ipcRenderer.invoke('hermes:attachTeamChatProjectFile', args),
     releaseHermesTeamChatArtifact: (args) =>
       ipcRenderer.invoke('hermes:releaseTeamChatArtifact', args),
     runHermesLocalShellCommand: (

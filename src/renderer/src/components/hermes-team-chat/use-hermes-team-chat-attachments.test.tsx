@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   saveClipboardImageAsTempFile: vi.fn(),
   pickHermesTeamChatAttachments: vi.fn(),
+  attachHermesTeamChatProjectFile: vi.fn(),
   releaseHermesTeamChatArtifact: vi.fn()
 }))
 
@@ -18,6 +19,7 @@ Object.assign(window, {
     ui: { saveClipboardImageAsTempFile: mocks.saveClipboardImageAsTempFile },
     preflight: {
       pickHermesTeamChatAttachments: mocks.pickHermesTeamChatAttachments,
+      attachHermesTeamChatProjectFile: mocks.attachHermesTeamChatProjectFile,
       releaseHermesTeamChatArtifact: mocks.releaseHermesTeamChatArtifact
     }
   }
@@ -30,7 +32,7 @@ type HookApi = ReturnType<typeof useHermesTeamChatAttachments>
 
 function Probe({ onReady }: { onReady: (api: HookApi) => void }): React.JSX.Element {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  onReady(useHermesTeamChatAttachments(textareaRef, false, 'conversation-one'))
+  onReady(useHermesTeamChatAttachments(textareaRef, false, 'conversation-one', 'C:\\project'))
   return createElement('textarea', { ref: textareaRef })
 }
 
@@ -116,6 +118,37 @@ describe('useHermesTeamChatAttachments', () => {
     expect(latest().attachments).toEqual([
       { kind: 'image', name: 'pasted-image.png', path: '/tmp/orca-paste-1-id.png' }
     ])
+  })
+
+  it('admits an Explorer file as an attachment without adding an @ path', async () => {
+    const attachment = {
+      kind: 'artifact' as const,
+      artifactId: 'artifact-00000000-0000-4000-8000-000000000001',
+      name: 'KPI.xlsx',
+      artifactKind: 'xlsx' as const,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      sizeBytes: 4,
+      sha256: 'b'.repeat(64)
+    }
+    mocks.attachHermesTeamChatProjectFile.mockResolvedValue({
+      cancelled: false,
+      attachments: [attachment],
+      rejected: []
+    })
+    const latest = await renderProbe()
+
+    await act(async () => {
+      expect(latest().attachProjectFile('reports/KPI.xlsx')).toBe(true)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(mocks.attachHermesTeamChatProjectFile).toHaveBeenCalledWith({
+      conversationId: 'conversation-one',
+      cwd: 'C:\\project',
+      relativePath: 'reports/KPI.xlsx'
+    })
+    expect(latest().attachments).toEqual([attachment])
   })
 
   it('leaves ordinary text paste to the textarea', async () => {

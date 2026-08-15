@@ -548,6 +548,7 @@ Renderer HermesTeamChatView
 - local chat HTTP server는 loopback에만 bind하고 app userData의 제한 권한 token file로 요청을 인증한다.
 - chat URL query에는 profile, label, host, cwd와 현재 `mailtoken`이 포함된다. 실제 화면은 BrowserPane이 해당 route를 인식해 native React view로 대체한다.
 - native file picker는 96KB 이하 UTF-8 텍스트와 64MiB 이하 PDF/XLSX/PPTX/PNG/JPEG를 구분한다. binary는 renderer/Base64에 싣지 않고 Electron main의 private artifact store로 복사·해시한 뒤 opaque ID만 renderer에 반환한다.
+- Hermes Team Chat 탭이 활성일 때 project Explorer의 파일 선택은 Native Chat용 `@상대경로` 문자열을 삽입하지 않는다. Renderer는 현재 chat route의 local project root와 Explorer relative path를 main에 보내고, main은 Store 허용 root·canonical containment·regular file을 다시 확인한 뒤 binary는 같은 private artifact store로, 96KB 이하 UTF-8 파일은 text attachment로 admission한다.
 - artifact는 conversation/request에 결합하고 1시간 TTL, 요청 종료·제거·앱 종료 시 정리한다. 붙여넣은 이미지는 기존 임시 파일·SSH upload 호환 경로를 사용한다.
 
 표시 history, model/effort와 conversation ID는 renderer localStorage가 소유하고, main은 in-flight controller와 Hermes ACP process를 소유한다. Conversation당 active request는 하나로 직렬화하며 host/profile/mail token이 바뀌거나 process가 닫히면 session을 교체하고 30분 idle 뒤 정리한다. Loopback server의 send/cancel/close는 chat token을 요구하지만 direct Electron IPC는 trusted preload/renderer 경계를 신뢰한다.

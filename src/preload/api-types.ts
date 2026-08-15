@@ -807,6 +807,11 @@ export type PreflightApi = {
     conversationId: string
     remainingSlots: number
   }) => Promise<PickTeamChatAttachmentsResult>
+  attachHermesTeamChatProjectFile: (args: {
+    conversationId: string
+    cwd: string
+    relativePath: string
+  }) => Promise<PickTeamChatAttachmentsResult>
   releaseHermesTeamChatArtifact: (args: {
     conversationId: string
     artifactId: string

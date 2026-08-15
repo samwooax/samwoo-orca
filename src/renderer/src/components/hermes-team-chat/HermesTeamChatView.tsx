@@ -6,7 +6,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { NativeChatMessageList } from '@/components/native-chat/NativeChatMessageList'
 import { NativeChatComposerActions } from '@/components/native-chat/NativeChatComposerActions'
 import { useNativeChatFileReference } from '@/components/native-chat/use-native-chat-file-reference'
-import { buildNativeChatFileReferenceInsertion } from '@/components/native-chat/native-chat-file-reference'
 import type { NativeChatLiveSession } from '@/components/native-chat/use-native-chat-live-session'
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
 import {
@@ -76,11 +75,12 @@ export function HermesTeamChatView({
   const {
     attachments,
     attachmentNotice,
+    attachProjectFile,
     clearAttachments,
     pasteClipboardImage,
     pickAttachments,
     removeAttachment
-  } = useHermesTeamChatAttachments(textareaRef, busy, conversationId)
+  } = useHermesTeamChatAttachments(textareaRef, busy, conversationId, route.cwd)
 
   useEffect(() => {
     localStorage.setItem(
@@ -112,33 +112,8 @@ export function HermesTeamChatView({
     [changeModel, effort, model]
   )
 
-  const insertFileReference = useCallback(
-    (relativePath: string): boolean => {
-      const textarea = textareaRef.current
-      if (!textarea || textarea.disabled) {
-        return false
-      }
-      const start = textarea.selectionStart ?? draft.length
-      const end = textarea.selectionEnd ?? start
-      const insertion = buildNativeChatFileReferenceInsertion({
-        draft,
-        selectionStart: start,
-        selectionEnd: end,
-        relativePath
-      })
-      const next = `${draft.slice(0, start)}${insertion}${draft.slice(end)}`
-      setDraft(next)
-      requestAnimationFrame(() => {
-        textarea.focus()
-        const caret = start + insertion.length
-        textarea.setSelectionRange(caret, caret)
-      })
-      return true
-    },
-    [draft]
-  )
-  const fileReferenceHandle = useRef({ insertFileReference })
-  fileReferenceHandle.current.insertFileReference = insertFileReference
+  const fileReferenceHandle = useRef({ insertFileReference: attachProjectFile })
+  fileReferenceHandle.current.insertFileReference = attachProjectFile
   useNativeChatFileReference(tabId, fileReferenceHandle)
 
   const send = useCallback(async () => {

@@ -279,7 +279,7 @@ export function registerHermesChatServerHandlers(store: Store): void {
         : false
     return { ok: true, closed }
   })
-  registerTeamChatArtifactHandlers(artifactStore)
+  registerTeamChatArtifactHandlers(artifactStore, store)
   registerHermesTeamChatAppCleanup(app, async () => {
     await closeAllTeamChatConversations()
     await artifactStore.close()

@@ -2845,6 +2845,11 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
       attachments: [],
       rejected: []
     }),
+    attachHermesTeamChatProjectFile: async () => ({
+      cancelled: false,
+      attachments: [],
+      rejected: ['Local project attachments are unavailable in the web client']
+    }),
     releaseHermesTeamChatArtifact: async () => ({ ok: true, released: false }),
     runHermesLocalShellCommand: async () => ({
       ok: false,

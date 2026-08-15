@@ -155,9 +155,15 @@ describe('activateFileExplorerNode', () => {
       path: '/repo/src/server.ts',
       relativePath: 'src/server.ts',
       isDirectory: false,
-      depth: 1
+      depth: 1,
+      operationOwner: { kind: 'local' }
     }
     const openFile = vi.fn()
+    useAppStore.setState({
+      worktreesByRepo: {
+        'repo-1': [{ id: 'wt-1', repoId: 'repo-1', path: '/repo', hostId: 'local' } as never]
+      }
+    })
     const referenceFileInChat = vi.fn().mockReturnValue(true)
 
     await activateFileExplorerNode({
@@ -182,9 +188,15 @@ describe('activateFileExplorerNode', () => {
       path: '/repo/src/server.ts',
       relativePath: 'src/server.ts',
       isDirectory: false,
-      depth: 1
+      depth: 1,
+      operationOwner: { kind: 'local' }
     }
     const openFile = vi.fn()
+    useAppStore.setState({
+      worktreesByRepo: {
+        'repo-1': [{ id: 'wt-1', repoId: 'repo-1', path: '/repo', hostId: 'local' } as never]
+      }
+    })
 
     await activateFileExplorerNode({
       node: fileNode,

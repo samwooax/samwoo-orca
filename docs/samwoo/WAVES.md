@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.195 draft·번들 추출·서명 검증 완료, GUI 재실측 대기          | b730f5494, b12d4ede7, run 31686946817                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.195 draft 검증 후 Explorer 첨부 회귀 수정·재빌드 대기        | b730f5494, b12d4ede7, run 31686946817                                  |
 
 ## 웨이브 상세
 
@@ -161,4 +161,5 @@
 - Actions run `31684130573`에서 Windows package/sign과 draft 업로드가 성공했다. 설치본은 231,716,992바이트이며 GitHub SHA-256, `latest.yml` SHA-512·크기·관리자 권한 플래그, SAMWOO 내부 Authenticode 서명을 재검증했다. worker build source와 `.venv`는 app.asar에서 제외하고 실행용 worker 한 벌만 ordinary resource로 포함했다.
 - v1.4.194 GUI 실측에서 PDF.js의 Node canvas runtime 누락으로 `DOMMatrix is not defined`가 발생했고 정적 PDF import 때문에 XLSX/PPTX 요청도 함께 실패하는 것을 확인했다. PDF lazy-load, 플랫폼별 `@napi-rs/canvas`, 명시적 `pdf.worker.mjs` 경로를 추가했으며 생산 번들 worker에서 XLSX와 PDF 실제 추출을 통과했다.
 - Actions run `31686946817`에서 생산 번들 XLSX/PDF 실제 추출, Windows package/sign, draft 업로드가 성공했다. 설치본 241,432,768바이트의 GitHub SHA-256, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했고, 깨진 v1.4.194 미공개 draft는 삭제했다.
-- 남은 단계: v1.4.195 설치본 PDF/XLSX/PPTX 첨부·native save GUI 재실측 후 draft 공개.
+- v1.4.195 GUI 실측에서 Team Chat 탭이 활성인 동안 Explorer 파일 선택이 Native Chat용 `@상대경로`만 입력하고 실제 첨부를 만들지 않아, 문서 worker가 `@`가 포함된 존재하지 않는 project path를 조회하는 회귀를 확인했다. Explorer 선택은 main이 local project root와 파일을 검증한 뒤 기존 attachment/artifact pipeline으로 직접 전달하도록 수정했다.
+- 남은 단계: 수정 포함 Windows 설치본을 새로 빌드하고 PDF/XLSX/PPTX의 Explorer 선택·첨부 버튼·native save GUI를 재실측한 뒤 공개한다.
