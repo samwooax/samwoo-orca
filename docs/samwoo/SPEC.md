@@ -462,7 +462,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.198` | draft 검증 완료          | XLSX typed cell 추출과 같은 대화의 첨부 재사용. Actions run `31874259265` 성공, 설치본 GUI 실측 전                                         |
 | `v1.4.199` | draft 검증 완료          | PDF element 실제 렌더링, UTF-8 worker 경로, 빈 PDF 검증·staging 정리와 정확한 `expectedSha256` prompt 보강. Actions run `31889692619` 성공 |
 | `v1.4.200` | draft 검증 완료          | malformed envelope 최대 2회 자동 교정과 PDF text element 6pt 자동 맞춤. Actions run `31891310064` 성공, 설치본 GUI 재실측 전               |
-| `v1.4.201` | release candidate        | PDF→XLSX 실제 요청의 v1 필드 정규화, 단일 열 렌더링과 구조화된 schema 오류 반환. 로컬 실제 요청 재생 통과, Windows Actions 대기            |
+| `v1.4.201` | draft 검증 완료          | PDF→XLSX 요청 정규화·단일 열 렌더링·구조화된 schema 오류 반환. Actions run `31894410900` 성공, 설치본 GUI 재실측 전                        |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 

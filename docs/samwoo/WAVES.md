@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.201 로컬 실제 요청 검증 완료·Windows Actions 대기            | 63fad0b08, cc680547f, 5d3ff1a9a, run 31891310064                       |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.201 draft 검증 완료·설치본 GUI 재실측 대기                   | 63fad0b08, cc680547f, 5d3ff1a9a, run 31894410900                       |
 
 ## 웨이브 상세
 
@@ -174,4 +174,5 @@
 - Actions run `31891310064`에서 v1.4.200 Windows 통합 검사, 긴 한국어 본문의 번들 worker 자동 맞춤·재추출, package/sign과 draft 업로드가 성공했다. 설치본 241,454,176바이트의 GitHub SHA-256 `f628bd2b3533d21b13954ea949a3b0ee5696186488bbdce4c3db8bfe6e491c72`, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했다.
 - v1.4.200 GUI에서 PDF→XLSX 후속 요청은 Hermes message `4847`이 `output.overwrite`를 생략하고 `validation.requiredSheets/requiredCells`, `preservationPolicy:new_workbook`, column/row/autofilter 별칭을 사용해 worker schema에서 거부됐다. 필드를 정규화한 뒤에는 schema가 허용한 단일 열 `range:"A"`를 XlsxWriter가 거부하는 두 번째 결함도 확인했다.
 - `5d3ff1a9a`에서 정확한 v1 JSON 예시와 안전한 요청 정규화, 단일 열 `A:A` 렌더링, `fitToWidth/fitToHeight`, schema 오류의 sanitized 구조 반환을 추가했다. 같은 실제 6.8KB 요청을 frozen worker에 재생해 25행·3열 XLSX atomic commit과 OOXML 검증을 통과했고, openpyxl 재개방과 Orca 재추출 73셀에서 제목·유의사항을 확인했다.
-- 남은 단계: v1.4.201 Windows Actions package/sign·draft 자산을 검증하고 설치본에서 PDF→XLSX, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다.
+- Actions run `31894410900`에서 v1.4.201 Windows 통합 검사, frozen worker의 visible PDF/XLSX 생성·재추출, package/sign과 draft 업로드가 성공했다. 설치본 241,457,680바이트의 GitHub·로컬 SHA-256 `365f780ebd64168e9f6ed29911d64e00779357819bd8a1150dc2c8f092f54cbd`, `latest.yml` SHA-512·크기·관리자 권한 플래그와 SAMWOO 내부 Authenticode 서명을 재검증했다.
+- 남은 단계: 설치본에서 PDF→XLSX, XLSX 번역, PDF/PPTX Explorer 선택·native save GUI를 재실측한 뒤 공개한다.
