@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.207 draft 검증 완료·GUI 재실측 대기       | f850cf9fb, d3e80ca2a, run 31927457875                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.209 draft 검증 완료·GUI 재실측 대기       | 4b7ced58c, 3c612e43c, run 31931592709                                  |
 
 ## 웨이브 상세
 
@@ -206,4 +206,5 @@
 - v1.4.208 draft(run `31930565173`) 공개 전 적대적 검토(11 agent, 전부 실증 확인)에서 결함 7건을 확인해 v1.4.209에서 수정했다: TRUE/FALSE 이름의 표·named range가 검증을 통과하지만 **실제 Excel이 파일을 열지 못하는** 결함(실 Excel COM 실증), 유니코드 확장이 허용한 전각 숫자 셀 주소형 이름(`A１`)과 기존 RC형 이름(`R1C1`)을 XlsxWriter가 무단 드롭하는 결함 — 예약 이름 가드(TRUE/FALSE·R/C·A1형·RC형, 유니코드 `\d`)를 표·named range 양쪽에 적용해 조기 거부. hyperlink/comment만 있는 셀의 병합 삼킴 감지 추가, modify에서 기존 병합 내부 셀 기록 시 generic AttributeError 대신 정밀 오류(서식만은 허용), 역순 병합 범위 정규화, 병합 검사 작업량 상한(200만 비교), `spec.named_ranges` 실패 시 어긋난 이름 명시.
 - 검토가 수용으로 판정한 항목: 꼬리 delimiter 교정이 내부-삭제 대안 해석보다 완전한 값 우선을 택하는 트레이드오프는 의도된 설계로 확인(37,200건 fuzz에서 기존 교정 회귀 0건, schema 검증이 계속 gate).
 - 수정 실증: TRUE/FALSE·`A１`·`R1C1`·`r2c10` 조기 거부, 정상 이름(`CountryKPI`·`국가별_증감_원본`·`표1`) 통과, hyperlink 병합 삼킴·역순 범위 거부, modify 서식만 허용·값은 정밀 거부. 실제 재생 4종(4915·4917/4919·4928·4940 체인) 회귀 없음, CI 지정 Vitest 107개 파일 497개·전 게이트·frozen worker 재빌드·bundle smoke 통과.
+- Actions run `31931592709`에서 v1.4.209 Windows 통합 검사, frozen worker 빌드, package/sign과 draft 업로드가 성공했다. 설치본 241,511,296바이트의 GitHub·로컬 SHA-256 `1e616371d96406ff23a40da9a906efb84326e40ec83efb6bf9a7dc7f10c3674c`, `latest.yml` 버전 `1.4.209`·크기·SHA-512·`isAdminRightsRequired: true`와 SAMWOO 내부 Authenticode 서명(Valid)을 독립 검증했다.
 - 남은 단계: 설치본 GUI에서 대시보드 생성(fill·freeze·표·차트·병합 포함)을 재실측한 뒤 v1.4.209를 공개한다. 공개 보류된 v1.4.205~v1.4.208 draft는 삭제하지 않는다.
