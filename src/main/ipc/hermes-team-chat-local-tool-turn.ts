@@ -11,6 +11,7 @@ import type { ExcelArtifactCapability } from '../../shared/hermes-excel-artifact
 
 export const MAX_LOCAL_TOOL_EXECUTIONS = 8
 export const MAX_LOCAL_TOOL_PROTOCOL_REPAIRS = 2
+export const MAX_LOCAL_TOOL_ROUNDS = MAX_LOCAL_TOOL_EXECUTIONS + MAX_LOCAL_TOOL_PROTOCOL_REPAIRS
 
 export function attachTeamChatToolExecutions(
   result: HermesTeamChatResult,

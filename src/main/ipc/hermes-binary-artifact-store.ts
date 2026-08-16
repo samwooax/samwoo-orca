@@ -251,14 +251,6 @@ export class HermesBinaryArtifactStore {
     }
   }
 
-  pathForImage(artifactId: string, conversationId: string, requestId: string): string {
-    const record = this.bind(artifactId, conversationId, requestId)
-    if (record.artifactKind !== 'png' && record.artifactKind !== 'jpeg') {
-      throw new Error('artifact is not an image')
-    }
-    return record.path
-  }
-
   async cleanup(artifactId: string): Promise<void> {
     const record = this.records.get(artifactId)
     if (!record) {

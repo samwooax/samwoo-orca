@@ -71,6 +71,41 @@ describe('Hermes team chat document attachments', () => {
     expect(prepared.ephemeralArtifactIds).toEqual([])
   })
 
+  it('keeps an admitted image bound by artifact identity instead of exposing its private path', async () => {
+    const artifact = {
+      kind: 'artifact' as const,
+      artifactId: 'artifact-00000000-0000-4000-8000-000000000002',
+      name: 'dashboard.png',
+      artifactKind: 'png' as const,
+      mimeType: 'image/png',
+      sizeBytes: 4,
+      sha256: 'c'.repeat(64)
+    }
+    const artifactStore = {
+      bindMetadata: vi.fn().mockReturnValue(artifact),
+      pathForImage: vi.fn().mockReturnValue('C:\\private\\dashboard.png')
+    }
+
+    const prepared = await prepareTeamChatAttachments({
+      message: '이 사진 해석해 줘',
+      attachments: [artifact],
+      conversationId: 'conversation',
+      requestId: 'request',
+      artifactStore: artifactStore as never
+    })
+
+    expect(prepared.images).toEqual([
+      {
+        source: 'artifact',
+        name: 'dashboard.png',
+        artifactId: artifact.artifactId,
+        artifactKind: 'png',
+        conversationId: 'conversation'
+      }
+    ])
+    expect(artifactStore.pathForImage).not.toHaveBeenCalled()
+  })
+
   it('drops malformed base64 and unsupported binary extensions', () => {
     expect(
       normalizeTeamChatAttachments([

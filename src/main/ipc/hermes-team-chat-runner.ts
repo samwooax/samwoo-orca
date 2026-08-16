@@ -22,12 +22,12 @@ import {
 } from './hermes-team-chat-session-registry'
 import { runClaudeStreamProcess } from './hermes-team-chat-claude-stream'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
-import type { TeamChatImageAttachment } from '../../shared/hermes-team-chat-attachments'
 import {
   appendRemoteImageInstructions,
-  cleanupTeamChatClipboardImages,
-  uploadTeamChatClipboardImages
+  cleanupTeamChatImages,
+  uploadTeamChatImages
 } from './hermes-team-chat-image-transfer'
+import type { PreparedTeamChatImageAttachment } from './hermes-team-chat-attachment-normalization'
 import { localProjectToolProtocolPrompt } from './hermes-local-project-tool-loop'
 import type { LocalDocumentAttachment } from './hermes-local-document-protocol'
 import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
@@ -42,8 +42,7 @@ import type {
 import {
   advanceTeamChatLocalToolTurn,
   attachTeamChatToolExecutions,
-  MAX_LOCAL_TOOL_EXECUTIONS,
-  MAX_LOCAL_TOOL_PROTOCOL_REPAIRS
+  MAX_LOCAL_TOOL_ROUNDS
 } from './hermes-team-chat-local-tool-turn'
 import {
   cancelRegisteredTeamChatRun,
@@ -122,7 +121,7 @@ export async function runTeamChatMessage(args: {
   modelId: TeamChatModelId
   effort: TeamChatEffort
   message: string
-  imageAttachments: TeamChatImageAttachment[]
+  imageAttachments: PreparedTeamChatImageAttachment[]
   documentAttachments?: LocalDocumentAttachment[]
   history: TeamChatHistoryMessage[]
   cwd: string
@@ -143,9 +142,10 @@ export async function runTeamChatMessage(args: {
   const toolExecutions: TeamChatLocalToolExecution[] = []
 
   try {
-    const remoteImages = await uploadTeamChatClipboardImages({
+    const remoteImages = await uploadTeamChatImages({
       requestId: args.requestId,
       attachments: args.imageAttachments,
+      artifactStore: args.artifactStore,
       sshArgs: (remoteCommand) => teamChatSshArgs(args.host, remoteCommand),
       onProcess: (process) => {
         controller.proc = process
@@ -197,7 +197,7 @@ export async function runTeamChatMessage(args: {
       }
     }
     let conversationMessage = appendRemoteImageInstructions(args.message, remoteImages)
-    for (let round = 0; round <= MAX_LOCAL_TOOL_EXECUTIONS + MAX_LOCAL_TOOL_PROTOCOL_REPAIRS; round += 1) {
+    for (let round = 0; round <= MAX_LOCAL_TOOL_ROUNDS; round += 1) {
       const cancelled = cancellationResult(controller.cancelledReason)
       if (cancelled) {
         return attachTeamChatToolExecutions(cancelled, toolExecutions)
@@ -289,7 +289,7 @@ export async function runTeamChatMessage(args: {
       sessionHandle?.release()
     }
     if (args.imageAttachments.length > 0) {
-      await cleanupTeamChatClipboardImages(args.requestId, (remoteCommand) =>
+      await cleanupTeamChatImages(args.requestId, (remoteCommand) =>
         teamChatSshArgs(args.host, remoteCommand)
       ).catch(() => {})
     }

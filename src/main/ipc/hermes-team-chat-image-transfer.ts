@@ -3,7 +3,8 @@ import { readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
 import { assertClipboardImageByteLengthWithinLimit } from '../../shared/clipboard-image'
-import type { TeamChatImageAttachment } from '../../shared/hermes-team-chat-attachments'
+import type { PreparedTeamChatImageAttachment } from './hermes-team-chat-attachment-normalization'
+import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
 
 const TRANSFER_TIMEOUT_MS = 60_000
 const CLEANUP_TIMEOUT_MS = 15_000
@@ -17,7 +18,8 @@ export type RemoteTeamChatImage = {
 
 type ImageTransferArgs = {
   requestId: string
-  attachments: TeamChatImageAttachment[]
+  attachments: PreparedTeamChatImageAttachment[]
+  artifactStore?: Pick<HermesBinaryArtifactStore, 'read'>
   sshArgs: (remoteCommand: string) => string[]
   onProcess: (process: ChildProcessWithoutNullStreams | null) => void
 }
@@ -83,9 +85,24 @@ async function readAuthorizedClipboardImage(filePath: string): Promise<Buffer> {
   return readFile(resolved)
 }
 
-export async function uploadTeamChatClipboardImages({
+async function readPreparedImage(
+  attachment: PreparedTeamChatImageAttachment,
+  artifactStore: ImageTransferArgs['artifactStore'],
+  requestId: string
+): Promise<Buffer> {
+  if (attachment.source === 'clipboard') {
+    return readAuthorizedClipboardImage(attachment.path)
+  }
+  if (!artifactStore) {
+    throw new Error('이미지 첨부파일을 찾을 수 없습니다.')
+  }
+  return artifactStore.read(attachment.artifactId, attachment.conversationId, requestId)
+}
+
+export async function uploadTeamChatImages({
   requestId,
   attachments,
+  artifactStore,
   sshArgs,
   onProcess
 }: ImageTransferArgs): Promise<RemoteTeamChatImage[]> {
@@ -97,13 +114,17 @@ export async function uploadTeamChatClipboardImages({
   }
   const remoteDir = `/tmp/samwoo-orca-chat-${requestId}`
   const uploaded: RemoteTeamChatImage[] = []
-  let totalBytes = 0
+  let clipboardBytes = 0
   try {
     for (const [index, attachment] of attachments.slice(0, 5).entries()) {
-      const buffer = await readAuthorizedClipboardImage(attachment.path)
-      totalBytes += buffer.byteLength
-      assertClipboardImageByteLengthWithinLimit(totalBytes)
-      const remotePath = `${remoteDir}/image-${index + 1}.png`
+      const buffer = await readPreparedImage(attachment, artifactStore, requestId)
+      if (attachment.source === 'clipboard') {
+        clipboardBytes += buffer.byteLength
+        assertClipboardImageByteLengthWithinLimit(clipboardBytes)
+      }
+      const extension =
+        attachment.source === 'artifact' && attachment.artifactKind === 'jpeg' ? 'jpg' : 'png'
+      const remotePath = `${remoteDir}/image-${index + 1}.${extension}`
       const remoteCommand = `umask 077; mkdir -p '${remoteDir}'; cat > '${remotePath}'`
       await runSshTransfer({
         sshArgs: sshArgs(remoteCommand),
@@ -115,12 +136,12 @@ export async function uploadTeamChatClipboardImages({
     }
     return uploaded
   } catch (error) {
-    await cleanupTeamChatClipboardImages(requestId, sshArgs).catch(() => {})
+    await cleanupTeamChatImages(requestId, sshArgs).catch(() => {})
     throw error
   }
 }
 
-export async function cleanupTeamChatClipboardImages(
+export async function cleanupTeamChatImages(
   requestId: string,
   sshArgs: (remoteCommand: string) => string[]
 ): Promise<void> {

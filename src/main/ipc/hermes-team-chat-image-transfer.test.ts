@@ -18,7 +18,7 @@ vi.mock('node:child_process', () => ({ spawn: mocks.spawn }))
 
 import {
   appendRemoteImageInstructions,
-  uploadTeamChatClipboardImages
+  uploadTeamChatImages
 } from './hermes-team-chat-image-transfer'
 
 type FakeProcess = EventEmitter & {
@@ -50,9 +50,15 @@ describe('Hermes team chat image transfer', () => {
   it('uploads only an authorized clipboard temp image to a request-scoped remote path', async () => {
     const commands: string[] = []
     const onProcess = vi.fn()
-    const result = await uploadTeamChatClipboardImages({
+    const result = await uploadTeamChatImages({
       requestId: 'request-1',
-      attachments: [{ kind: 'image', name: 'pasted-image.png', path: '/tmp/orca-paste-1-id.png' }],
+      attachments: [
+        {
+          source: 'clipboard',
+          name: 'pasted-image.png',
+          path: '/tmp/orca-paste-1-id.png'
+        }
+      ],
       sshArgs: (command) => {
         commands.push(command)
         return ['hermes@example', command]
@@ -76,12 +82,50 @@ describe('Hermes team chat image transfer', () => {
     expect(onProcess).toHaveBeenLastCalledWith(null)
   })
 
+  it('uploads a private artifact through its bound reader without authorizing its path', async () => {
+    const read = vi.fn().mockResolvedValue(Buffer.from('jpeg'))
+    const result = await uploadTeamChatImages({
+      requestId: 'request-2',
+      attachments: [
+        {
+          source: 'artifact',
+          name: 'dashboard.jpg',
+          artifactId: 'artifact-00000000-0000-4000-8000-000000000002',
+          artifactKind: 'jpeg',
+          conversationId: 'conversation'
+        }
+      ],
+      artifactStore: { read },
+      sshArgs: (command) => ['hermes@example', command],
+      onProcess: () => {}
+    })
+
+    expect(result).toEqual([
+      {
+        name: 'dashboard.jpg',
+        path: '/tmp/samwoo-orca-chat-request-2/image-1.jpg'
+      }
+    ])
+    expect(read).toHaveBeenCalledWith(
+      'artifact-00000000-0000-4000-8000-000000000002',
+      'conversation',
+      'request-2'
+    )
+    expect(mocks.realpath).not.toHaveBeenCalled()
+    const process = mocks.spawn.mock.results[0]?.value as FakeProcess
+    expect(process.stdin.end).toHaveBeenCalledWith(Buffer.from('jpeg'))
+  })
+
   it('rejects a renderer-supplied path outside the clipboard temp directory', async () => {
     await expect(
-      uploadTeamChatClipboardImages({
-        requestId: 'request-2',
+      uploadTeamChatImages({
+        requestId: 'request-3',
         attachments: [
-          { kind: 'image', name: 'secret.png', path: '/Users/alice/orca-paste-secret.png' }
+          {
+            source: 'clipboard',
+            name: 'secret.png',
+            path: '/Users/alice/orca-paste-secret.png'
+          }
         ],
         sshArgs: (command) => ['hermes@example', command],
         onProcess: () => {}

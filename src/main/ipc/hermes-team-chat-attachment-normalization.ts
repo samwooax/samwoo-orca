@@ -3,8 +3,7 @@ import type {
   HermesBinaryArtifactKind,
   TeamChatArtifactAttachment,
   TeamChatAttachment,
-  TeamChatDocumentAttachment,
-  TeamChatImageAttachment
+  TeamChatDocumentAttachment
 } from '../../shared/hermes-team-chat-attachments'
 import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
 import type { LocalDocumentAttachment } from './hermes-local-document-protocol'
@@ -13,6 +12,20 @@ const MAX_TEXT_ATTACHMENT_CHARS = 96_000
 const MAX_DOCUMENT_ATTACHMENT_BYTES = 64 * 1024 * 1024
 const MAX_DOCUMENT_BASE64_CHARS = Math.ceil(MAX_DOCUMENT_ATTACHMENT_BYTES / 3) * 4
 const ARTIFACT_KINDS = new Set<HermesBinaryArtifactKind>(['pdf', 'xlsx', 'pptx', 'png', 'jpeg'])
+
+export type PreparedTeamChatImageAttachment =
+  | {
+      source: 'clipboard'
+      name: string
+      path: string
+    }
+  | {
+      source: 'artifact'
+      name: string
+      artifactId: string
+      artifactKind: 'png' | 'jpeg'
+      conversationId: string
+    }
 
 function cleanName(value: string): string {
   return value.replaceAll(/[\r\n[\]]/g, '').slice(0, 160)
@@ -136,13 +149,13 @@ export async function prepareTeamChatAttachments(args: {
 }): Promise<{
   message: string
   documents: LocalDocumentAttachment[]
-  images: TeamChatImageAttachment[]
+  images: PreparedTeamChatImageAttachment[]
   reusableArtifactIds: string[]
   ephemeralArtifactIds: string[]
 }> {
   const blocks: string[] = []
   const documents: LocalDocumentAttachment[] = []
-  const images: TeamChatImageAttachment[] = []
+  const images: PreparedTeamChatImageAttachment[] = []
   const reusableArtifactIds: string[] = []
   const ephemeralArtifactIds: string[] = []
   try {
@@ -152,7 +165,7 @@ export async function prepareTeamChatAttachments(args: {
         continue
       }
       if (attachment.kind === 'image') {
-        images.push(attachment)
+        images.push({ source: 'clipboard', name: attachment.name, path: attachment.path })
         continue
       }
       const reusable = attachment.kind === 'artifact'
@@ -179,13 +192,11 @@ export async function prepareTeamChatAttachments(args: {
           `[첨부 이미지: ${artifact.name}]\nOrca 문서 도구 경로: ${path}\n형식: ${artifact.artifactKind}\n[첨부 이미지 끝]`
         )
         images.push({
-          kind: 'image',
+          source: 'artifact',
           name: artifact.name,
-          path: args.artifactStore.pathForImage(
-            artifact.artifactId,
-            args.conversationId,
-            args.requestId
-          )
+          artifactId: artifact.artifactId,
+          artifactKind: artifact.artifactKind,
+          conversationId: args.conversationId
         })
         continue
       }
