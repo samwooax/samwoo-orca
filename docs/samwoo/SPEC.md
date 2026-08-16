@@ -3,7 +3,7 @@
 > 이 문서는 SAMWOO-ORCA의 제품 결정, 현재 구현, 실제 배포 상태, 네트워크 구성, 제한값, 작업 대기열과 검증 기준을 함께 관리하는 **단일 진실(source of truth)**이다.
 > Codex와 Claude는 작업 전에 이 문서를 읽는다. 대화·지시서와 이 문서가 충돌하면 이 문서가 우선한다.
 > 비밀번호, Tailscale 인증 키, 코드서명 개인키, 메일 자격 증명 등 비밀값은 이 문서에 기록하지 않는다.
-> 최종 코드·운영 감사: 2026-08-16 · 저장소 버전: `1.4.208`
+> 최종 코드·운영 감사: 2026-08-16 · 저장소 버전: `1.4.209`
 
 ## 0. 상태 표기와 감사 범위
 
@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목             | 현재 상태                                     |
 | ---------------- | --------------------------------------------- |
-| 로컬 패키지 버전 | `1.4.208`                                     |
+| 로컬 패키지 버전 | `1.4.209`                                     |
 | 작업 브랜치      | `samwoo/upstream-v1.4.168`                    |
 | SAMWOO 원격      | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
@@ -470,7 +470,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.205` | draft 유지·공개 보류     | 차트 별칭 정규화 1차. Actions run `31920075943` 성공했으나 적대적 검토에서 검증 메시지 상한 파괴·시트 참조 오탐 표면화 등 7건을 확인해 v1.4.206으로 대체              |
 | `v1.4.206` | draft 유지·GUI 실측 실패 | Tokenizer 시트 참조·차트 개선. Actions run `31921086693` 성공. GUI 실측에서 fill/freezePane 별칭 거부와 중복 헤더 표의 무단 드롭 확인                                  |
 | `v1.4.207` | draft 유지·GUI 실측 실패 | schema 힌트·fill/freezePane 정규화·표 조기 거부. Actions run `31927457875` 성공. GUI에서 꼬리 중괄호 다의성 거부와 한글 표 이름·병합 삼킴 결함 발견                     |
-| `v1.4.208` | release candidate        | 꼬리 delimiter 수용, 표·named range 한글 이름 허용, 병합 삼킴 조기 거부, pattern 힌트. 실제 4940 재생 체인 통과, Windows Actions 대기                                   |
+| `v1.4.208` | draft 유지·공개 보류     | 꼬리 delimiter 수용·한글 이름·병합 삼킴 거부. Actions run `31930565173` 성공했으나 검토에서 TRUE/FALSE 이름의 Excel 미개방 등 7건을 확인해 v1.4.209로 대체              |
+| `v1.4.209` | release candidate        | 예약 이름(TRUE/FALSE·R/C·셀 주소형) 조기 거부, hyperlink/comment 병합 삼킴 감지, modify MergedCell 정밀 오류, 역순 범위 정규화. 재생 4종 회귀 없음, Actions 대기        |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
