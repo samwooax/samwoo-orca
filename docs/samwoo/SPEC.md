@@ -41,7 +41,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
 | GitHub 공개 범위 | **Public** — 2026-08-08 운영 확인             |
 | 기본 브랜치      | `main`                                        |
-| 최신 공개 릴리스 | `v1.4.210` — 2026-08-16 운영 확인             |
+| 최신 공개 릴리스 | `v1.4.211` — 2026-08-16 운영 확인             |
 | 앱 ID / 제품명   | `com.samwooax.samwoo-orca` / `SAMWOO-ORCA`    |
 
 공개 저장소에는 서버 비밀번호·메일 비밀번호·Tailscale 인증 키·코드서명 개인키를 넣지 않는다. 서버 문서의 주소 예시는 마스킹하고, 실제 서비스 주소는 중앙 설정 코드와 이 운영 명세에서만 관리한다.
@@ -459,7 +459,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.194` | draft 폐기 완료          | 최초 문서 도구 설치본. GUI 실측에서 packaged PDF.js의 `DOMMatrix` 런타임 누락이 XLSX까지 전파되어 미공개 초안 삭제                                               |
 | `v1.4.195` | draft 폐기 완료          | PDF.js·생산 번들 추출은 검증됐으나 Explorer가 `@경로`만 넣는 첨부 회귀가 있어 미공개 초안 삭제                                                                   |
 | `v1.4.196` | draft 폐기 완료          | Explorer 첨부는 복구됐으나 모델의 `extract limit:500`을 strict parser가 거부해 최종 요약이 실패하여 미공개 초안 삭제                                             |
-| `v1.4.197` | draft 검증 완료          | 양의 문서 추출 초과값을 200으로 낮춰 실행하고 `nextCursor` 명시. Actions run `31871806940` 성공, 설치본 GUI 재실측 전                                            |
+| `v1.4.197` | draft 폐기 완료          | 양의 문서 추출 초과값을 200으로 낮췄지만 GUI에서 typed cell·첨부 재사용 회귀를 확인해 v1.4.198로 대체하고 미공개 초안 삭제                                       |
 | `v1.4.198` | draft 검증 완료          | XLSX typed cell 추출과 같은 대화의 첨부 재사용. Actions run `31874259265` 성공, 설치본 GUI 실측 전                                                               |
 | `v1.4.199` | draft 검증 완료          | PDF element 실제 렌더링, UTF-8 worker 경로, 빈 PDF 검증·staging 정리와 정확한 `expectedSha256` prompt 보강. Actions run `31889692619` 성공                       |
 | `v1.4.200` | draft 검증 완료          | malformed envelope 최대 2회 자동 교정과 PDF text element 6pt 자동 맞춤. Actions run `31891310064` 성공, 설치본 GUI 재실측 전                                     |
@@ -472,8 +472,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.207` | draft 유지·GUI 실측 실패 | schema 힌트·fill/freezePane 정규화·표 조기 거부. Actions run `31927457875` 성공. GUI에서 꼬리 중괄호 다의성 거부와 한글 표 이름·병합 삼킴 결함 발견              |
 | `v1.4.208` | draft 유지·공개 보류     | 꼬리 delimiter 수용·한글 이름·병합 삼킴 거부. Actions run `31930565173` 성공했으나 검토에서 TRUE/FALSE 이름의 Excel 미개방 등 7건을 확인해 v1.4.209로 대체       |
 | `v1.4.209` | draft 유지·부분 실측     | 예약 이름 조기 거부·병합 검사 강화. Actions run `31931592709` 성공. GUI 실측에서 대시보드 첫 완주(3차 시도), conditionalFormats 별칭·`""` 셀 동치 결함 확인      |
-| `v1.4.210` | **공개 — 최신**          | Excel Artifact 별칭 정규화·schema 힌트·예약 이름 거부·검증 상세의 대시보드 안정화 누적판. Actions run `31937633784`, 관리자 GUI 실측 후 2026-08-16 공개          |
-| `v1.4.211` | draft 검증 완료          | PNG/JPEG 선택형 첨부를 conversation/request-bound artifact ID로 읽어 SSH 전송. Actions run `31944744288` 성공, 설치본 GUI 재실측 전                              |
+| `v1.4.210` | 공개 유지                | Excel Artifact 별칭 정규화·schema 힌트·예약 이름 거부·검증 상세의 대시보드 안정화 누적판. Actions run `31937633784`, 관리자 GUI 실측 후 2026-08-16 공개          |
+| `v1.4.211` | **공개 — 최신**          | PNG/JPEG 선택형 첨부를 conversation/request-bound artifact ID로 읽어 SSH 전송. Actions run `31944744288`, 공개 latest·update manifest 확인 후 2026-08-16 공개    |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
