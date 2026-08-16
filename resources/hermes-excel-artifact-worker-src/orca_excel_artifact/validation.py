@@ -413,6 +413,7 @@ def _validate_formula_references(workbook: Any) -> tuple[bool, str]:
     sheet_names = {name.casefold() for name in workbook.sheetnames}
     checked = 0
     invalid: list[str] = []
+    missing_sheets: set[str] = set()
     try:
         from openpyxl.formula import Tokenizer
     except ImportError:
@@ -432,10 +433,22 @@ def _validate_formula_references(workbook: Any) -> tuple[bool, str]:
                 except Exception:
                     invalid.append(f"{worksheet.title}!{cell.coordinate}")
                     continue
-                if any(name.casefold() not in sheet_names for name in _formula_sheet_names(value)):
+                unknown = [
+                    name
+                    for name in _formula_sheet_names(value)
+                    if name.casefold() not in sheet_names
+                ]
+                if unknown:
                     invalid.append(f"{worksheet.title}!{cell.coordinate}")
+                    missing_sheets.update(unknown)
     if invalid:
-        return False, f"{len(invalid)} formula(s) contain invalid or missing-sheet references."
+        # Name the first offenders so the model can correct them in one round.
+        detail = f" (first: {', '.join(invalid[:5])})"
+        if missing_sheets:
+            detail += f"; missing sheets: {', '.join(sorted(missing_sheets)[:5])}"
+        return False, (
+            f"{len(invalid)} formula(s) contain invalid or missing-sheet references{detail}."
+        )
     return True, f"Parsed {checked} formula(s) without broken sheet references."
 
 

@@ -117,6 +117,104 @@ describe('Excel Artifact protocol', () => {
     })
   })
 
+  it('normalizes observed chart aliases into the canonical v1 chart shape', () => {
+    // Shape of production message 4915: chartType, shared top-level categories,
+    // and series given as bare {sheet, range}.
+    const request = {
+      version: 1,
+      operationId: 'operation-chart-001',
+      idempotencyKey: 'idempotency-chart-0001',
+      action: 'create',
+      output: { path: 'reports/dashboard.xlsx' },
+      workbookSpec: {
+        version: 1,
+        sheets: [
+          {
+            name: 'Dashboard',
+            state: 'visible',
+            charts: [
+              {
+                chartType: 'bar',
+                title: '국가별 인구 증감',
+                categories: { sheet: 'Country_Data', range: 'B2:B6' },
+                series: [{ name: '증감', sheet: 'Country_Data', range: 'D2:D6' }],
+                position: 'F2'
+              }
+            ]
+          }
+        ]
+      },
+      toolchain: { profile: 'excel-artifact-v1', version: '1' },
+      timeoutSeconds: 60
+    }
+    const envelope = `<orca_excel_artifact>${JSON.stringify(request)}</orca_excel_artifact>`
+
+    expect(parseExcelArtifactRequest(envelope)?.workbookSpec).toMatchObject({
+      sheets: [
+        {
+          charts: [
+            {
+              type: 'bar',
+              title: '국가별 인구 증감',
+              series: [
+                {
+                  name: '증감',
+                  categories: { sheet: 'Country_Data', range: 'B2:B6' },
+                  values: { sheet: 'Country_Data', range: 'D2:D6' }
+                }
+              ],
+              position: 'F2'
+            }
+          ]
+        }
+      ]
+    })
+    const parsed = parseExcelArtifactRequest(envelope)
+    expect(parsed).not.toBeNull()
+    const normalizedChart = (
+      parsed!.workbookSpec as { sheets: { charts: Record<string, unknown>[] }[] }
+    ).sheets[0].charts[0]
+    expect('chartType' in normalizedChart).toBe(false)
+    expect('categories' in normalizedChart).toBe(false)
+
+    // A series that already carries canonical values keeps its extra alias
+    // fields for strict worker rejection instead of silent dropping.
+    const conflicting = request.workbookSpec.sheets[0].charts[0]
+    const conflictEnvelope = `<orca_excel_artifact>${JSON.stringify({
+      ...request,
+      workbookSpec: {
+        version: 1,
+        sheets: [
+          {
+            name: 'Dashboard',
+            state: 'visible',
+            charts: [
+              {
+                ...conflicting,
+                series: [
+                  { sheet: 'Country_Data', range: 'D2:D6', values: { sheet: 'Other', range: 'A1:A2' } }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    })}</orca_excel_artifact>`
+    expect(parseExcelArtifactRequest(conflictEnvelope)?.workbookSpec).toMatchObject({
+      sheets: [
+        {
+          charts: [
+            {
+              series: [
+                { sheet: 'Country_Data', range: 'D2:D6', values: { sheet: 'Other', range: 'A1:A2' } }
+              ]
+            }
+          ]
+        }
+      ]
+    })
+  })
+
   it('keeps conflicting aliases for strict worker rejection', () => {
     const request = {
       version: 1,
@@ -169,6 +267,10 @@ describe('Excel Artifact protocol', () => {
     expect(prompt).toContain('{"range":"A"}')
     expect(prompt).toContain('{"index":1,"height":24}')
     expect(prompt).toContain('fitToWidth')
+    expect(prompt).toContain('"position":"F2"')
+    expect(prompt).toContain('area|bar|column|doughnut|line|pie|scatter')
+    expect(prompt).toContain('x/y inch 좌표나 chartType')
+    expect(prompt).toContain('존재하지 않는 시트를 참조하면 검증이 실패합니다')
     expect(formatExcelArtifactResult({ state: 'completed', committed: true })).toBe(
       '<orca_excel_artifact_result>{"state":"completed","committed":true}</orca_excel_artifact_result>'
     )

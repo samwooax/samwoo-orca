@@ -27,6 +27,39 @@ function normalizeAliasedField(value: unknown, canonical: string, alias: string)
   return normalized
 }
 
+function normalizeChartSeries(value: unknown): unknown {
+  if (!isRecord(value) || 'values' in value) {
+    return value
+  }
+  if (typeof value.sheet !== 'string' || typeof value.range !== 'string') {
+    return value
+  }
+  const series: JsonRecord = { ...value, values: { sheet: value.sheet, range: value.range } }
+  delete series.sheet
+  delete series.range
+  return series
+}
+
+function normalizeChart(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value
+  }
+  let chart = normalizeAliasedField(value, 'type', 'chartType') as JsonRecord
+  if (Array.isArray(chart.series)) {
+    chart = { ...chart, series: chart.series.map(normalizeChartSeries) }
+    // A top-level categories block is the shared-axis alias; each series keeps its own.
+    if (isRecord(chart.categories)) {
+      chart.series = (chart.series as unknown[]).map((series) =>
+        isRecord(series) && !('categories' in series)
+          ? { ...series, categories: chart.categories }
+          : series
+      )
+      delete chart.categories
+    }
+  }
+  return chart
+}
+
 function normalizeSheet(value: unknown): unknown {
   if (!isRecord(value)) {
     return value
@@ -40,6 +73,9 @@ function normalizeSheet(value: unknown): unknown {
   }
   if (typeof sheet.autofilter === 'string') {
     sheet.autofilter = { range: sheet.autofilter }
+  }
+  if (Array.isArray(sheet.charts)) {
+    sheet.charts = sheet.charts.map(normalizeChart)
   }
   return sheet
 }
