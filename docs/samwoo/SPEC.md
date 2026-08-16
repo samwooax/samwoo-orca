@@ -151,7 +151,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - Electron과 frozen Python worker 사이의 JSONL은 UTF-8로 고정한다. worker staging은 사용자 파일명과 분리된 ASCII 이름이며 main이 성공·실패 모두 정리한 뒤 검증된 최종 파일만 원자적으로 commit한다.
 - 스캔 PDF OCR, 기존 PDF 본문의 무손실 임의 치환, LibreOffice 시각 preview, 매크로·ActiveX·OLE·전자서명 보존은 지원하지 않고 원본을 변경하지 않은 채 명시적으로 실패한다.
 
-문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.203` 릴리스 후보까지 통합됐다. envelope JSON 파싱이 실패하면 main이 닫는 delimiter 정확히 한 개를 삭제하는 후보 중 스칼라 토큰이 접합될 수 없는 위치만 고려해, 파싱 가능한 복원 결과가 유일할 때만 결정적으로 교정한다. 다의적이거나 잘린 JSON은 교정하지 않고, 문자열·값·필드는 바꾸지 않으며, 교정 후에도 기존 schema 검증을 통과해야 실행한다. host가 교정하지 못한 malformed envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청한다. PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. Excel create는 정확한 v1 필드 예시를 모델에 제공하고, `overwrite` 누락과 관측된 column/row/autofilter/validation 별칭만 충돌 없이 정규화한 뒤 동일한 worker schema·semantic validation을 적용한다. 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
+문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.204` 공개 릴리스(2026-08-16)까지 통합·배포됐다. envelope JSON 파싱이 실패하면 main이 닫는 delimiter 정확히 한 개를 삭제하는 후보 중 스칼라 토큰이 접합될 수 없는 위치만 고려해, 파싱 가능한 복원 결과가 유일할 때만 결정적으로 교정한다. 다의적이거나 잘린 JSON은 교정하지 않고, 문자열·값·필드는 바꾸지 않으며, 교정 후에도 기존 schema 검증을 통과해야 실행한다. host가 교정하지 못한 malformed envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청한다. PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. Excel create는 정확한 v1 필드 예시를 모델에 제공하고, `overwrite` 누락과 관측된 column/row/autofilter/validation 별칭만 충돌 없이 정규화한 뒤 동일한 worker schema·semantic validation을 적용한다. 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
 
 앱에는 Electron IPC가 기본 경로이며 `127.0.0.1:47821`의 토큰 보호 loopback 호환 서버도 남아 있다. 포트가 이미 사용 중이면 임시 포트로 물러난다. 이는 외부 네트워크에 공개하지 않는다.
 
