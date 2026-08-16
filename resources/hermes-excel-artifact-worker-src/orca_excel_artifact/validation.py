@@ -879,11 +879,17 @@ def _validate_spec_with_open_workbook(
     )
     if action == "create":
         names_ok = names_ok and set(actual_names_formulas) == set(expected_names_formulas)
+    broken_names = sorted(
+        name
+        for name, formula in expected_names_formulas.items()
+        if actual_names_formulas.get(name) != formula
+    )
+    name_detail = f": {', '.join(_clip(name, 60) for name in broken_names[:5])}" if broken_names else ""
     checks.append(_check(
         "spec.named_ranges",
         names_ok,
         f"Matched {len(expected_names_formulas)} declared named range(s).",
-        "One or more declared named ranges are missing or differ.",
+        f"Declared named range(s) are missing or differ{name_detail}.",
     ))
 
     expected_tables = {

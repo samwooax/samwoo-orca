@@ -209,6 +209,7 @@ def validate_workbook_spec(spec: Mapping[str, Any], *, action: str) -> WorkbookP
         name = item.get("name")
         if not isinstance(name, str) or not re.fullmatch(r"(?:[^\W\d]|\\)[\w.\\]{0,254}", name):
             raise _protocol("The named range name is invalid.", field_path=f"{path}.name")
+        _reject_reserved_name(name, "Named range", f"{path}.name")
         if name.casefold() in seen_ranges:
             raise _protocol("Named ranges must be unique ignoring case.", field_path=f"{path}.name")
         seen_ranges.add(name.casefold())
@@ -225,6 +226,24 @@ def validate_workbook_spec(spec: Mapping[str, Any], *, action: str) -> WorkbookP
 
 _MERGE_CONTENT_CHECK_MAX_MERGES = 1_000
 _MERGE_CONTENT_CHECK_MAX_CELLS = 100_000
+_MERGE_CONTENT_CHECK_MAX_WORK = 2_000_000
+# Unicode \d also catches fullwidth digits that XlsxWriter's own guards use.
+_A1_NAME_LOOKALIKE = re.compile(r"[A-Za-z]{1,3}\d+")
+_RC_NAME_LOOKALIKE = re.compile(r"[rcRC]\d+[rcRC]\d+")
+
+
+def _reject_reserved_name(name: str, kind: str, field_path: str) -> None:
+    """Excel refuses these names outright; XlsxWriter drops them with only a warning."""
+
+    if (
+        name.casefold() in {"true", "false", "r", "c"}
+        or _A1_NAME_LOOKALIKE.fullmatch(name)
+        or _RC_NAME_LOOKALIKE.fullmatch(name)
+    ):
+        raise _protocol(
+            f"{kind} names must not be TRUE/FALSE, R/C, or look like a cell reference.",
+            field_path=field_path,
+        )
 
 
 def _reject_content_swallowed_by_merges(sheet: Mapping[str, Any], path: str) -> None:
@@ -247,7 +266,12 @@ def _reject_content_swallowed_by_merges(sheet: Mapping[str, Any], path: str) -> 
     for item in sheet.get("cells", []):
         if not isinstance(item, Mapping) or not isinstance(item.get("address"), str):
             continue
-        if item.get("formula") is not None or item.get("value") not in (None, ""):
+        if (
+            item.get("formula") is not None
+            or item.get("value") not in (None, "")
+            or item.get("hyperlink") is not None
+            or item.get("comment") is not None
+        ):
             try:
                 min_col, min_row, _max_col, _max_row = range_boundaries(item["address"].replace("$", ""))
             except ValueError:
@@ -255,11 +279,15 @@ def _reject_content_swallowed_by_merges(sheet: Mapping[str, Any], path: str) -> 
             declared[(min_row, min_col)] = True
     if not declared or len(declared) > _MERGE_CONTENT_CHECK_MAX_CELLS:
         return
+    if len(merges) * len(declared) > _MERGE_CONTENT_CHECK_MAX_WORK:
+        return
     for merge in merges:
         try:
             min_col, min_row, max_col, max_row = range_boundaries(merge)
         except ValueError:
             continue
+        min_row, max_row = sorted((min_row, max_row))
+        min_col, max_col = sorted((min_col, max_col))
         for (row, column) in declared:
             if min_row <= row <= max_row and min_col <= column <= max_col:
                 if row == min_row and column == min_col:
@@ -348,12 +376,7 @@ def _validate_sheet(
         # Unicode letters are legal Excel table names (Korean names in production).
         if not isinstance(name, str) or not re.fullmatch(r"[^\W\d][\w.]{0,254}", name):
             raise _protocol("Table name is invalid.", field_path=f"{item_path}.name")
-        if re.fullmatch(r"[A-Za-z]{1,3}[0-9]+", name) or name.casefold() in {"r", "c"}:
-            # XlsxWriter silently drops such tables instead of failing.
-            raise _protocol(
-                "Table names must not look like cell references.",
-                field_path=f"{item_path}.name",
-            )
+        _reject_reserved_name(name, "Table", f"{item_path}.name")
         if name.casefold() in table_names:
             raise _protocol("Table names must be workbook-wide unique.", field_path=f"{item_path}.name")
         table_names.add(name.casefold())
@@ -1027,13 +1050,30 @@ def _apply_openpyxl_cells(worksheet: Any, spec: Mapping[str, Any], styles: Mappi
 
 
 def _openpyxl_set_cell(cell: Any, item: Any, styles: Mapping[str, Mapping[str, Any]]) -> None:
+    from openpyxl.cell.cell import MergedCell
+
     if isinstance(item, Mapping):
-        cell.value = _normal_formula(item["formula"], "formula") if "formula" in item else item.get("value")
-        if item.get("formatId"):
-            for attribute, value in styles[item["formatId"]].items():
-                setattr(cell, attribute, copy.copy(value))
+        value = _normal_formula(item["formula"], "formula") if "formula" in item else item.get("value")
     else:
-        cell.value = item
+        value = item
+    if isinstance(cell, MergedCell):
+        # A pre-existing merge keeps only its anchor; MergedCell.value is read-only.
+        if value not in (None, "") or (
+            isinstance(item, Mapping)
+            and (item.get("hyperlink") is not None or item.get("comment") is not None)
+        ):
+            raise _protocol(
+                f"Cell {cell.coordinate} lies inside an existing merged range; "
+                "only the merge anchor can hold content."
+            )
+        if isinstance(item, Mapping) and item.get("formatId"):
+            for attribute, style_value in styles[item["formatId"]].items():
+                setattr(cell, attribute, copy.copy(style_value))
+        return
+    cell.value = value
+    if isinstance(item, Mapping) and item.get("formatId"):
+        for attribute, style_value in styles[item["formatId"]].items():
+            setattr(cell, attribute, copy.copy(style_value))
     if isinstance(cell.value, str) and cell.value.startswith("=") and not (
         isinstance(item, Mapping) and "formula" in item
     ):
