@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.209 draft 검증 완료·GUI 재실측 대기       | 4b7ced58c, 3c612e43c, run 31931592709                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.210 draft 검증 완료·GUI 재실측 대기       | 3c612e43c, 5f02f22f1, run 31937633784                                  |
 
 ## 웨이브 상세
 
@@ -210,4 +210,5 @@
 - v1.4.209 GUI 실측(message 4950~4956)에서 대시보드가 **세 번째 시도에 처음으로 완주**됐다(차트·연동 수식 포함 commit). 중간 실패 2건 분석: ① conditionalFormats의 OOXML식 별칭(`type:"cellIs"`, 숫자 `formula`)이 schema에서 거부 — 힌트("type string")로 모델이 회복했으나 프롬프트에 형태 안내가 없었음, ② 선언된 빈 문자열 `""` 셀을 엔진이 빈 셀(None)로 쓰면서 `spec.cells` 검증이 "1 cell differ" 개수만 보고 — 모델이 E1을 추측 제거로 회복.
 - v1.4.210에서 마무리했다: conditionalFormats 별칭 정규화(`cellIs`→`cell`, `value` 부재 시 숫자/불리언 `formula`→`value`)와 canonical 예시 prompt 추가, `_literal_matches`에 선언 `""`≡빈 셀 동치 추가, `spec.cells`/`spec.merges`/`spec.freeze_panes` 실패 메시지에 어긋난 셀·범위·시트를 선언값 vs 기록값과 함께 명시(각 5개 상한·절단).
 - 실제 message `4950`(1차 시도)을 수정된 worker에 재생한 결과 **재시도 없이 첫 시도에 completed·committed**(차트 2개) — GUI에서 3라운드 걸린 요청이 1라운드로 단축된다. 재생 5종 회귀 없음, CI 지정 Vitest 107개 파일 498개·전 게이트·frozen worker 재빌드·bundle smoke 통과.
+- Actions run `31937633784`에서 v1.4.210 Windows 통합 검사, frozen worker 빌드, package/sign과 draft 업로드가 성공했다. 설치본 241,519,664바이트의 GitHub·로컬 SHA-256 `14d58a21963d5b0c67fa5e6c6e95407f0f7446e8846d739d4932b122691c05a7`, `latest.yml` 버전 `1.4.210`·크기·SHA-512·`isAdminRightsRequired: true`와 SAMWOO 내부 Authenticode 서명(Valid)을 독립 검증했다.
 - 남은 단계: 설치본 GUI에서 대시보드 생성을 재실측한 뒤 v1.4.210을 공개한다. 공개 보류된 v1.4.205~v1.4.209 draft는 삭제하지 않는다.

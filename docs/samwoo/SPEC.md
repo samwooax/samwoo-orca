@@ -472,7 +472,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.207` | draft 유지·GUI 실측 실패 | schema 힌트·fill/freezePane 정규화·표 조기 거부. Actions run `31927457875` 성공. GUI에서 꼬리 중괄호 다의성 거부와 한글 표 이름·병합 삼킴 결함 발견                     |
 | `v1.4.208` | draft 유지·공개 보류     | 꼬리 delimiter 수용·한글 이름·병합 삼킴 거부. Actions run `31930565173` 성공했으나 검토에서 TRUE/FALSE 이름의 Excel 미개방 등 7건을 확인해 v1.4.209로 대체              |
 | `v1.4.209` | draft 유지·부분 실측     | 예약 이름 조기 거부·병합 검사 강화. Actions run `31931592709` 성공. GUI 실측에서 대시보드 첫 완주(3차 시도), conditionalFormats 별칭·`""` 셀 동치 결함 확인               |
-| `v1.4.210` | release candidate        | conditionalFormats 별칭 정규화·canonical prompt, `""`≡빈 셀 동치, spec.cells/merges/freeze 실패 상세. 실제 4950이 1차 시도 완주, Windows Actions 대기                    |
+| `v1.4.210` | draft 검증 완료          | conditionalFormats 별칭 정규화·canonical prompt, `""`≡빈 셀 동치, spec.cells/merges/freeze 실패 상세. 실제 4950이 1차 시도 완주. Actions run `31937633784` 성공            |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
