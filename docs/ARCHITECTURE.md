@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-16, Git commit `d3e80ca2a`, `package.json` 버전 `1.4.207`
+> 기준: 2026-08-16, Git commit `4b7ced58c`, `package.json` 버전 `1.4.208`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -588,7 +588,7 @@ Renderer HermesTeamChatView
 - project-backed source/output은 local worktree와 folder workspace에서만 동작한다. SSH/Runtime 경로를 로컬 path로 해석하지 않으며, 요청 첨부의 추출만 project root 없이 가능하다.
 - Electron main은 worker bundle manifest와 실제 engine metadata를 probe한 경우에만 Excel Artifact v1의 `create`/`modify`/`validate`/`cancel` capability를 trusted instruction에 넣는다. `<orca_excel_artifact>`는 local file/document/command envelope와 하나의 union으로 parse하고, capability가 없거나 SSH/Runtime workspace이면 실행하지 않는다. LibreOffice render/preview capability는 계속 비활성이다.
 - 모델에는 `output.overwrite`, 네 개의 validation boolean, preservation policy enum, column/row/autofilter/page setup, formats(`fill` 객체 포함), freezePane 행·열 개수와 차트(`type` enum·series `values`/`categories`·anchor `position`·픽셀 크기)의 정확한 v1 JSON 형태를 제공한다. v1.4.201부터 관측된 안전한 별칭과 누락 기본값만 main에서 정규화하며, v1.4.205~207에서 차트 별칭(`chartType`→`type`, 공유 `categories`의 series 배분, series `{sheet,range}`→`values`), `fill` 색 문자열→`{color}` 객체, freezePane 셀 주소→`{row,column}` 개수 변환을 추가했다. 충돌하는 canonical/alias 값과 알 수 없는 field(x/y inch 좌표 포함)는 worker가 계속 거부한다.
-- worker의 schema 거부 오류는 실패 경로와 함께 그 지점의 기대 형태(허용 key·타입·enum)를 자체 스키마에서 요약해 반환하므로, 모델이 어떤 필드를 어떤 모양으로 고쳐야 하는지 한 라운드 안에 알 수 있다. 표는 spec 단계에서 중복 열 이름과 셀 주소형 표 이름을 정확한 사유로 조기 거부한다(XlsxWriter가 이런 표를 경고만 내고 조용히 버리는 것을 차단). `spec.tables`/`spec.autofilters` 검증 실패도 어긋난 표·범위를 이름으로 반환한다.
+- worker의 schema 거부 오류는 실패 경로와 함께 그 지점의 기대 형태(허용 key·타입·enum·pattern)를 자체 스키마에서 요약해 반환하므로, 모델이 어떤 필드를 어떤 모양으로 고쳐야 하는지 한 라운드 안에 알 수 있다. 표·named range 이름은 Excel과 동일하게 유니코드 문자(한글 포함)를 허용한다. spec 단계에서 표의 중복 열 이름, 셀 주소형 표 이름(XlsxWriter가 경고만 내고 조용히 버리는 부류), 병합 범위 내부의 anchor 아닌 셀에 선언된 내용(병합 시 소실)을 정확한 사유·필드 경로로 조기 거부한다. `spec.tables`/`spec.autofilters` 검증 실패도 어긋난 표·범위를 이름으로 반환한다.
 
 #### Excel Artifact job 경계
 
@@ -610,7 +610,7 @@ Renderer HermesTeamChatView
 - 사용자 approval dialog를 거쳐 실행
 - 실행 파일과 Python package는 사용자 PC의 PATH/환경에 실제로 존재해야 함
 
-모델이 요청할 수 있는 local tool 실행은 한 사용자 요청당 최대 8회다. 이 값은 화면 작업 범위나 Python 코드 줄 수 제한이 아니라 **모델 응답 -> local tool 실행 -> 결과 반환** 반복 횟수다. envelope JSON 파싱이 실패하면 main이 먼저 결정적 교정을 시도한다(`hermes-local-envelope-json-repair.ts`): 닫는 중괄호·대괄호 **정확히 한 개**를 삭제하는 후보 중, 다음 토큰이 구조 문자(`,`/`]`/`}`/끝)라 스칼라 토큰이 접합될 수 없는 위치만 고려하고, 파싱 가능한 후보 결과가 **유일할 때만** 채택한다. 서로 다른 복원 결과가 둘 이상이면 다의적이므로 교정하지 않고, 잘린 JSON을 완성하지 않으며, 문자열·값·필드를 바꾸지 않고, 교정 후에도 기존 schema 검증을 그대로 통과해야 실행된다. 후보 탐색은 64MB 작업 예산으로 제한한다. host가 교정하지 못한 envelope는 아무 operation도 실행하지 않은 채 같은 모델 세션에 최대 두 번 교정 요청하며 이 회차는 실행 한도에 포함하지 않는다. 세 번째 malformed 응답은 `local_tool_protocol_invalid`로 종료한다. 8번째 실행 결과 뒤에는 도구를 실행하지 않는 최종 답변 전용 모델 회차를 한 번 허용한다. 해당 회차가 다시 도구를 요청하면 실행 전에 차단하고, 앞서 실행된 operation의 종류·대상·성공 여부를 실패 응답에 함께 반환한다.
+모델이 요청할 수 있는 local tool 실행은 한 사용자 요청당 최대 8회다. 이 값은 화면 작업 범위나 Python 코드 줄 수 제한이 아니라 **모델 응답 -> local tool 실행 -> 결과 반환** 반복 횟수다. envelope JSON 파싱이 실패하면 main이 먼저 결정적 교정을 시도한다(`hermes-local-envelope-json-repair.ts`): ① 완전한 JSON 값 뒤에 닫는 delimiter만 꼬리로 붙은 경우 값은 그대로 두고 꼬리만 버리며, ② 내부 결함은 닫는 중괄호·대괄호 **정확히 한 개**를 삭제하는 후보 중 다음 토큰이 구조 문자(`,`/`]`/`}`/끝)라 스칼라 토큰이 접합될 수 없는 위치만 고려하고 파싱 가능한 후보 결과가 **유일할 때만** 채택한다. 서로 다른 복원 결과가 둘 이상이면 다의적이므로 교정하지 않고, 잘린 JSON을 완성하지 않으며, 문자열·값·필드를 바꾸지 않고, 교정 후에도 기존 schema 검증을 그대로 통과해야 실행된다. 후보 탐색은 64MB 작업 예산으로 제한한다. host가 교정하지 못한 envelope는 아무 operation도 실행하지 않은 채 같은 모델 세션에 최대 두 번 교정 요청하며 이 회차는 실행 한도에 포함하지 않는다. 세 번째 malformed 응답은 `local_tool_protocol_invalid`로 종료한다. 8번째 실행 결과 뒤에는 도구를 실행하지 않는 최종 답변 전용 모델 회차를 한 번 허용한다. 해당 회차가 다시 도구를 요청하면 실행 전에 차단하고, 앞서 실행된 operation의 종류·대상·성공 여부를 실패 응답에 함께 반환한다.
 
 각 실행 결과는 `src/shared/hermes-team-chat-result.ts`의 `toolExecutions`로 최종 성공·실패·취소 응답에 보존된다. renderer는 이를 `hermes-team-chat-tool-execution-summary.ts`로 요약해 표시하므로, 마지막 모델 문장만 보고 이미 수행된 local write·command를 잃어버리지 않는다.
 
@@ -663,6 +663,9 @@ renderer `useSamwooScheduleRunner`
 | `The workbook did not pass required validation` | v1.4.204 Excel Artifact `formula.references` 검증     | 기존 정규식이 `=SUM(시트!범위)` 류를 오파싱해 시트가 모두 있어도 실패시켰음 — production 26건은 전부 오탐으로 확인(4917 재생 완주)          | v1.4.206부터 Tokenizer RANGE operand 기반 추출로 오탐 제거. 진짜 누락 시트는 셀 주소·시트명 상위 5개(절단·상한 적용)와 함께 반환   |
 | `schema at $...formats[0].fill` / `...freezePane` | v1.4.206 Excel Artifact worker schema                | prompt에 형태 안내가 없어 모델이 fill을 색 문자열로, freezePane을 셀 주소로 추정함                                                           | v1.4.207부터 두 별칭을 main이 정규화하고, 모든 schema 오류에 해당 지점의 기대 형태(key·타입·enum)를 함께 반환                     |
 | 표·autofilter가 선언대로 생성되지 않아 검증 실패 | v1.4.206 XlsxWriter create + `spec.tables` 검증      | 표 헤더에 중복 열 이름('지표' 2회)이 있어 XlsxWriter가 경고만 내고 표를 조용히 버렸고, 실패 메시지가 원인을 지목하지 않았음                  | v1.4.207부터 중복 열 이름·셀 주소형 표 이름을 spec 단계에서 정확한 사유·경로로 조기 거부하고, 검증 실패 시 어긋난 표를 명시         |
+| `invalid or unsupported Excel Artifact envelope` | v1.4.207 main envelope 교정                          | 완전한 envelope 뒤 꼬리 `}` 하나가 flat 객체에서는 단일 삭제 다의성으로 판정돼 교정이 거부됐고, 모델은 같은 꼬리를 3회 재출력함              | v1.4.208부터 완전한 값 + 순수 닫는 delimiter 꼬리는 값을 건드리지 않고 꼬리만 버림                                                 |
+| 한글 표 이름이 schema에서 거부                   | v1.4.207 Excel Artifact v1 schema                    | 표·named range 이름 pattern이 ASCII 전용이라 Excel이 허용하는 한글 이름('국가별_증감_원본')을 거부함                                         | v1.4.208부터 유니코드 문자 허용으로 패턴 확장(engine 지원 실증), pattern 실패 힌트도 오류에 포함                                    |
+| 병합 안 셀 내용이 사라져 `spec.cells` 검증 실패  | v1.4.207 XlsxWriter merge + 검증                     | 모델이 병합 범위 내부 셀(B5 등)에 값·수식을 선언 — Excel 병합은 좌상단만 보존해 조용히 소실됐고 실패 메시지는 개수만 보고함                  | v1.4.208부터 spec 단계에서 `Cell B5 declares content inside merged range A5:D5...` 형식으로 조기 거부                              |
 | PDF가 페이지 수만 있고 비어 있음               | v1.4.198 PDF 생성 worker                               | 모델은 `pages[].elements`를 보냈지만 worker가 legacy `title/text`만 읽고 element를 무시했음                                                 | v1.4.199부터 strict PDF element spec을 공유하고 생성 뒤 페이지별 텍스트 재추출과 양수 `textCharacterCount`를 요구                |
 | 한글명이 깨진 `.orca-*.tmp.pdf`가 남음         | v1.4.198 Windows frozen worker IPC                     | UTF-8 JSONL을 Python redirected stdin의 로컬 코드페이지로 해석해 staging path가 달라졌음                                                    | v1.4.199부터 worker stdio를 UTF-8로 고정하고 ASCII staging 이름을 main이 소유하며 모든 종료 경로에서 제거                        |
 | `PDF text exceeds its element height`          | v1.4.199 PDF 생성 worker                               | 번역문이 모델이 지정한 text element 높이보다 길어 strict layout 검증이 실패함                                                               | v1.4.200부터 원래 비율로 6pt까지 자동 축소하고 그래도 맞지 않을 때만 staging을 제거하며 실패                                     |

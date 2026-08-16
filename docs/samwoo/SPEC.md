@@ -3,7 +3,7 @@
 > 이 문서는 SAMWOO-ORCA의 제품 결정, 현재 구현, 실제 배포 상태, 네트워크 구성, 제한값, 작업 대기열과 검증 기준을 함께 관리하는 **단일 진실(source of truth)**이다.
 > Codex와 Claude는 작업 전에 이 문서를 읽는다. 대화·지시서와 이 문서가 충돌하면 이 문서가 우선한다.
 > 비밀번호, Tailscale 인증 키, 코드서명 개인키, 메일 자격 증명 등 비밀값은 이 문서에 기록하지 않는다.
-> 최종 코드·운영 감사: 2026-08-16 · 저장소 버전: `1.4.207`
+> 최종 코드·운영 감사: 2026-08-16 · 저장소 버전: `1.4.208`
 
 ## 0. 상태 표기와 감사 범위
 
@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목             | 현재 상태                                     |
 | ---------------- | --------------------------------------------- |
-| 로컬 패키지 버전 | `1.4.207`                                     |
+| 로컬 패키지 버전 | `1.4.208`                                     |
 | 작업 브랜치      | `samwoo/upstream-v1.4.168`                    |
 | SAMWOO 원격      | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
@@ -151,7 +151,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 - Electron과 frozen Python worker 사이의 JSONL은 UTF-8로 고정한다. worker staging은 사용자 파일명과 분리된 ASCII 이름이며 main이 성공·실패 모두 정리한 뒤 검증된 최종 파일만 원자적으로 commit한다.
 - 스캔 PDF OCR, 기존 PDF 본문의 무손실 임의 치환, LibreOffice 시각 preview, 매크로·ActiveX·OLE·전자서명 보존은 지원하지 않고 원본을 변경하지 않은 채 명시적으로 실패한다.
 
-문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.204` 공개 릴리스(2026-08-16)까지 통합·배포됐다. envelope JSON 파싱이 실패하면 main이 닫는 delimiter 정확히 한 개를 삭제하는 후보 중 스칼라 토큰이 접합될 수 없는 위치만 고려해, 파싱 가능한 복원 결과가 유일할 때만 결정적으로 교정한다. 다의적이거나 잘린 JSON은 교정하지 않고, 문자열·값·필드는 바꾸지 않으며, 교정 후에도 기존 schema 검증을 통과해야 실행한다. host가 교정하지 못한 malformed envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청한다. PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. Excel create는 정확한 v1 필드 예시(차트 canonical 형식·anchor `position` 포함)를 모델에 제공하고, `overwrite` 누락과 관측된 column/row/autofilter/validation/chart(`chartType`→`type`, 공유 `categories` 배분, series `{sheet,range}`→`values`) 별칭만 충돌 없이 정규화한 뒤 동일한 worker schema·semantic validation을 적용한다. `formula.references` 검증은 openpyxl Tokenizer의 RANGE operand로 시트 참조를 추출해 `=SUM(시트!범위)` 류 오탐을 제거하고, 실패 시 오탈 참조 셀 주소와 casefold 중복 제거된 누락 시트명 상위 5개를 각 항목 절단·전체 상한 안에서 반환한다. 차트 create는 선언된 픽셀 width/height를 실제 렌더 크기에 적용한다. worker schema 오류는 실패 경로와 그 지점의 기대 형태(허용 key·타입·enum)를 함께 반환하고, `fill` 색 문자열·freezePane 셀 주소 별칭은 main이 정규화하며, 표의 중복 열 이름·셀 주소형 표 이름은 spec 단계에서 정확한 사유로 조기 거부한다. 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
+문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.204` 공개 릴리스(2026-08-16)까지 통합·배포됐다. envelope JSON 파싱이 실패하면 main이 결정적으로 교정한다: 완전한 JSON 값 뒤에 닫는 delimiter만 꼬리로 붙은 경우 값은 그대로 두고 꼬리만 버리고, 내부 결함은 닫는 delimiter 정확히 한 개를 삭제하는 후보 중 스칼라 토큰이 접합될 수 없는 위치만 고려해 파싱 가능한 복원 결과가 유일할 때만 채택한다. 다의적이거나 잘린 JSON은 교정하지 않고, 문자열·값·필드는 바꾸지 않으며, 교정 후에도 기존 schema 검증을 통과해야 실행한다. host가 교정하지 못한 malformed envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청한다. PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. Excel create는 정확한 v1 필드 예시(차트 canonical 형식·anchor `position` 포함)를 모델에 제공하고, `overwrite` 누락과 관측된 column/row/autofilter/validation/chart(`chartType`→`type`, 공유 `categories` 배분, series `{sheet,range}`→`values`) 별칭만 충돌 없이 정규화한 뒤 동일한 worker schema·semantic validation을 적용한다. `formula.references` 검증은 openpyxl Tokenizer의 RANGE operand로 시트 참조를 추출해 `=SUM(시트!범위)` 류 오탐을 제거하고, 실패 시 오탈 참조 셀 주소와 casefold 중복 제거된 누락 시트명 상위 5개를 각 항목 절단·전체 상한 안에서 반환한다. 차트 create는 선언된 픽셀 width/height를 실제 렌더 크기에 적용한다. worker schema 오류는 실패 경로와 그 지점의 기대 형태(허용 key·타입·enum·pattern)를 함께 반환하고, `fill` 색 문자열·freezePane 셀 주소 별칭은 main이 정규화한다. 표·named range 이름은 Excel과 동일하게 한글 등 유니코드 문자를 허용하며, 표의 중복 열 이름·셀 주소형 표 이름·병합 범위 안 anchor 아닌 셀의 내용 선언은 spec 단계에서 정확한 사유로 조기 거부한다. 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
 
 앱에는 Electron IPC가 기본 경로이며 `127.0.0.1:47821`의 토큰 보호 loopback 호환 서버도 남아 있다. 포트가 이미 사용 중이면 임시 포트로 물러난다. 이는 외부 네트워크에 공개하지 않는다.
 
@@ -469,7 +469,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.204` | **공개 — 최신**          | 대용량 XLSX frozen worker 스트리밍 추출·유일 복원 envelope 교정 포함. Actions run `31901626176`, 관리자 GUI 실측 후 2026-08-16 공개. 공개 `latest.yml` `1.4.204` 확인   |
 | `v1.4.205` | draft 유지·공개 보류     | 차트 별칭 정규화 1차. Actions run `31920075943` 성공했으나 적대적 검토에서 검증 메시지 상한 파괴·시트 참조 오탐 표면화 등 7건을 확인해 v1.4.206으로 대체              |
 | `v1.4.206` | draft 유지·GUI 실측 실패 | Tokenizer 시트 참조·차트 개선. Actions run `31921086693` 성공. GUI 실측에서 fill/freezePane 별칭 거부와 중복 헤더 표의 무단 드롭 확인                                  |
-| `v1.4.207` | draft 검증 완료          | schema 오류에 기대 형태 첨부, fill/freezePane 별칭 정규화, 표 중복 열 이름·셀 주소형 이름 조기 거부. 실제 4928 재생 통과. Actions run `31927457875` 성공                |
+| `v1.4.207` | draft 유지·GUI 실측 실패 | schema 힌트·fill/freezePane 정규화·표 조기 거부. Actions run `31927457875` 성공. GUI에서 꼬리 중괄호 다의성 거부와 한글 표 이름·병합 삼킴 결함 발견                     |
+| `v1.4.208` | release candidate        | 꼬리 delimiter 수용, 표·named range 한글 이름 허용, 병합 삼킴 조기 거부, pattern 힌트. 실제 4940 재생 체인 통과, Windows Actions 대기                                   |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
