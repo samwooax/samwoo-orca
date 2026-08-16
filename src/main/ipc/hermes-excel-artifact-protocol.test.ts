@@ -25,7 +25,7 @@ describe('Excel Artifact protocol', () => {
     expect(parseExcelArtifactRequest(`${envelope}\ntext`)).toBeNull()
   })
 
-  it('repairs one unambiguous spurious brace but keeps the 1MiB gate and refuses ambiguity', () => {
+  it('repairs stray braces inside and after the envelope but keeps the 1MiB gate', () => {
     const request = {
       version: 1,
       operationId: 'operation-001',
@@ -43,11 +43,11 @@ describe('Excel Artifact protocol', () => {
     )}</orca_excel_artifact>`
     expect(parseExcelArtifactRequest(brokenInsideArray)).toEqual(request)
 
-    // A trailing brace after a flat top-level object admits two single-deletion
-    // readings (drop the tail vs. re-parent trailing keys), so it fails closed.
+    // A trailing stray brace after the complete flat envelope keeps the value
+    // untouched and discards only the tail (production messages 4940/4942/4944).
     expect(
       parseExcelArtifactRequest(`<orca_excel_artifact>${JSON.stringify(request)}}</orca_excel_artifact>`)
-    ).toBeNull()
+    ).toEqual(request)
 
     const oversized = {
       ...request,
@@ -345,6 +345,8 @@ describe('Excel Artifact protocol', () => {
     expect(prompt).toContain('{"color":"#RRGGBB"} 객체')
     expect(prompt).toContain('freezePane은 셀 주소가 아니라 {"row":3,"column":0}')
     expect(prompt).toContain('merges는 ["A1:D1"]')
+    expect(prompt).toContain('좌상단 anchor 셀에만 값·수식을 선언')
+    expect(prompt).toContain('헤더 행 열 이름은 표 안에서 서로 달라야')
     expect(formatExcelArtifactResult({ state: 'completed', committed: true })).toBe(
       '<orca_excel_artifact_result>{"state":"completed","committed":true}</orca_excel_artifact_result>'
     )

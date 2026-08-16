@@ -207,7 +207,7 @@ def validate_workbook_spec(spec: Mapping[str, Any], *, action: str) -> WorkbookP
         item = _require_mapping(raw_name, path)
         _strict_keys(item, frozenset({"name", "formula"}), path)
         name = item.get("name")
-        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_\\][A-Za-z0-9_.\\]{0,254}", name):
+        if not isinstance(name, str) or not re.fullmatch(r"(?:[^\W\d]|\\)[\w.\\]{0,254}", name):
             raise _protocol("The named range name is invalid.", field_path=f"{path}.name")
         if name.casefold() in seen_ranges:
             raise _protocol("Named ranges must be unique ignoring case.", field_path=f"{path}.name")
@@ -221,6 +221,57 @@ def validate_workbook_spec(spec: Mapping[str, Any], *, action: str) -> WorkbookP
         "workbookSpec.properties",
     )
     return WorkbookPlan(copy.deepcopy(dict(root)), policy, formats, tuple(names))
+
+
+_MERGE_CONTENT_CHECK_MAX_MERGES = 1_000
+_MERGE_CONTENT_CHECK_MAX_CELLS = 100_000
+
+
+def _reject_content_swallowed_by_merges(sheet: Mapping[str, Any], path: str) -> None:
+    """Merging keeps only the top-left cell; declared content elsewhere is lost silently."""
+
+    merges = [m for m in sheet.get("merges", []) if isinstance(m, str)]
+    if not merges or len(merges) > _MERGE_CONTENT_CHECK_MAX_MERGES:
+        return
+    from openpyxl.utils import get_column_letter
+    from openpyxl.utils.cell import range_boundaries
+
+    declared: dict[tuple[int, int], bool] = {}
+    for row_index, row in enumerate(sheet.get("data", []), start=1):
+        if not isinstance(row, list):
+            continue
+        for column_index, item in enumerate(row, start=1):
+            value = item.get("formula", item.get("value")) if isinstance(item, Mapping) else item
+            if value not in (None, ""):
+                declared[(row_index, column_index)] = True
+    for item in sheet.get("cells", []):
+        if not isinstance(item, Mapping) or not isinstance(item.get("address"), str):
+            continue
+        if item.get("formula") is not None or item.get("value") not in (None, ""):
+            try:
+                min_col, min_row, _max_col, _max_row = range_boundaries(item["address"].replace("$", ""))
+            except ValueError:
+                continue
+            declared[(min_row, min_col)] = True
+    if not declared or len(declared) > _MERGE_CONTENT_CHECK_MAX_CELLS:
+        return
+    for merge in merges:
+        try:
+            min_col, min_row, max_col, max_row = range_boundaries(merge)
+        except ValueError:
+            continue
+        for (row, column) in declared:
+            if min_row <= row <= max_row and min_col <= column <= max_col:
+                if row == min_row and column == min_col:
+                    continue
+                cell = f"{get_column_letter(column)}{row}"
+                anchor = f"{get_column_letter(min_col)}{min_row}"
+                raise _protocol(
+                    f"Cell {cell} declares content inside merged range {merge}; "
+                    f"merging keeps only the top-left cell {anchor}. "
+                    "Move the content to the anchor or remove the merge.",
+                    field_path=f"{path}.merges",
+                )
 
 
 def _validate_sheet(
@@ -269,6 +320,7 @@ def _validate_sheet(
         _validate_format_id(row.get("formatId"), formats, f"{item_path}.formatId")
     for index, merge in enumerate(_require_list(sheet.get("merges", []), f"{path}.merges")):
         _validate_range(merge, f"{path}.merges[{index}]")
+    _reject_content_swallowed_by_merges(sheet, path)
 
     freeze = _require_mapping(sheet.get("freezePane", {}), f"{path}.freezePane")
     _strict_keys(freeze, frozenset({"row", "column"}), f"{path}.freezePane")
@@ -293,7 +345,8 @@ def _validate_sheet(
             item_path,
         )
         name = table.get("name")
-        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,254}", name):
+        # Unicode letters are legal Excel table names (Korean names in production).
+        if not isinstance(name, str) or not re.fullmatch(r"[^\W\d][\w.]{0,254}", name):
             raise _protocol("Table name is invalid.", field_path=f"{item_path}.name")
         if re.fullmatch(r"[A-Za-z]{1,3}[0-9]+", name) or name.casefold() in {"r", "c"}:
             # XlsxWriter silently drops such tables instead of failing.

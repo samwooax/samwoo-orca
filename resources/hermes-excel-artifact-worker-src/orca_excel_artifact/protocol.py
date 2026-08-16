@@ -175,6 +175,9 @@ def _schema_hint(schema: object) -> str:
                 for key in list(properties)[:14]
             )
         )
+    pattern = schema.get("pattern")
+    if isinstance(pattern, str) and pattern:
+        parts.append(f"pattern {pattern[:80]}")
     return "; ".join(parts)[:240]
 
 

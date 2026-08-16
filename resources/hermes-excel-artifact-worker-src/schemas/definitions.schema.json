@@ -594,7 +594,7 @@
       "properties": {
         "name": {
           "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_.]{0,254}$"
+          "pattern": "^[^\\W\\d][\\w.]{0,254}$"
         },
         "range": {
           "$ref": "#/$defs/cellRange"
@@ -1155,7 +1155,7 @@
             "properties": {
               "name": {
                 "type": "string",
-                "pattern": "^[A-Za-z_\\\\][A-Za-z0-9_.\\\\]{0,254}$"
+                "pattern": "^(?:[^\\W\\d]|\\\\)[\\w.\\\\]{0,254}$"
               },
               "formula": {
                 "type": "string",

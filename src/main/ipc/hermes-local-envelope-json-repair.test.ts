@@ -28,10 +28,15 @@ describe('Hermes envelope JSON delimiter repair', () => {
     })
   })
 
-  it('drops a trailing closer emitted after the envelope object already closed', () => {
+  it('drops trailing closers emitted after the envelope object already closed', () => {
     expect(parseEnvelopeJson('{"version":1,"operations":[{"id":"a"}]}}')).toEqual({
       value: { version: 1, operations: [{ id: 'a' }] }
     })
+    // Flat Excel-style envelopes (production messages 4940/4942/4944): the value
+    // is complete and untouched, only the stray tail is discarded.
+    expect(parseEnvelopeJson('{"a":{"b":1},"c":2}}')).toEqual({ value: { a: { b: 1 }, c: 2 } })
+    expect(parseEnvelopeJson('{"a":[1]}}}}}}')).toEqual({ value: { a: [1] } })
+    expect(parseEnvelopeJson('{"a":[1]}} \n]}')).toEqual({ value: { a: [1] } })
   })
 
   it('never rewrites brackets inside string values', () => {
@@ -61,9 +66,9 @@ describe('Hermes envelope JSON delimiter repair', () => {
     expect(parseEnvelopeJson('{"text":"unterminated')).toBeNull()
   })
 
-  it('fails closed when no single deletion yields valid JSON', () => {
-    expect(parseEnvelopeJson('{"a":[1]}}}}}}')).toBeNull()
+  it('fails closed when the trailing content is not purely stray closers', () => {
     expect(parseEnvelopeJson('{"a":[1]}} "trailing"')).toBeNull()
+    expect(parseEnvelopeJson('{"a":[1]}} {"b":2}')).toBeNull()
     expect(parseEnvelopeJson('{"a":1,}')).toBeNull()
   })
 })
