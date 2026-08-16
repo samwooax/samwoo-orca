@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.205 차트/검증 개선 진행                   | 067f65a9a, run 31901626176                                             |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.206 차트/검증 draft 검증 완료             | 1aff7f581, f850cf9fb, run 31921086693                                  |
 
 ## 웨이브 상세
 
@@ -194,3 +194,5 @@
 - v1.4.205 draft(run `31920075943`) 공개 전 적대적 검토(10 agent)에서 확인된 결함 7건을 v1.4.206에서 수정했다: `_SHEET_REF` 정규식이 `=SUM(시트!범위)`를 시트명 "SUM(시트"로 오파싱해 **시트가 모두 있어도 검증 실패**하던 기존 결함을 openpyxl Tokenizer RANGE operand 추출로 교체(비수식 참조 텍스트는 기존 경로 유지), 검증 메시지의 셀 주소·시트명 항목별 절단으로 result schema 2048자 한도 파괴 차단, 누락 시트명 casefold 중복 제거, normalizer의 미소비 공유 `categories` 무단 삭제 제거(worker 거부로 회귀), 차트 create의 픽셀 width/height를 `set_size`로 실제 적용, 프롬프트에 subtype/legend/color 선택 필드 명시.
 - 실제 message `4917`을 수정된 frozen worker에 재생한 결과 **71개 수식 전부 정상 파싱·completed·committed** — production에서 거부된 26건은 전부 정규식 오탐이었음을 확정했다. 진짜 누락 시트 케이스는 `(first: Summary!A1, Summary!A2); missing sheets: 누락데이터` 형식으로 실패함을 확인했다. 한글 unquoted 시트 참조(`=국가데이터!A1`) 감지도 새로 지원된다.
 - 검증: CI 지정 Vitest 107개 파일 496개, TypeScript 3종, oxlint 3종, reliability·max-lines·localization, frozen worker 재빌드와 production bundle smoke 통과.
+- Actions run `31921086693`에서 v1.4.206 Windows 통합 검사, frozen worker 빌드, package/sign과 draft 업로드가 성공했다. 설치본 241,496,856바이트의 GitHub·로컬 SHA-256 `311c5d34409350684f12a8db43ee4b631a471c25df405f377418abadb6f4532f`, `latest.yml` 버전 `1.4.206`·크기·SHA-512·`isAdminRightsRequired: true`와 SAMWOO 내부 Authenticode 서명(Valid, thumbprint `81316CB47930717E9EB6949430BD80C2F4E6166D`)을 독립 검증했다. 공개 보류된 v1.4.205 draft는 삭제하지 않았다.
+- 남은 단계: 설치본 GUI에서 차트 포함 대시보드 생성을 재실측한 뒤 v1.4.206을 공개한다.

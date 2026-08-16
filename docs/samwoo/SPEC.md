@@ -468,7 +468,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.203` | draft 유지·부분 실측     | 유일 복원 host 교정. Actions run `31898326884` 성공. GUI 실측에서 PDF→XLSX→PPTX 생성 흐름 정상, 대용량 ERP XLSX 추출 실패 2건 발견                               |
 | `v1.4.204` | **공개 — 최신**          | 대용량 XLSX frozen worker 스트리밍 추출·유일 복원 envelope 교정 포함. Actions run `31901626176`, 관리자 GUI 실측 후 2026-08-16 공개. 공개 `latest.yml` `1.4.204` 확인   |
 | `v1.4.205` | draft 유지·공개 보류     | 차트 별칭 정규화 1차. Actions run `31920075943` 성공했으나 적대적 검토에서 검증 메시지 상한 파괴·시트 참조 오탐 표면화 등 7건을 확인해 v1.4.206으로 대체              |
-| `v1.4.206` | release candidate        | Tokenizer 기반 시트 참조(오탐 제거·한글 감지)·상세 메시지 절단·차트 크기 적용·categories fail-closed. 실제 4915/4917/4919 재생 통과, Windows Actions 대기             |
+| `v1.4.206` | draft 검증 완료          | Tokenizer 기반 시트 참조(오탐 제거·한글 감지)·상세 메시지 절단·차트 크기 적용·categories fail-closed. 실제 4915/4917/4919 재생 통과. Actions run `31921086693` 성공     |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
