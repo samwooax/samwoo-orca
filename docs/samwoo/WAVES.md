@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.206 차트/검증 draft 검증 완료             | 1aff7f581, f850cf9fb, run 31921086693                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.207 draft 검증 완료·GUI 재실측 대기       | f850cf9fb, d3e80ca2a, run 31927457875                                  |
 
 ## 웨이브 상세
 
@@ -198,4 +198,6 @@
 - v1.4.206 GUI 실측(message 4928~4932, '시각화 참고 디자인' 대시보드)에서 `formats[0].fill`(색 문자열)·`freezePane`(셀 주소) schema 거부 2회 뒤 모델이 fill과 freeze를 포기한 채 성공하는 기능 손실을 확인했다. 재생 결과 숨은 3번째 결함도 드러났다: Data 시트 표 헤더의 중복 열 이름('지표' 2회) 때문에 XlsxWriter가 표를 경고만 내고 조용히 버려 `spec.tables`/`spec.autofilters` 검증이 모호한 메시지로 실패했다.
 - v1.4.207에서 세 층을 함께 수정했다: ① main normalizer가 `fill` 색 문자열→`{color}` 객체, freezePane 셀 주소→`{row,column}` 개수를 정규화, ② worker의 모든 schema 거부 오류에 실패 지점의 기대 형태(허용 key·타입·enum, 240자 상한)를 자체 스키마에서 요약해 첨부 — 미래의 어떤 필드 오류든 한 라운드 교정이 가능해짐, ③ 표의 중복 열 이름과 셀 주소형 표 이름(XlsxWriter 무단 드롭 부류)을 spec 단계에서 정확한 사유·필드 경로로 조기 거부하고 `spec.tables`/`spec.autofilters` 실패 메시지에 어긋난 표·범위를 명시. prompt에는 formats/freezePane/merges/표 규칙의 정확한 형태를 추가했다.
 - 실제 message `4928`을 재생해 raw 요청은 `Table 'CountryKPI' declares the duplicate column name '지표'` 조기 거부로, 헤더만 교정한 변형은 표 2·freeze 3·차트 2 포함 완주로 확인했다. 4915/4917/4919 재생과 CI 지정 Vitest 107개 파일 497개, TypeScript 3종, oxlint 3종, reliability·max-lines·localization, frozen worker 재빌드·production bundle smoke도 통과했다.
-- 남은 단계: 설치본 GUI에서 대시보드 생성(fill·freeze·표·차트 포함)을 재실측한 뒤 v1.4.207을 공개한다.
+- Actions run `31927457875`에서 v1.4.207 Windows 통합 검사, frozen worker 빌드, package/sign과 draft 업로드가 성공했다. 설치본 241,506,552바이트의 GitHub·로컬 SHA-256 `7ada00a25ac39f57dd5d88dd653a941284a3d51dc34f9860901c3faaa0fc9de4`, `latest.yml` 버전 `1.4.207`·크기·SHA-512·`isAdminRightsRequired: true`와 SAMWOO 내부 Authenticode 서명(Valid)을 독립 검증했다. schema 힌트는 required(`position*` 표기)·type 목록·범위 초과 오류에서도 유효함을 실증했다.
+- 알려진 낮은 위험 엣지: `showHeaderRow:false` 표에 첫 행 중복 값이 있으면 XlsxWriter가 여전히 표를 드롭하지만, 강화된 `spec.tables` 검증이 누락 표를 이름·범위로 지목해 조용히 지나가지 않는다. 다음 사이클에서 build 경로가 headerless 표에 columns 이름을 넘기지 않도록 수정 예정.
+- 남은 단계: 설치본 GUI에서 대시보드 생성(fill·freeze·표·차트 포함)을 재실측한 뒤 v1.4.207을 공개한다. 공개 보류된 v1.4.205·v1.4.206 draft는 삭제하지 않는다.
