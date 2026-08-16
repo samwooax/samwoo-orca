@@ -7,6 +7,7 @@
 | 문서 | 역할 |
 |---|---|
 | [SPEC.md](./SPEC.md) | **단일 진실** — 제품 결정·아키텍처·운영 상태·보안 경계·검증 기준 |
+| [DEVELOPER-GUIDE.md](./DEVELOPER-GUIDE.md) | 개발자 온보딩 — 저장소 지도·환경 준비·핵심 규칙·릴리스 흐름 입구 |
 | [WAVES.md](./WAVES.md) | 실행 계획 — 웨이브별 상태·완료 커밋 추적 |
 | [WORKSPACE-SHARING.md](./WORKSPACE-SHARING.md) | 워크스페이스 공유 서버 배포·통합 상세 |
 | archive/ | 폐기된 과거 인수인계 문서 (참조 금지) |
