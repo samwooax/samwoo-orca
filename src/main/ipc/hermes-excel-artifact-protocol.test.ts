@@ -117,6 +117,66 @@ describe('Excel Artifact protocol', () => {
     })
   })
 
+  it('normalizes conditional-format aliases while keeping conflicts for rejection', () => {
+    // Shape of production message 4950: OOXML-style cellIs plus a numeric formula.
+    const request = {
+      version: 1,
+      operationId: 'operation-cf-001',
+      idempotencyKey: 'idempotency-cf-0001',
+      action: 'create',
+      output: { path: 'reports/dashboard.xlsx' },
+      workbookSpec: {
+        version: 1,
+        sheets: [
+          {
+            name: 'Data',
+            state: 'visible',
+            conditionalFormats: [
+              {
+                range: 'D2:D6',
+                type: 'cellIs',
+                operator: 'greaterThanOrEqual',
+                formula: 0,
+                formatId: 'positive'
+              },
+              { range: 'D2:D6', type: 'formula', formula: '=$D2<0', formatId: 'negative' },
+              { range: 'H2:H6', type: 'cellIs', operator: 'lessThan', formula: 0, value: 5 }
+            ]
+          }
+        ]
+      },
+      toolchain: { profile: 'excel-artifact-v1', version: '1' },
+      timeoutSeconds: 60
+    }
+    const envelope = `<orca_excel_artifact>${JSON.stringify(request)}</orca_excel_artifact>`
+
+    expect(parseExcelArtifactRequest(envelope)?.workbookSpec).toMatchObject({
+      sheets: [
+        {
+          conditionalFormats: [
+            {
+              range: 'D2:D6',
+              type: 'cell',
+              operator: 'greaterThanOrEqual',
+              value: 0,
+              formatId: 'positive'
+            },
+            // A string formula rule stays untouched.
+            { range: 'D2:D6', type: 'formula', formula: '=$D2<0', formatId: 'negative' },
+            // A rule that already carries value keeps its numeric formula for rejection.
+            { range: 'H2:H6', type: 'cell', operator: 'lessThan', formula: 0, value: 5 }
+          ]
+        }
+      ]
+    })
+    const parsedRequest = parseExcelArtifactRequest(envelope)
+    expect(parsedRequest).not.toBeNull()
+    const first = (
+      parsedRequest!.workbookSpec as { sheets: { conditionalFormats: Record<string, unknown>[] }[] }
+    ).sheets[0].conditionalFormats[0]
+    expect('formula' in first).toBe(false)
+  })
+
   it('normalizes fill color strings and freeze-pane cell addresses', () => {
     // Shapes of production message 4928: fill as a bare color string and
     // freezePane as the Excel-style anchor cell address.

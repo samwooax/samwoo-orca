@@ -642,6 +642,9 @@ def _normal_print_area(value: Any) -> str:
 def _literal_matches(actual: Any, expected: Any) -> bool:
     if expected is None:
         return actual is None
+    if expected == "":
+        # Engines store a declared empty string as an empty cell.
+        return actual in (None, "")
     if isinstance(expected, bool):
         return isinstance(actual, bool) and actual is expected
     if isinstance(expected, (int, float)) and not isinstance(expected, bool):
@@ -782,6 +785,7 @@ def _validate_spec_with_open_workbook(
 
     cell_total = 0
     cell_failures = 0
+    cell_mismatches: list[str] = []
     for sheet_spec in declared_sheets:
         if sheet_spec.get("name") not in workbook.sheetnames:
             continue
@@ -793,18 +797,28 @@ def _validate_spec_with_open_workbook(
                 matches = cell.data_type == "f" and cell.value == expected
             else:
                 matches = cell.data_type != "f" and _literal_matches(cell.value, expected)
-            cell_failures += int(not matches)
+            if not matches:
+                cell_failures += 1
+                if len(cell_mismatches) < 5:
+                    cell_mismatches.append(_clip(
+                        f"{sheet_spec['name']}!{address} (declared {expected!r} vs written {cell.value!r})",
+                        110,
+                    ))
     checks.append(_check(
         "spec.cells",
         cell_failures == 0 and declared_sheets_present,
         f"Matched {cell_total} declared formula and literal cell value(s).",
-        f"{cell_failures or 1} declared cell value(s) are missing or differ.",
+        f"{cell_failures or 1} declared cell value(s) are missing or differ"
+        + (f": {'; '.join(cell_mismatches)}" if cell_mismatches else "")
+        + ".",
     ))
 
     merge_total = 0
     merge_failures = 0
+    merge_mismatches: list[str] = []
     freeze_total = 0
     freeze_failures = 0
+    freeze_mismatches: list[str] = []
     filter_total = 0
     filter_failures = 0
     filter_mismatches: list[str] = []
@@ -817,10 +831,15 @@ def _validate_spec_with_open_workbook(
         expected_merges = {_normal_range(item) for item in sheet_spec.get("merges", [])}
         actual_merges = {_normal_range(item) for item in worksheet.merged_cells.ranges}
         merge_total += len(expected_merges)
-        if action == "create":
-            merge_failures += len(expected_merges.symmetric_difference(actual_merges))
-        else:
-            merge_failures += len(expected_merges - actual_merges)
+        merge_diff = (
+            expected_merges.symmetric_difference(actual_merges)
+            if action == "create"
+            else expected_merges - actual_merges
+        )
+        merge_failures += len(merge_diff)
+        for merge_range in sorted(merge_diff):
+            if len(merge_mismatches) < 5:
+                merge_mismatches.append(_clip(f"{sheet_spec['name']}!{merge_range}", 64))
 
         if "freezePane" in sheet_spec:
             freeze_total += 1
@@ -829,7 +848,12 @@ def _validate_spec_with_open_workbook(
             column = int(freeze.get("column", 0))
             expected_freeze = None if row == column == 0 else worksheet.cell(row + 1, column + 1).coordinate
             actual_freeze = getattr(worksheet.freeze_panes, "coordinate", worksheet.freeze_panes)
-            freeze_failures += int(actual_freeze != expected_freeze)
+            if actual_freeze != expected_freeze:
+                freeze_failures += 1
+                if len(freeze_mismatches) < 5:
+                    freeze_mismatches.append(_clip(
+                        f"{sheet_spec['name']} (declared {expected_freeze} vs written {actual_freeze})", 80
+                    ))
 
         if sheet_spec.get("autofilter"):
             filter_total += 1
@@ -851,10 +875,14 @@ def _validate_spec_with_open_workbook(
     checks.extend([
         _check("spec.merges", merge_failures == 0 and declared_sheets_present,
                f"Matched {merge_total} declared merged range(s).",
-               "One or more declared merged ranges are missing or differ."),
+               "Declared merged range(s) are missing or differ"
+               + (f": {', '.join(merge_mismatches)}" if merge_mismatches else "")
+               + "."),
         _check("spec.freeze_panes", freeze_failures == 0 and declared_sheets_present,
                f"Matched {freeze_total} declared freeze-pane setting(s).",
-               "One or more declared freeze-pane settings are missing or differ."),
+               "Declared freeze-pane setting(s) are missing or differ"
+               + (f": {', '.join(freeze_mismatches)}" if freeze_mismatches else "")
+               + "."),
         _check("spec.autofilters", filter_failures == 0 and declared_sheets_present,
                f"Matched {filter_total} declared autofilter range(s).",
                "Declared autofilter range(s) are missing or differ"

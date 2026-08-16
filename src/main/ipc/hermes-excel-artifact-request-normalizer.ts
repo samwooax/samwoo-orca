@@ -66,6 +66,26 @@ function normalizeChart(value: unknown): unknown {
   return chart
 }
 
+// Observed OOXML-style aliases for the canonical `cell` comparison rule.
+function normalizeConditionalFormat(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value
+  }
+  let format = value
+  if (format.type === 'cellIs') {
+    format = { ...format, type: 'cell' }
+  }
+  if (
+    format.type === 'cell' &&
+    !('value' in format) &&
+    (typeof format.formula === 'number' || typeof format.formula === 'boolean')
+  ) {
+    format = { ...format, value: format.formula }
+    delete (format as JsonRecord).formula
+  }
+  return format
+}
+
 const FREEZE_ADDRESS = /^([A-Z]{1,3})([1-9][0-9]{0,6})$/
 
 // Excel's freeze UI is cell-anchored; v1 wants the frozen row/column counts.
@@ -100,6 +120,9 @@ function normalizeSheet(value: unknown): unknown {
   }
   if (Array.isArray(sheet.charts)) {
     sheet.charts = sheet.charts.map(normalizeChart)
+  }
+  if (Array.isArray(sheet.conditionalFormats)) {
+    sheet.conditionalFormats = sheet.conditionalFormats.map(normalizeConditionalFormat)
   }
   return sheet
 }
