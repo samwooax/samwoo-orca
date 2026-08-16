@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-16, Git commit `067f65a9a`, `package.json` 버전 `1.4.204`
+> 기준: 2026-08-16, Git commit `1aff7f581`, `package.json` 버전 `1.4.205`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -587,7 +587,7 @@ Renderer HermesTeamChatView
 - PDF.js와 OOXML 읽기·번역은 30초 timeout·memory limit이 있는 Node worker thread에서 실행한다. PDF.js는 PDF 요청에서만 lazy-load하고, Node용 DOMMatrix/ImageData/Path2D를 제공하는 플랫폼별 `@napi-rs/canvas`와 `pdf.worker.mjs`를 packaged resource 경계에서 확인한다. 일반 생성·편집은 Python 3.13과 고정된 openpyxl/XlsxWriter/python-pptx/pypdf/reportlab을 PyInstaller one-folder 실행파일로 빌드해 Windows 설치본의 `Resources/hermes-excel-artifact-worker`에 포함한다. Electron→Python JSONL은 환경과 host 양쪽에서 UTF-8로 고정하며, main은 사용자 파일명과 분리된 ASCII staging 이름을 생성하고 성공·실패 모두 `finally`에서 제거한다. 사용자의 Python·pip·Office package를 사용하지 않는다.
 - project-backed source/output은 local worktree와 folder workspace에서만 동작한다. SSH/Runtime 경로를 로컬 path로 해석하지 않으며, 요청 첨부의 추출만 project root 없이 가능하다.
 - Electron main은 worker bundle manifest와 실제 engine metadata를 probe한 경우에만 Excel Artifact v1의 `create`/`modify`/`validate`/`cancel` capability를 trusted instruction에 넣는다. `<orca_excel_artifact>`는 local file/document/command envelope와 하나의 union으로 parse하고, capability가 없거나 SSH/Runtime workspace이면 실행하지 않는다. LibreOffice render/preview capability는 계속 비활성이다.
-- 모델에는 `output.overwrite`, 네 개의 validation boolean, preservation policy enum, column/row/autofilter/page setup의 정확한 v1 JSON 형태를 제공한다. v1.4.201은 관측된 안전한 별칭과 누락 기본값만 main에서 정규화하고 충돌하는 canonical/alias 값과 알 수 없는 field는 worker가 계속 거부한다.
+- 모델에는 `output.overwrite`, 네 개의 validation boolean, preservation policy enum, column/row/autofilter/page setup과 차트(`type` enum·series `values`/`categories`·anchor `position`·픽셀 크기)의 정확한 v1 JSON 형태를 제공한다. v1.4.201부터 관측된 안전한 별칭과 누락 기본값만 main에서 정규화하며, v1.4.205는 차트 별칭(`chartType`→`type`, 공유 `categories`의 series 배분, series `{sheet,range}`→`values`)을 추가했다. 충돌하는 canonical/alias 값, 알 수 없는 field(x/y inch 좌표 포함)와 누락된 필수 `position`은 worker가 계속 거부한다.
 
 #### Excel Artifact job 경계
 
@@ -658,6 +658,8 @@ renderer `useSamwooScheduleRunner`
 | 교정 요청 2회 뒤에도 같은 오류로 최종 실패     | v1.4.201 Hermes document follow-up                     | GPT-5.6 Terra가 message 4853/4855/4857에서 마지막 page 뒤 잉여 `}` 하나를 세 번 모두 동일하게 재출력해 모델 교정이 수렴하지 않음            | v1.4.203부터 main이 유일하게 복원되는 닫는 delimiter 한 개만 결정적으로 제거해 즉시 실행하고, 다의성·그 외 malformed는 모델 교정으로 보냄 |
 | `worksheet Sheet1 is missing or too large`     | v1.4.203 XLSX in-process parser                        | ERP 내보내기 시트 XML(실측 16.8MB)이 in-process parser의 XML당 16MiB 상한을 초과함                                                          | v1.4.204부터 frozen worker의 openpyxl read-only 스트리밍으로 라우팅해 파일 분할 없이 추출                                        |
 | `Worker terminated due to reaching memory limit` | v1.4.203 XLSX document worker thread                 | 10.6MB 시트 XML의 DOM·전체 셀 map이 worker thread 256MB heap을 초과함                                                                       | v1.4.204부터 동일한 frozen worker 스트리밍 경로로 라우팅하고, worker가 없는 host만 기존 in-process 한도로 동작                    |
+| `schema at $.workbookSpec...charts[0]`         | v1.4.204 Excel Artifact worker schema                  | prompt에 차트 형식 안내가 없어 모델이 `chartType`·공유 `categories`·series `{sheet,range}`·inch 좌표를 추정해 사용함                        | v1.4.205부터 차트 canonical 예시를 prompt에 제공하고 관측된 안전 별칭만 정규화. x/y와 `position` 누락은 계속 거부                 |
+| `The workbook did not pass required validation` | v1.4.204 Excel Artifact `formula.references` 검증     | 모델 수식이 workbookSpec에 없는 시트를 참조했고 오류에 개수만 있어 원인 셀을 추측해야 했음                                                   | fail-closed 동작 자체는 정상. v1.4.205부터 오탈 참조 셀 주소·누락 시트명 상위 5개를 오류에 포함해 1회차 교정을 도움               |
 | PDF가 페이지 수만 있고 비어 있음               | v1.4.198 PDF 생성 worker                               | 모델은 `pages[].elements`를 보냈지만 worker가 legacy `title/text`만 읽고 element를 무시했음                                                 | v1.4.199부터 strict PDF element spec을 공유하고 생성 뒤 페이지별 텍스트 재추출과 양수 `textCharacterCount`를 요구                |
 | 한글명이 깨진 `.orca-*.tmp.pdf`가 남음         | v1.4.198 Windows frozen worker IPC                     | UTF-8 JSONL을 Python redirected stdin의 로컬 코드페이지로 해석해 staging path가 달라졌음                                                    | v1.4.199부터 worker stdio를 UTF-8로 고정하고 ASCII staging 이름을 main이 소유하며 모든 종료 경로에서 제거                        |
 | `PDF text exceeds its element height`          | v1.4.199 PDF 생성 worker                               | 번역문이 모델이 지정한 text element 높이보다 길어 strict layout 검증이 실패함                                                               | v1.4.200부터 원래 비율로 6pt까지 자동 축소하고 그래도 맞지 않을 때만 staging을 제거하며 실패                                     |

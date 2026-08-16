@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 완료 (2026-08-16)                                | 706256780, 067f65a9a, run 31901626176                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.204 공개 · v1.4.205 차트/검증 개선 진행                   | 067f65a9a, run 31901626176                                             |
 
 ## 웨이브 상세
 
@@ -188,3 +188,6 @@
 - 검증: CI 지정 Vitest 107개 파일 495개, TypeScript 3종, native/type-aware oxlint, reliability·max-lines·skill·localization 게이트, frozen worker 재빌드와 production bundle smoke 통과.
 - Actions run `31901626176`에서 v1.4.204 Windows 통합 검사, frozen worker 빌드, package/sign과 draft 업로드가 성공했다. 설치본 241,493,312바이트의 GitHub·로컬 SHA-256 `e32b278dff1217f0671cf51c5c57abba3568d50dd083b9d9b7736bbb51a47f47`, `latest.yml` 버전 `1.4.204`·크기·SHA-512·`isAdminRightsRequired: true`와 SAMWOO 내부 Authenticode 서명(Valid, thumbprint `81316CB47930717E9EB6949430BD80C2F4E6166D`)을 독립 검증했다. 계산 cache가 없는 수식(원문 유지)과 시트 경계를 넘는 cursor 창도 실증으로 확인했다.
 - 관리자 GUI 실측(대용량 XLSX 분석 포함) 후 2026-08-16 `v1.4.204`를 공개 최신 릴리스로 전환했다. 공개 `latest.yml`이 버전 `1.4.204`·크기 `241493312`·`isAdminRightsRequired: true`를 반환하고 `/releases/latest`가 v1.4.204를 가리키는 것을 확인했다. 공개 보류된 v1.4.198~v1.4.203 draft는 이력 보존을 위해 삭제하지 않았고 draft 상태를 유지한다.
+- v1.4.204 GUI 실측(session `25cff537`)에서 차트 포함 대시보드 생성이 message `4915`의 차트 별칭(`chartType`·공유 `categories`·series `{sheet,range}`·`position` 누락)으로 schema 거부, message `4917`은 수식 26개의 누락 시트 참조로 `formula.references` 검증 거부됐다. v3에서 성공했지만 모델이 차트를 포기한 결과였다.
+- v1.4.205에서 차트 canonical 예시·수식 시트 참조 규칙을 prompt에 추가하고, 관측된 차트 별칭만 정규화(`chartType`→`type`, 공유 `categories` 배분, series `{sheet,range}`→`values`)했다. 충돌 값·x/y inch 좌표·`position` 누락은 계속 worker가 거부한다. `formula.references` 실패는 오탈 셀 주소·누락 시트명 상위 5개를 오류 메시지에 포함한다.
+- 실제 message `4915` 별칭이 canonical 형식으로 정규화됨을 확인했고, 실제 message `4917`을 frozen worker에 재생해 `(first: Dashboard!...)` 상세 오류를, `4919` spec에 `4915` 차트(+position)를 더한 요청으로 native chart 2개 포함 workbook commit을 확인했다. CI 지정 Vitest 107개 파일 496개, TypeScript 3종, oxlint 3종, reliability·max-lines·localization, frozen worker 재빌드와 production bundle smoke 통과.
