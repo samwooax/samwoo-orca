@@ -621,11 +621,11 @@ def _apply_xlsxwriter_sheet(
             chart.set_legend({"none": True})
         elif chart_spec.get("legend"):
             chart.set_legend({"position": chart_spec["legend"]})
-        worksheet.insert_chart(
-            chart_spec["position"],
-            chart,
-            {key: chart_spec[key] for key in ("width", "height") if key in chart_spec},
-        )
+        size = {key: chart_spec[key] for key in ("width", "height") if key in chart_spec}
+        if size:
+            # insert_chart options ignore width/height; only set_size applies them.
+            chart.set_size(size)
+        worksheet.insert_chart(chart_spec["position"], chart)
     for validation in spec.get("dataValidations", []):
         worksheet.data_validation(validation["range"], _xlsxwriter_validation(validation))
     for conditional in spec.get("conditionalFormats", []):

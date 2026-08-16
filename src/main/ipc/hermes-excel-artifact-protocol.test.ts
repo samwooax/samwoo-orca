@@ -213,6 +213,37 @@ describe('Excel Artifact protocol', () => {
         }
       ]
     })
+
+    // When every series already has its own categories, the shared block was not
+    // consumed, so it must stay for worker rejection instead of vanishing.
+    const unconsumedEnvelope = `<orca_excel_artifact>${JSON.stringify({
+      ...request,
+      workbookSpec: {
+        version: 1,
+        sheets: [
+          {
+            name: 'Dashboard',
+            state: 'visible',
+            charts: [
+              {
+                type: 'bar',
+                categories: { sheet: 'TOP', range: 'B1:B9' },
+                series: [
+                  {
+                    values: { sheet: 'Country_Data', range: 'D2:D6' },
+                    categories: { sheet: 'OWN', range: 'Z1:Z5' }
+                  }
+                ],
+                position: 'F2'
+              }
+            ]
+          }
+        ]
+      }
+    })}</orca_excel_artifact>`
+    expect(parseExcelArtifactRequest(unconsumedEnvelope)?.workbookSpec).toMatchObject({
+      sheets: [{ charts: [{ categories: { sheet: 'TOP', range: 'B1:B9' } }] }]
+    })
   })
 
   it('keeps conflicting aliases for strict worker rejection', () => {

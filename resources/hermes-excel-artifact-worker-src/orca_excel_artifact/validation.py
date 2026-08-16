@@ -402,18 +402,51 @@ def preflight_unsupported_features(
     return warnings
 
 
+def _reference_prefix_names(reference: str) -> list[str]:
+    names: list[str] = []
+    prefix = reference.rsplit("!", 1)[0].strip()
+    if prefix.startswith("'") and prefix.endswith("'") and len(prefix) >= 2:
+        prefix = prefix[1:-1].replace("''", "'")
+    # Sheet names cannot contain ':', so a residual colon is a 3-D span.
+    for part in prefix.split(":"):
+        if part.strip():
+            names.append(part.strip())
+    return names
+
+
 def _formula_sheet_names(formula: str) -> list[str]:
+    # Tokenize real formulas: the regex fallback misreads function calls such as
+    # =SUM(Data!A1) as a sheet named "SUM(Data". Bare reference text (defined
+    # names, chart reference formulas) is not '='-prefixed and keeps the regex.
+    if formula.startswith("="):
+        try:
+            from openpyxl.formula import Tokenizer
+
+            return [
+                name
+                for token in Tokenizer(formula).items
+                if token.type == "OPERAND" and token.subtype == "RANGE" and "!" in token.value
+                for name in _reference_prefix_names(token.value)
+            ]
+        except ImportError:
+            pass
+        except Exception:
+            return []
     return [
         (quoted.replace("''", "'") if quoted else unquoted.strip())
         for quoted, unquoted in _SHEET_REF.findall(formula)
     ]
 
 
+def _clip(value: str, limit: int) -> str:
+    return value if len(value) <= limit else value[: limit - 1] + "…"
+
+
 def _validate_formula_references(workbook: Any) -> tuple[bool, str]:
     sheet_names = {name.casefold() for name in workbook.sheetnames}
     checked = 0
     invalid: list[str] = []
-    missing_sheets: set[str] = set()
+    missing_sheets: dict[str, str] = {}
     try:
         from openpyxl.formula import Tokenizer
     except ImportError:
@@ -426,12 +459,12 @@ def _validate_formula_references(workbook: Any) -> tuple[bool, str]:
                     continue
                 checked += 1
                 if "#REF!" in value.upper():
-                    invalid.append(f"{worksheet.title}!{cell.coordinate}")
+                    invalid.append(_clip(f"{worksheet.title}!{cell.coordinate}", 64))
                     continue
                 try:
                     Tokenizer(value)
                 except Exception:
-                    invalid.append(f"{worksheet.title}!{cell.coordinate}")
+                    invalid.append(_clip(f"{worksheet.title}!{cell.coordinate}", 64))
                     continue
                 unknown = [
                     name
@@ -439,13 +472,16 @@ def _validate_formula_references(workbook: Any) -> tuple[bool, str]:
                     if name.casefold() not in sheet_names
                 ]
                 if unknown:
-                    invalid.append(f"{worksheet.title}!{cell.coordinate}")
-                    missing_sheets.update(unknown)
+                    invalid.append(_clip(f"{worksheet.title}!{cell.coordinate}", 64))
+                    for name in unknown:
+                        missing_sheets.setdefault(name.casefold(), _clip(name, 40))
     if invalid:
         # Name the first offenders so the model can correct them in one round.
+        # Every fragment is clipped so the message stays inside the result
+        # schema's 2048-character bound even for hostile sheet references.
         detail = f" (first: {', '.join(invalid[:5])})"
         if missing_sheets:
-            detail += f"; missing sheets: {', '.join(sorted(missing_sheets)[:5])}"
+            detail += f"; missing sheets: {', '.join(sorted(missing_sheets.values())[:5])}"
         return False, (
             f"{len(invalid)} formula(s) contain invalid or missing-sheet references{detail}."
         )

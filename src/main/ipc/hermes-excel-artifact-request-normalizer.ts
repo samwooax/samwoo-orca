@@ -47,14 +47,20 @@ function normalizeChart(value: unknown): unknown {
   let chart = normalizeAliasedField(value, 'type', 'chartType') as JsonRecord
   if (Array.isArray(chart.series)) {
     chart = { ...chart, series: chart.series.map(normalizeChartSeries) }
-    // A top-level categories block is the shared-axis alias; each series keeps its own.
+    // A top-level categories block is the shared-axis alias. It is only removed
+    // when a series actually consumed it; otherwise it stays for worker rejection.
     if (isRecord(chart.categories)) {
-      chart.series = (chart.series as unknown[]).map((series) =>
-        isRecord(series) && !('categories' in series)
-          ? { ...series, categories: chart.categories }
-          : series
-      )
-      delete chart.categories
+      let distributed = false
+      chart.series = (chart.series as unknown[]).map((series) => {
+        if (isRecord(series) && !('categories' in series)) {
+          distributed = true
+          return { ...series, categories: chart.categories }
+        }
+        return series
+      })
+      if (distributed) {
+        delete chart.categories
+      }
     }
   }
   return chart
