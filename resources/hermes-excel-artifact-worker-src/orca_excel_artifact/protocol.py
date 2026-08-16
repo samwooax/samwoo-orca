@@ -150,6 +150,34 @@ def _validation_sort_key(error: ValidationError) -> tuple[str, str, str]:
     return (_json_path(error), str(error.validator), error.message)
 
 
+def _schema_hint(schema: object) -> str:
+    """Render the expected shape of the failing node from our own trusted schema."""
+
+    if not isinstance(schema, Mapping):
+        return ""
+    parts: list[str] = []
+    kind = schema.get("type")
+    if isinstance(kind, str):
+        parts.append(f"type {kind}")
+    elif isinstance(kind, list):
+        parts.append("type " + "/".join(str(item) for item in kind[:4]))
+    enum = schema.get("enum")
+    if isinstance(enum, list) and enum:
+        parts.append("one of " + "|".join(str(item) for item in enum[:10]))
+    properties = schema.get("properties")
+    if isinstance(properties, Mapping) and properties:
+        required = schema.get("required")
+        required_keys = frozenset(required) if isinstance(required, list) else frozenset()
+        parts.append(
+            "keys "
+            + ", ".join(
+                f"{key}*" if key in required_keys else str(key)
+                for key in list(properties)[:14]
+            )
+        )
+    return "; ".join(parts)[:240]
+
+
 def _check_exact_version(document: Mapping[str, Any]) -> None:
     if "version" not in document:
         return
@@ -191,9 +219,11 @@ def validate_document(document: Any, schema_name: str) -> dict[str, Any]:
     errors = sorted(_validator(canonical).iter_errors(document), key=_validation_sort_key)
     if errors:
         error = errors[0]
+        hint = _schema_hint(error.schema)
         raise _protocol_error(
-            f"The protocol document does not match the {canonical} v1 schema at {_json_path(error)}.",
-            recovery="Remove unknown fields and correct the reported field using the v1 protocol schema.",
+            f"The protocol document does not match the {canonical} v1 schema at {_json_path(error)}."
+            + (f" Expected here: {hint}." if hint else ""),
+            recovery="Correct the reported field to the expected shape and remove unknown fields.",
             details={"stage": "schema"},
         )
     return document

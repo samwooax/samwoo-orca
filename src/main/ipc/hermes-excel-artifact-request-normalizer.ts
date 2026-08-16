@@ -66,6 +66,21 @@ function normalizeChart(value: unknown): unknown {
   return chart
 }
 
+const FREEZE_ADDRESS = /^([A-Z]{1,3})([1-9][0-9]{0,6})$/
+
+// Excel's freeze UI is cell-anchored; v1 wants the frozen row/column counts.
+function freezePaneFromAddress(value: string): { row: number; column: number } | null {
+  const match = FREEZE_ADDRESS.exec(value)
+  if (!match) {
+    return null
+  }
+  let column = 0
+  for (const letter of match[1]) {
+    column = column * 26 + (letter.charCodeAt(0) - 64)
+  }
+  return { row: Number(match[2]) - 1, column: column - 1 }
+}
+
 function normalizeSheet(value: unknown): unknown {
   if (!isRecord(value)) {
     return value
@@ -80,6 +95,9 @@ function normalizeSheet(value: unknown): unknown {
   if (typeof sheet.autofilter === 'string') {
     sheet.autofilter = { range: sheet.autofilter }
   }
+  if (typeof sheet.freezePane === 'string') {
+    sheet.freezePane = freezePaneFromAddress(sheet.freezePane) ?? sheet.freezePane
+  }
   if (Array.isArray(sheet.charts)) {
     sheet.charts = sheet.charts.map(normalizeChart)
   }
@@ -93,6 +111,13 @@ function normalizeWorkbookSpec(action: string, value: unknown): unknown {
   const spec = { ...value }
   if (action === 'create' && spec.preservationPolicy === 'new_workbook') {
     spec.preservationPolicy = 'fail_on_unsupported_loss'
+  }
+  if (Array.isArray(spec.formats)) {
+    spec.formats = spec.formats.map((format) =>
+      isRecord(format) && typeof format.fill === 'string'
+        ? { ...format, fill: { color: format.fill } }
+        : format
+    )
   }
   if (Array.isArray(spec.sheets)) {
     spec.sheets = spec.sheets.map(normalizeSheet)

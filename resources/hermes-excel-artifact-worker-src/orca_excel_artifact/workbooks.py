@@ -295,10 +295,28 @@ def _validate_sheet(
         name = table.get("name")
         if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,254}", name):
             raise _protocol("Table name is invalid.", field_path=f"{item_path}.name")
+        if re.fullmatch(r"[A-Za-z]{1,3}[0-9]+", name) or name.casefold() in {"r", "c"}:
+            # XlsxWriter silently drops such tables instead of failing.
+            raise _protocol(
+                "Table names must not look like cell references.",
+                field_path=f"{item_path}.name",
+            )
         if name.casefold() in table_names:
             raise _protocol("Table names must be workbook-wide unique.", field_path=f"{item_path}.name")
         table_names.add(name.casefold())
         _validate_range(table.get("range"), f"{item_path}.range")
+        if table.get("showHeaderRow", True):
+            headers = _xlsxwriter_table_headers(sheet, table["range"])
+            folded_headers: set[str] = set()
+            for header in headers or []:
+                if header.casefold() in folded_headers:
+                    # Excel requires unique table columns; XlsxWriter drops the table silently.
+                    raise _protocol(
+                        f"Table '{name}' declares the duplicate column name '{header[:40]}'; "
+                        "every table column header must be unique.",
+                        field_path=f"{item_path}.range",
+                    )
+                folded_headers.add(header.casefold())
 
     for index, raw_chart in enumerate(_require_list(sheet.get("charts", []), f"{path}.charts")):
         _validate_chart(_require_mapping(raw_chart, f"{path}.charts[{index}]"), f"{path}.charts[{index}]")

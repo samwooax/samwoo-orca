@@ -807,6 +807,7 @@ def _validate_spec_with_open_workbook(
     freeze_failures = 0
     filter_total = 0
     filter_failures = 0
+    filter_mismatches: list[str] = []
     print_total = 0
     print_failures = 0
     for sheet_spec in declared_sheets:
@@ -835,7 +836,11 @@ def _validate_spec_with_open_workbook(
             expected_filter = _normal_range(sheet_spec["autofilter"]["range"])
             actual_filter = _normal_range(worksheet.auto_filter.ref or "")
             table_filters = {_normal_range(table.ref) for table in worksheet.tables.values()}
-            filter_failures += int(expected_filter != actual_filter and expected_filter not in table_filters)
+            if expected_filter != actual_filter and expected_filter not in table_filters:
+                filter_failures += 1
+                filter_mismatches.append(
+                    _clip(f"{sheet_spec['name']}!{sheet_spec['autofilter']['range']}", 64)
+                )
 
         page_setup = sheet_spec.get("pageSetup", {})
         if "printArea" in page_setup:
@@ -852,7 +857,9 @@ def _validate_spec_with_open_workbook(
                "One or more declared freeze-pane settings are missing or differ."),
         _check("spec.autofilters", filter_failures == 0 and declared_sheets_present,
                f"Matched {filter_total} declared autofilter range(s).",
-               "One or more declared autofilter ranges are missing or differ."),
+               "Declared autofilter range(s) are missing or differ"
+               + (f": {', '.join(filter_mismatches[:5])}" if filter_mismatches else "")
+               + "."),
         _check("spec.print_areas", print_failures == 0 and declared_sheets_present,
                f"Matched {print_total} declared print area(s).",
                "One or more declared print areas are missing or differ."),
@@ -890,11 +897,22 @@ def _validate_spec_with_open_workbook(
         for table in worksheet.tables.values()
     }
     tables_ok = expected_tables == actual_tables if action == "create" else expected_tables <= actual_tables
+    missing_tables = sorted(expected_tables - actual_tables)
+    unexpected_tables = sorted(actual_tables - expected_tables) if action == "create" else []
+    table_detail = ""
+    if missing_tables:
+        table_detail += ": missing " + ", ".join(
+            _clip(f"{name} ({sheet}!{rng})", 80) for name, sheet, rng in missing_tables[:5]
+        )
+    if unexpected_tables:
+        table_detail += ("; " if table_detail else ": ") + "unexpected " + ", ".join(
+            _clip(f"{name} ({sheet}!{rng})", 80) for name, sheet, rng in unexpected_tables[:5]
+        )
     checks.append(_check(
         "spec.tables",
         tables_ok,
         f"Matched {len(expected_tables)} declared native table(s) by name and range.",
-        "One or more declared native table names or ranges are missing or differ.",
+        f"Declared native table names or ranges are missing or differ{table_detail}.",
     ))
 
     expected_charts = _expected_chart_signatures(spec)

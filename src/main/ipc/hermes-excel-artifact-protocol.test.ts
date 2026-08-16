@@ -117,6 +117,46 @@ describe('Excel Artifact protocol', () => {
     })
   })
 
+  it('normalizes fill color strings and freeze-pane cell addresses', () => {
+    // Shapes of production message 4928: fill as a bare color string and
+    // freezePane as the Excel-style anchor cell address.
+    const request = {
+      version: 1,
+      operationId: 'operation-fill-001',
+      idempotencyKey: 'idempotency-fill-0001',
+      action: 'create',
+      output: { path: 'reports/dashboard.xlsx' },
+      workbookSpec: {
+        version: 1,
+        formats: [
+          { id: 'title', font: { size: 18, bold: true, color: '#FFFFFF' }, fill: '#1D4ED8' },
+          { id: 'body', fill: { color: '#F1F5F9', pattern: 'solid' } }
+        ],
+        sheets: [
+          { name: 'Dashboard', state: 'visible', freezePane: 'A4' },
+          { name: 'Data', state: 'visible', freezePane: 'C2' },
+          { name: 'Raw', state: 'visible', freezePane: '고정' }
+        ]
+      },
+      toolchain: { profile: 'excel-artifact-v1', version: '1' },
+      timeoutSeconds: 60
+    }
+    const envelope = `<orca_excel_artifact>${JSON.stringify(request)}</orca_excel_artifact>`
+
+    expect(parseExcelArtifactRequest(envelope)?.workbookSpec).toMatchObject({
+      formats: [
+        { id: 'title', fill: { color: '#1D4ED8' } },
+        { id: 'body', fill: { color: '#F1F5F9', pattern: 'solid' } }
+      ],
+      sheets: [
+        { name: 'Dashboard', freezePane: { row: 3, column: 0 } },
+        { name: 'Data', freezePane: { row: 1, column: 2 } },
+        // An unmappable freeze string stays for strict worker rejection.
+        { name: 'Raw', freezePane: '고정' }
+      ]
+    })
+  })
+
   it('normalizes observed chart aliases into the canonical v1 chart shape', () => {
     // Shape of production message 4915: chartType, shared top-level categories,
     // and series given as bare {sheet, range}.
@@ -302,6 +342,9 @@ describe('Excel Artifact protocol', () => {
     expect(prompt).toContain('area|bar|column|doughnut|line|pie|scatter')
     expect(prompt).toContain('x/y inch 좌표나 chartType')
     expect(prompt).toContain('존재하지 않는 시트를 참조하면 검증이 실패합니다')
+    expect(prompt).toContain('{"color":"#RRGGBB"} 객체')
+    expect(prompt).toContain('freezePane은 셀 주소가 아니라 {"row":3,"column":0}')
+    expect(prompt).toContain('merges는 ["A1:D1"]')
     expect(formatExcelArtifactResult({ state: 'completed', committed: true })).toBe(
       '<orca_excel_artifact_result>{"state":"completed","committed":true}</orca_excel_artifact_result>'
     )
