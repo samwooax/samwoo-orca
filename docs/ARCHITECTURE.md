@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-16, Git commit `f850cf9fb`, `package.json` 버전 `1.4.206`
+> 기준: 2026-08-16, Git commit `d3e80ca2a`, `package.json` 버전 `1.4.207`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -587,7 +587,8 @@ Renderer HermesTeamChatView
 - PDF.js와 OOXML 읽기·번역은 30초 timeout·memory limit이 있는 Node worker thread에서 실행한다. PDF.js는 PDF 요청에서만 lazy-load하고, Node용 DOMMatrix/ImageData/Path2D를 제공하는 플랫폼별 `@napi-rs/canvas`와 `pdf.worker.mjs`를 packaged resource 경계에서 확인한다. 일반 생성·편집은 Python 3.13과 고정된 openpyxl/XlsxWriter/python-pptx/pypdf/reportlab을 PyInstaller one-folder 실행파일로 빌드해 Windows 설치본의 `Resources/hermes-excel-artifact-worker`에 포함한다. Electron→Python JSONL은 환경과 host 양쪽에서 UTF-8로 고정하며, main은 사용자 파일명과 분리된 ASCII staging 이름을 생성하고 성공·실패 모두 `finally`에서 제거한다. 사용자의 Python·pip·Office package를 사용하지 않는다.
 - project-backed source/output은 local worktree와 folder workspace에서만 동작한다. SSH/Runtime 경로를 로컬 path로 해석하지 않으며, 요청 첨부의 추출만 project root 없이 가능하다.
 - Electron main은 worker bundle manifest와 실제 engine metadata를 probe한 경우에만 Excel Artifact v1의 `create`/`modify`/`validate`/`cancel` capability를 trusted instruction에 넣는다. `<orca_excel_artifact>`는 local file/document/command envelope와 하나의 union으로 parse하고, capability가 없거나 SSH/Runtime workspace이면 실행하지 않는다. LibreOffice render/preview capability는 계속 비활성이다.
-- 모델에는 `output.overwrite`, 네 개의 validation boolean, preservation policy enum, column/row/autofilter/page setup과 차트(`type` enum·series `values`/`categories`·anchor `position`·픽셀 크기)의 정확한 v1 JSON 형태를 제공한다. v1.4.201부터 관측된 안전한 별칭과 누락 기본값만 main에서 정규화하며, v1.4.205는 차트 별칭(`chartType`→`type`, 공유 `categories`의 series 배분, series `{sheet,range}`→`values`)을 추가했다. 충돌하는 canonical/alias 값, 알 수 없는 field(x/y inch 좌표 포함)와 누락된 필수 `position`은 worker가 계속 거부한다.
+- 모델에는 `output.overwrite`, 네 개의 validation boolean, preservation policy enum, column/row/autofilter/page setup, formats(`fill` 객체 포함), freezePane 행·열 개수와 차트(`type` enum·series `values`/`categories`·anchor `position`·픽셀 크기)의 정확한 v1 JSON 형태를 제공한다. v1.4.201부터 관측된 안전한 별칭과 누락 기본값만 main에서 정규화하며, v1.4.205~207에서 차트 별칭(`chartType`→`type`, 공유 `categories`의 series 배분, series `{sheet,range}`→`values`), `fill` 색 문자열→`{color}` 객체, freezePane 셀 주소→`{row,column}` 개수 변환을 추가했다. 충돌하는 canonical/alias 값과 알 수 없는 field(x/y inch 좌표 포함)는 worker가 계속 거부한다.
+- worker의 schema 거부 오류는 실패 경로와 함께 그 지점의 기대 형태(허용 key·타입·enum)를 자체 스키마에서 요약해 반환하므로, 모델이 어떤 필드를 어떤 모양으로 고쳐야 하는지 한 라운드 안에 알 수 있다. 표는 spec 단계에서 중복 열 이름과 셀 주소형 표 이름을 정확한 사유로 조기 거부한다(XlsxWriter가 이런 표를 경고만 내고 조용히 버리는 것을 차단). `spec.tables`/`spec.autofilters` 검증 실패도 어긋난 표·범위를 이름으로 반환한다.
 
 #### Excel Artifact job 경계
 
@@ -660,6 +661,8 @@ renderer `useSamwooScheduleRunner`
 | `Worker terminated due to reaching memory limit` | v1.4.203 XLSX document worker thread                 | 10.6MB 시트 XML의 DOM·전체 셀 map이 worker thread 256MB heap을 초과함                                                                       | v1.4.204부터 동일한 frozen worker 스트리밍 경로로 라우팅하고, worker가 없는 host만 기존 in-process 한도로 동작                    |
 | `schema at $.workbookSpec...charts[0]`         | v1.4.204 Excel Artifact worker schema                  | prompt에 차트 형식 안내가 없어 모델이 `chartType`·공유 `categories`·series `{sheet,range}`·inch 좌표를 추정해 사용함                        | v1.4.205부터 차트 canonical 예시를 prompt에 제공하고 관측된 안전 별칭만 정규화. x/y와 `position` 누락은 계속 거부                 |
 | `The workbook did not pass required validation` | v1.4.204 Excel Artifact `formula.references` 검증     | 기존 정규식이 `=SUM(시트!범위)` 류를 오파싱해 시트가 모두 있어도 실패시켰음 — production 26건은 전부 오탐으로 확인(4917 재생 완주)          | v1.4.206부터 Tokenizer RANGE operand 기반 추출로 오탐 제거. 진짜 누락 시트는 셀 주소·시트명 상위 5개(절단·상한 적용)와 함께 반환   |
+| `schema at $...formats[0].fill` / `...freezePane` | v1.4.206 Excel Artifact worker schema                | prompt에 형태 안내가 없어 모델이 fill을 색 문자열로, freezePane을 셀 주소로 추정함                                                           | v1.4.207부터 두 별칭을 main이 정규화하고, 모든 schema 오류에 해당 지점의 기대 형태(key·타입·enum)를 함께 반환                     |
+| 표·autofilter가 선언대로 생성되지 않아 검증 실패 | v1.4.206 XlsxWriter create + `spec.tables` 검증      | 표 헤더에 중복 열 이름('지표' 2회)이 있어 XlsxWriter가 경고만 내고 표를 조용히 버렸고, 실패 메시지가 원인을 지목하지 않았음                  | v1.4.207부터 중복 열 이름·셀 주소형 표 이름을 spec 단계에서 정확한 사유·경로로 조기 거부하고, 검증 실패 시 어긋난 표를 명시         |
 | PDF가 페이지 수만 있고 비어 있음               | v1.4.198 PDF 생성 worker                               | 모델은 `pages[].elements`를 보냈지만 worker가 legacy `title/text`만 읽고 element를 무시했음                                                 | v1.4.199부터 strict PDF element spec을 공유하고 생성 뒤 페이지별 텍스트 재추출과 양수 `textCharacterCount`를 요구                |
 | 한글명이 깨진 `.orca-*.tmp.pdf`가 남음         | v1.4.198 Windows frozen worker IPC                     | UTF-8 JSONL을 Python redirected stdin의 로컬 코드페이지로 해석해 staging path가 달라졌음                                                    | v1.4.199부터 worker stdio를 UTF-8로 고정하고 ASCII staging 이름을 main이 소유하며 모든 종료 경로에서 제거                        |
 | `PDF text exceeds its element height`          | v1.4.199 PDF 생성 worker                               | 번역문이 모델이 지정한 text element 높이보다 길어 strict layout 검증이 실패함                                                               | v1.4.200부터 원래 비율로 6pt까지 자동 축소하고 그래도 맞지 않을 때만 staging을 제거하며 실패                                     |
