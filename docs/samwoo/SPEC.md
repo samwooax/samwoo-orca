@@ -41,7 +41,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
 | GitHub 공개 범위 | **Public** — 2026-08-08 운영 확인             |
 | 기본 브랜치      | `main`                                        |
-| 최신 공개 릴리스 | `v1.4.193` — 2026-08-12 운영 확인             |
+| 최신 공개 릴리스 | `v1.4.204` — 2026-08-16 운영 확인             |
 | 앱 ID / 제품명   | `com.samwooax.samwoo-orca` / `SAMWOO-ORCA`    |
 
 공개 저장소에는 서버 비밀번호·메일 비밀번호·Tailscale 인증 키·코드서명 개인키를 넣지 않는다. 서버 문서의 주소 예시는 마스킹하고, 실제 서비스 주소는 중앙 설정 코드와 이 운영 명세에서만 관리한다.
@@ -455,7 +455,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.190` | draft 유지               | 서버 예약·협업 실명 보완 빌드. 관리자 검증 전 공개하지 않음                                                                                |
 | `v1.4.191` | 공개 유지                | Hermes 채팅 로컬 셸 명령 실행과 웹 터미널 fallback 문구 보완                                                                               |
 | `v1.4.192` | draft 검증 완료          | PC 로컬 예약 실행·프로젝트 결과 저장과 Windows 원클릭 관리자 설치 복구. Actions run `31452996632`, 오프라인 원클릭 키트 `r24` 무결성 확인  |
-| `v1.4.193` | **공개 — 최신**          | Hermes 로컬 도구 프로토콜 검증·라운드 경계 수정·실행 결과 보존. Actions run `31581558831` 성공 및 공개 `latest.yml` 버전 `1.4.193` 확인    |
+| `v1.4.193` | 공개 유지                | Hermes 로컬 도구 프로토콜 검증·라운드 경계 수정·실행 결과 보존. Actions run `31581558831` 성공 및 공개 `latest.yml` 버전 `1.4.193` 확인    |
 | `v1.4.194` | draft 폐기 완료          | 최초 문서 도구 설치본. GUI 실측에서 packaged PDF.js의 `DOMMatrix` 런타임 누락이 XLSX까지 전파되어 미공개 초안 삭제                         |
 | `v1.4.195` | draft 폐기 완료          | PDF.js·생산 번들 추출은 검증됐으나 Explorer가 `@경로`만 넣는 첨부 회귀가 있어 미공개 초안 삭제                                             |
 | `v1.4.196` | draft 폐기 완료          | Explorer 첨부는 복구됐으나 모델의 `extract limit:500`을 strict parser가 거부해 최종 요약이 실패하여 미공개 초안 삭제                       |
@@ -466,7 +466,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.201` | draft 유지·GUI 실측 실패 | PDF→XLSX 요청 정규화·단일 열 렌더링·구조화된 schema 오류 반환. Actions run `31894410900` 성공. 설치본 GUI에서 모델이 잉여 중괄호를 3회 반복해 PDF 생성 거부 확인 |
 | `v1.4.202` | draft 유지·공개 보류     | greedy delimiter 제거 1차 교정. Actions run `31896992503` 성공했으나 적대적 검토에서 스칼라 접합·다의성 결함을 확인해 공개하지 않고 v1.4.203으로 대체            |
 | `v1.4.203` | draft 유지·부분 실측     | 유일 복원 host 교정. Actions run `31898326884` 성공. GUI 실측에서 PDF→XLSX→PPTX 생성 흐름 정상, 대용량 ERP XLSX 추출 실패 2건 발견                               |
-| `v1.4.204` | draft 검증 완료          | 대용량 XLSX inspect/extract를 frozen worker openpyxl 스트리밍으로 라우팅. 실제 실패 envelope 2건·182만 셀 재생 통과. Actions run `31901626176` 성공, GUI 재실측 전 |
+| `v1.4.204` | **공개 — 최신**          | 대용량 XLSX frozen worker 스트리밍 추출·유일 복원 envelope 교정 포함. Actions run `31901626176`, 관리자 GUI 실측 후 2026-08-16 공개. 공개 `latest.yml` `1.4.204` 확인   |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
