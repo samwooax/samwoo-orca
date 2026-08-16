@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-16, Git commit `1aff7f581`, `package.json` 버전 `1.4.205`
+> 기준: 2026-08-16, Git commit `f850cf9fb`, `package.json` 버전 `1.4.206`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -659,7 +659,7 @@ renderer `useSamwooScheduleRunner`
 | `worksheet Sheet1 is missing or too large`     | v1.4.203 XLSX in-process parser                        | ERP 내보내기 시트 XML(실측 16.8MB)이 in-process parser의 XML당 16MiB 상한을 초과함                                                          | v1.4.204부터 frozen worker의 openpyxl read-only 스트리밍으로 라우팅해 파일 분할 없이 추출                                        |
 | `Worker terminated due to reaching memory limit` | v1.4.203 XLSX document worker thread                 | 10.6MB 시트 XML의 DOM·전체 셀 map이 worker thread 256MB heap을 초과함                                                                       | v1.4.204부터 동일한 frozen worker 스트리밍 경로로 라우팅하고, worker가 없는 host만 기존 in-process 한도로 동작                    |
 | `schema at $.workbookSpec...charts[0]`         | v1.4.204 Excel Artifact worker schema                  | prompt에 차트 형식 안내가 없어 모델이 `chartType`·공유 `categories`·series `{sheet,range}`·inch 좌표를 추정해 사용함                        | v1.4.205부터 차트 canonical 예시를 prompt에 제공하고 관측된 안전 별칭만 정규화. x/y와 `position` 누락은 계속 거부                 |
-| `The workbook did not pass required validation` | v1.4.204 Excel Artifact `formula.references` 검증     | 모델 수식이 workbookSpec에 없는 시트를 참조했고 오류에 개수만 있어 원인 셀을 추측해야 했음                                                   | fail-closed 동작 자체는 정상. v1.4.205부터 오탈 참조 셀 주소·누락 시트명 상위 5개를 오류에 포함해 1회차 교정을 도움               |
+| `The workbook did not pass required validation` | v1.4.204 Excel Artifact `formula.references` 검증     | 기존 정규식이 `=SUM(시트!범위)` 류를 오파싱해 시트가 모두 있어도 실패시켰음 — production 26건은 전부 오탐으로 확인(4917 재생 완주)          | v1.4.206부터 Tokenizer RANGE operand 기반 추출로 오탐 제거. 진짜 누락 시트는 셀 주소·시트명 상위 5개(절단·상한 적용)와 함께 반환   |
 | PDF가 페이지 수만 있고 비어 있음               | v1.4.198 PDF 생성 worker                               | 모델은 `pages[].elements`를 보냈지만 worker가 legacy `title/text`만 읽고 element를 무시했음                                                 | v1.4.199부터 strict PDF element spec을 공유하고 생성 뒤 페이지별 텍스트 재추출과 양수 `textCharacterCount`를 요구                |
 | 한글명이 깨진 `.orca-*.tmp.pdf`가 남음         | v1.4.198 Windows frozen worker IPC                     | UTF-8 JSONL을 Python redirected stdin의 로컬 코드페이지로 해석해 staging path가 달라졌음                                                    | v1.4.199부터 worker stdio를 UTF-8로 고정하고 ASCII staging 이름을 main이 소유하며 모든 종료 경로에서 제거                        |
 | `PDF text exceeds its element height`          | v1.4.199 PDF 생성 worker                               | 번역문이 모델이 지정한 text element 높이보다 길어 strict layout 검증이 실패함                                                               | v1.4.200부터 원래 비율로 6pt까지 자동 축소하고 그래도 맞지 않을 때만 staging을 제거하며 실패                                     |
