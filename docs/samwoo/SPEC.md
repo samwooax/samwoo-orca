@@ -41,7 +41,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
 | GitHub 공개 범위 | **Public** — 2026-08-08 운영 확인             |
 | 기본 브랜치      | `main`                                        |
-| 최신 공개 릴리스 | `v1.4.204` — 2026-08-16 운영 확인             |
+| 최신 공개 릴리스 | `v1.4.210` — 2026-08-16 운영 확인             |
 | 앱 ID / 제품명   | `com.samwooax.samwoo-orca` / `SAMWOO-ORCA`    |
 
 공개 저장소에는 서버 비밀번호·메일 비밀번호·Tailscale 인증 키·코드서명 개인키를 넣지 않는다. 서버 문서의 주소 예시는 마스킹하고, 실제 서비스 주소는 중앙 설정 코드와 이 운영 명세에서만 관리한다.
@@ -466,13 +466,13 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.201` | draft 유지·GUI 실측 실패 | PDF→XLSX 요청 정규화·단일 열 렌더링·구조화된 schema 오류 반환. Actions run `31894410900` 성공. 설치본 GUI에서 모델이 잉여 중괄호를 3회 반복해 PDF 생성 거부 확인 |
 | `v1.4.202` | draft 유지·공개 보류     | greedy delimiter 제거 1차 교정. Actions run `31896992503` 성공했으나 적대적 검토에서 스칼라 접합·다의성 결함을 확인해 공개하지 않고 v1.4.203으로 대체            |
 | `v1.4.203` | draft 유지·부분 실측     | 유일 복원 host 교정. Actions run `31898326884` 성공. GUI 실측에서 PDF→XLSX→PPTX 생성 흐름 정상, 대용량 ERP XLSX 추출 실패 2건 발견                               |
-| `v1.4.204` | **공개 — 최신**          | 대용량 XLSX frozen worker 스트리밍 추출·유일 복원 envelope 교정 포함. Actions run `31901626176`, 관리자 GUI 실측 후 2026-08-16 공개. 공개 `latest.yml` `1.4.204` 확인   |
+| `v1.4.204` | 공개 유지                | 대용량 XLSX frozen worker 스트리밍 추출·유일 복원 envelope 교정 포함. Actions run `31901626176`, 관리자 GUI 실측 후 2026-08-16 공개                                     |
 | `v1.4.205` | draft 유지·공개 보류     | 차트 별칭 정규화 1차. Actions run `31920075943` 성공했으나 적대적 검토에서 검증 메시지 상한 파괴·시트 참조 오탐 표면화 등 7건을 확인해 v1.4.206으로 대체              |
 | `v1.4.206` | draft 유지·GUI 실측 실패 | Tokenizer 시트 참조·차트 개선. Actions run `31921086693` 성공. GUI 실측에서 fill/freezePane 별칭 거부와 중복 헤더 표의 무단 드롭 확인                                  |
 | `v1.4.207` | draft 유지·GUI 실측 실패 | schema 힌트·fill/freezePane 정규화·표 조기 거부. Actions run `31927457875` 성공. GUI에서 꼬리 중괄호 다의성 거부와 한글 표 이름·병합 삼킴 결함 발견                     |
 | `v1.4.208` | draft 유지·공개 보류     | 꼬리 delimiter 수용·한글 이름·병합 삼킴 거부. Actions run `31930565173` 성공했으나 검토에서 TRUE/FALSE 이름의 Excel 미개방 등 7건을 확인해 v1.4.209로 대체              |
 | `v1.4.209` | draft 유지·부분 실측     | 예약 이름 조기 거부·병합 검사 강화. Actions run `31931592709` 성공. GUI 실측에서 대시보드 첫 완주(3차 시도), conditionalFormats 별칭·`""` 셀 동치 결함 확인               |
-| `v1.4.210` | draft 검증 완료          | conditionalFormats 별칭 정규화·canonical prompt, `""`≡빈 셀 동치, spec.cells/merges/freeze 실패 상세. 실제 4950이 1차 시도 완주. Actions run `31937633784` 성공            |
+| `v1.4.210` | **공개 — 최신**          | Excel Artifact 별칭 정규화·schema 힌트·예약 이름 거부·검증 상세의 대시보드 안정화 누적판. Actions run `31937633784`, 관리자 GUI 실측 후 2026-08-16 공개                   |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
