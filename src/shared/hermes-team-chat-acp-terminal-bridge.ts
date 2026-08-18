@@ -73,12 +73,11 @@ def _terminal(arguments):
             session_id=session_id,
             cwd=wire_cwd,
             output_byte_limit=_terminal_output_limit,
-            _meta={
-                "samwoo": {
-                    "shellText": True,
-                    "background": background,
-                    "timeoutSeconds": timeout,
-                }
+            # The ACP SDK wraps keyword arguments in the wire-level _meta object.
+            samwoo={
+                "shellText": True,
+                "background": background,
+                "timeoutSeconds": timeout,
             },
         ),
         _terminal_ready,

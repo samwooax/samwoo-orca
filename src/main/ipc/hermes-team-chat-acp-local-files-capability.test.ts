@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { resolveHermesAcpLocalFilesCapability } from './hermes-team-chat-acp-local-files-capability'
+import {
+  formatHermesAcpLocalFilesContext,
+  resolveHermesAcpLocalFilesCapability
+} from './hermes-team-chat-acp-local-files-capability'
 
 describe('resolveHermesAcpLocalFilesCapability', () => {
   it('enables filesystem and terminal methods for the exact ai_center profile', () => {
@@ -29,5 +32,12 @@ describe('resolveHermesAcpLocalFilesCapability', () => {
         projectRoot
       })
     ).toBeNull()
+  })
+
+  it('tells Hermes to create a confirmed-missing file directly', () => {
+    const context = formatHermesAcpLocalFilesContext(true)
+
+    expect(context).toContain('create a new file directly')
+    expect(context).toContain('when a read reports that it does not exist')
   })
 })

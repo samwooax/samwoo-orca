@@ -356,6 +356,15 @@ describe('HermesAcpTerminal', () => {
     await expect(
       terminal.handle(
         'terminal/create',
+        { ...createParams(), _meta: { _meta: { samwoo: { shellText: true } } } },
+        6,
+        active,
+        new AbortController().signal
+      )
+    ).rejects.toThrow('did not come from the local bridge')
+    await expect(
+      terminal.handle(
+        'terminal/create',
         { ...createParams(), args: ['--unsafe'] },
         6,
         active,

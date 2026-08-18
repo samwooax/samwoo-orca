@@ -28,7 +28,7 @@ export function formatHermesAcpLocalFilesContext(localTerminal: boolean): string
     '[Local project tools]',
     'Use the native read_file, write_file, and patch tools for files under /workspace.',
     'ACP file-tool access is served by Orca and restricted to the selected project root.',
-    'Read an existing file before overwriting it.',
+    'Read an existing file before overwriting it; create a new file directly when a read reports that it does not exist.',
     ...(localTerminal
       ? [
           'Native terminal and process tools run on the user computer after explicit approval.',

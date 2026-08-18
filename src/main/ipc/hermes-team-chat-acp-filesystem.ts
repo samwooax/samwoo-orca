@@ -31,6 +31,7 @@ const PUBLIC_ERROR_PATTERNS = [
   /^local file (?:operation failed|read returned|write returned)/,
   /^ACP filesystem method is not supported$/,
   /^ACP prompt was cancelled$/,
+  /^file does not exist$/,
   /^Access denied:/
 ] as const
 
@@ -206,7 +207,12 @@ export class HermesAcpFilesystem {
 
   private async readTextFile(params: AcpJsonRecord): Promise<{ content: string }> {
     const target = await this.resolveFile(requiredString(params, 'path'))
-    const info = await lstat(target.absolutePath)
+    const info = await lstat(target.absolutePath).catch((error) => {
+      if (isENOENT(error)) {
+        throw new Error('file does not exist')
+      }
+      throw error
+    })
     if (!info.isFile() || info.size > LOCAL_PROJECT_MAX_FILE_BYTES || info.nlink > 1) {
       throw new Error('path is not a supported file')
     }

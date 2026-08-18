@@ -70,7 +70,7 @@ describe('HermesAcpFilesystem', () => {
     ).rejects.toThrow('positive integer')
   })
 
-  it('does not expose the native project path in filesystem errors', async () => {
+  it('reports a missing file without exposing the native project path', async () => {
     const filesystem = await createFilesystem()
 
     let message = ''
@@ -80,8 +80,23 @@ describe('HermesAcpFilesystem', () => {
       message = error instanceof Error ? error.message : String(error)
     }
 
-    expect(message).toBe('local filesystem operation failed')
+    expect(message).toBe('file does not exist')
     expect(message).not.toContain(root)
+  })
+
+  it('creates a new file immediately after a not-found read', async () => {
+    const filesystem = await createFilesystem()
+    const path = '/workspace/hermes-smoke-test.txt'
+
+    await expect(filesystem.handle('fs/read_text_file', { path })).rejects.toThrow(
+      'file does not exist'
+    )
+    await expect(
+      filesystem.handle('fs/write_text_file', { path, content: 'v1.4.213 smoke ok' })
+    ).resolves.toBeNull()
+    await expect(filesystem.handle('fs/read_text_file', { path })).resolves.toEqual({
+      content: 'v1.4.213 smoke ok'
+    })
   })
 
   it.each([

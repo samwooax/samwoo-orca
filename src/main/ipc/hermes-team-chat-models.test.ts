@@ -115,6 +115,8 @@ describe('team chat remote commands', () => {
     expect(enabled).toContain('ToolRegistry.dispatch')
     expect(enabled).toContain('/workspace')
     expect(enabled).toContain('terminal')
+    expect(enabled).toContain('samwoo={')
+    expect(enabled).not.toContain('_meta={')
     expect(enabled).not.toMatch(/[A-Z]:\\/)
     expect(enabled.length).toBeLessThan(24_000)
     expect(otherProfile).not.toContain('SAMWOO ACP local-files bridge')
