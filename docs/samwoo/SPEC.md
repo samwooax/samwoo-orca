@@ -484,7 +484,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.209` | draft 유지·부분 실측     | 예약 이름 조기 거부·병합 검사 강화. Actions run `31931592709` 성공. GUI 실측에서 대시보드 첫 완주(3차 시도), conditionalFormats 별칭·`""` 셀 동치 결함 확인      |
 | `v1.4.210` | 공개 유지                | Excel Artifact 별칭 정규화·schema 힌트·예약 이름 거부·검증 상세의 대시보드 안정화 누적판. Actions run `31937633784`, 관리자 GUI 실측 후 2026-08-16 공개          |
 | `v1.4.211` | **공개 — 최신**          | PNG/JPEG 선택형 첨부를 conversation/request-bound artifact ID로 읽어 SSH 전송. Actions run `31944744288`, 공개 latest·update manifest 확인 후 2026-08-16 공개    |
-| `v1.4.212` | RC·빌드 대기             | 정확한 `ai_center`의 승인된 local project에서 ACP 파일·terminal/process를 자동 활성화. 기능 commit `6bdf1480e`, GitHub Actions 서명 빌드·설치본 실측 전          |
+| `v1.4.212` | draft 검증 완료          | `ai_center` ACP 파일·terminal/process 자동 활성화. Actions run `32111154186`, 설치기 241,550,424바이트·SHA-256 `0416aca…4443f`·내부 서명 검증 완료, GUI 실측 전  |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
