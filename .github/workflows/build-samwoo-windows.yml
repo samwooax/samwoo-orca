@@ -122,17 +122,6 @@ jobs:
             src/main/ipc/hermes-team-chat-attachment-normalization.test.ts `
             src/main/ipc/hermes-team-chat-image-transfer.test.ts `
             src/main/ipc/hermes-team-chat-acp-client.test.ts `
-            src/main/ipc/hermes-team-chat-acp-capability-probe-runner.test.ts `
-            src/main/ipc/hermes-team-chat-acp-capability-probe.test.ts `
-            src/main/ipc/hermes-team-chat-acp-filesystem-dispatch.test.ts `
-            src/main/ipc/hermes-team-chat-acp-filesystem.test.ts `
-            src/main/ipc/hermes-team-chat-acp-jsonl-reader.test.ts `
-            src/main/ipc/hermes-team-chat-acp-local-files-capability.test.ts `
-            src/main/ipc/hermes-team-chat-acp-terminal-directory.test.ts `
-            src/main/ipc/hermes-team-chat-acp-terminal-dispatch.test.ts `
-            src/main/ipc/hermes-team-chat-acp-terminal-shell.test.ts `
-            src/main/ipc/hermes-team-chat-acp-terminal.test.ts `
-            src/main/ipc/hermes-team-chat-acp-turn-progress.test.ts `
             src/main/ipc/hermes-team-chat-session-registry.test.ts `
             src/main/ipc/hermes-team-chat-app-cleanup.test.ts `
             src/main/ipc/hermes-team-chat-ssh-process.test.ts `
@@ -210,7 +199,6 @@ jobs:
             src/renderer/src/lib/samwoo-message-send-queue.test.ts `
             src/renderer/src/lib/samwoo-session-validation.test.ts `
             src/renderer/src/lib/shared-workspace-alias-store.test.ts `
-            src/renderer/src/lib/hermes-chat-launch.test.ts `
             src/renderer/src/lib/samwoo-workspace-assignment-inbox-store.test.ts `
             src/renderer/src/lib/samwoo-workspace-assignment-notification.test.ts `
             src/renderer/src/lib/worktree-activation.test.ts `
@@ -223,6 +211,21 @@ jobs:
             config/scripts/samwoo-windows-internal-signing-workflow.test.mjs `
             config/scripts/windows-one-click-integrity-contract.test.mjs `
             config/scripts/windows-one-click-launch-contract.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          pnpm exec vitest run --config config/vitest.config.ts `
+            src/main/ipc/hermes-team-chat-acp-capability-probe-runner.test.ts `
+            src/main/ipc/hermes-team-chat-acp-capability-probe.test.ts `
+            src/main/ipc/hermes-team-chat-acp-filesystem-dispatch.test.ts `
+            src/main/ipc/hermes-team-chat-acp-filesystem.test.ts `
+            src/main/ipc/hermes-team-chat-acp-jsonl-reader.test.ts `
+            src/main/ipc/hermes-team-chat-acp-local-files-capability.test.ts `
+            src/main/ipc/hermes-team-chat-acp-terminal-directory.test.ts `
+            src/main/ipc/hermes-team-chat-acp-terminal-dispatch.test.ts `
+            src/main/ipc/hermes-team-chat-acp-terminal-shell.test.ts `
+            src/main/ipc/hermes-team-chat-acp-terminal.test.ts `
+            src/main/ipc/hermes-team-chat-acp-turn-progress.test.ts `
+            src/renderer/src/lib/hermes-chat-launch.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $tokens = $null
