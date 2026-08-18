@@ -117,8 +117,7 @@ describe('runTeamChatMessage ACP capability probe', () => {
     })
     expect(acpTerminalCreateMock).toHaveBeenCalledWith({
       cwd: 'C:\\selected',
-      store: baseRequest.store,
-      approve: expect.any(Function)
+      store: baseRequest.store
     })
     expect(hermesAcpSessionMock).toHaveBeenCalledWith(expect.anything(), 'ai_center', undefined, {
       capabilityProbe: null,
@@ -157,8 +156,7 @@ describe('runTeamChatMessage ACP capability probe', () => {
     expect(result).toEqual({ ok: true, reply: 'terminal complete' })
     expect(acpTerminalCreateMock).toHaveBeenCalledWith({
       cwd: 'C:\\selected',
-      store: baseRequest.store,
-      approve: expect.any(Function)
+      store: baseRequest.store
     })
     expect(hermesAcpSessionMock).toHaveBeenCalledWith(expect.anything(), 'ai_center', undefined, {
       capabilityProbe: null,
