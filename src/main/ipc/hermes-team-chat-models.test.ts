@@ -98,6 +98,28 @@ describe('team chat remote commands', () => {
     expect(command).toContain('reasoning_effort')
     expect(command).not.toContain('safe-token')
   })
+
+  it('injects the ephemeral local-files bridge only for exact ai_center requests', () => {
+    const enabled = buildTeamChatAcpRemoteCommand({
+      requestId: 'conversation-local-files',
+      profile: 'ai_center',
+      localFiles: true
+    })
+    const otherProfile = buildTeamChatAcpRemoteCommand({
+      requestId: 'conversation-other-profile',
+      profile: 'ai_center_backup',
+      localFiles: true
+    })
+
+    expect(enabled).toContain('SAMWOO ACP local-files bridge requires Hermes 0.20.0')
+    expect(enabled).toContain('ToolRegistry.dispatch')
+    expect(enabled).toContain('/workspace')
+    expect(enabled).toContain('terminal')
+    expect(enabled).not.toMatch(/[A-Z]:\\/)
+    expect(enabled.length).toBeLessThan(24_000)
+    expect(otherProfile).not.toContain('SAMWOO ACP local-files bridge')
+    expect(otherProfile).toContain('reasoning_effort')
+  })
 })
 
 describe('team chat history', () => {

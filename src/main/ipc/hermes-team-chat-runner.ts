@@ -1,8 +1,6 @@
 import { spawn } from 'node:child_process'
-import { lstat } from 'node:fs/promises'
 import type { Store } from '../persistence'
 import {
-  buildTeamChatAcpRemoteCommand,
   buildTeamChatRemoteCommand,
   formatTeamChatMessage,
   resolveTeamChatModel,
@@ -15,11 +13,17 @@ import {
   formatTeamChatDeviceContext,
   getTeamChatDeviceContext
 } from './hermes-team-chat-device-context'
-import { HermesAcpSession } from './hermes-team-chat-acp-client'
+import { hasOrcaToolEnvelope } from './hermes-team-chat-acp-capability-probe'
 import {
   HermesTeamChatSessionRegistry,
   type TeamChatSessionHandle
 } from './hermes-team-chat-session-registry'
+import { acquireHermesTeamChatAcpSession } from './hermes-team-chat-acp-session-acquisition'
+import { resolveTeamChatProjectDirectory } from './hermes-team-chat-project-directory'
+import {
+  formatHermesAcpProjectRolloutContext,
+  resolveHermesAcpProjectRollout
+} from './hermes-team-chat-acp-project-rollout'
 import { runClaudeStreamProcess } from './hermes-team-chat-claude-stream'
 import type { TeamChatProgressEvent } from '../../shared/hermes-team-chat-progress'
 import {
@@ -32,9 +36,8 @@ import { localProjectToolProtocolPrompt } from './hermes-local-project-tool-loop
 import type { LocalDocumentAttachment } from './hermes-local-document-protocol'
 import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
 import { getExcelArtifactCapability } from './hermes-excel-artifact-worker-client'
-import { resolveAuthorizedPath } from './filesystem-auth'
 import type { ExcelArtifactCapability } from '../../shared/hermes-excel-artifact'
-import { stopRemoteTeamChat, teamChatSshArgs } from './hermes-team-chat-ssh-process'
+import { teamChatSshArgs } from './hermes-team-chat-ssh-process'
 import type {
   HermesTeamChatResult,
   TeamChatLocalToolExecution
@@ -50,8 +53,7 @@ import {
   unregisterTeamChatRun,
   type TeamChatRunController
 } from './hermes-team-chat-run-controller'
-
-const ACP_CANCEL_GRACE_MS = 5_000
+import { teamChatCancellationResult } from './hermes-team-chat-cancellation-result'
 
 const hermesSessions = new HermesTeamChatSessionRegistry()
 
@@ -63,11 +65,7 @@ async function availableExcelArtifactCapability(
   if (!capability || !cwd.trim()) {
     return capability
   }
-  try {
-    return (await lstat(await resolveAuthorizedPath(cwd, store))).isDirectory() ? capability : null
-  } catch {
-    return null
-  }
+  return (await resolveTeamChatProjectDirectory(cwd, store)) ? capability : null
 }
 
 async function runOneShotRemoteTeamChat(args: {
@@ -101,18 +99,6 @@ async function runOneShotRemoteTeamChat(args: {
   return result
 }
 
-function cancellationResult(
-  reason: TeamChatRunController['cancelledReason']
-): HermesTeamChatResult | null {
-  if (!reason) {
-    return null
-  }
-  return {
-    ok: false,
-    error: reason === 'timeout' ? 'timeout waiting for team agent reply' : 'cancelled'
-  }
-}
-
 export async function runTeamChatMessage(args: {
   requestId: string
   conversationId: string
@@ -128,6 +114,9 @@ export async function runTeamChatMessage(args: {
   store: Store
   artifactStore?: HermesBinaryArtifactStore
   mailToken?: string
+  isDevelopment?: boolean
+  acpCapabilityProbeMode?: string
+  acpBackupRoot?: string
   onProgress?: (event: TeamChatProgressEvent) => void
 }): Promise<HermesTeamChatResult> {
   const controller = registerTeamChatRun(args.requestId, args.host)
@@ -153,59 +142,56 @@ export async function runTeamChatMessage(args: {
       }
     })
     const deviceContext = await getTeamChatDeviceContext(args.cwd)
-    const excelCapability = await availableExcelArtifactCapability(args.cwd, args.store)
     const isHermes = resolveTeamChatModel(args.modelId).provider === 'hermes'
+    const { capabilityProbe, localFilesCapability } = await resolveHermesAcpProjectRollout({
+      isHermes,
+      profile: args.profile,
+      isDevelopment: args.isDevelopment === true,
+      probeMode: args.acpCapabilityProbeMode,
+      backupRoot: args.acpBackupRoot,
+      cwd: args.cwd,
+      store: args.store
+    })
+    const excelCapability =
+      capabilityProbe || localFilesCapability
+        ? null
+        : await availableExcelArtifactCapability(args.cwd, args.store)
+    const acpContext = formatHermesAcpProjectRolloutContext(deviceContext, {
+      capabilityProbe,
+      localFilesCapability
+    })
     if (!isHermes) {
       // Why: a dormant ACP session cannot observe Claude turns; close it so returning to Hermes rehydrates complete UI history.
       await hermesSessions.close(args.conversationId)
     }
     if (isHermes) {
-      const configurationKey = `${args.host}\0${args.profile}\0${args.mailToken ?? ''}`
-      sessionHandle = await hermesSessions.acquire({
+      const configurationKey = `${args.host}\0${args.profile}\0${args.mailToken ?? ''}\0${capabilityProbe?.mode ?? ''}\0${capabilityProbe?.sessionCwd ?? ''}\0${localFilesCapability?.projectRoot ?? ''}\0${localFilesCapability?.localTerminal ? 'terminal' : ''}`
+      sessionHandle = await acquireHermesTeamChatAcpSession({
+        registry: hermesSessions,
         conversationId: args.conversationId,
         configurationKey,
         requestId: args.requestId,
-        create: () => {
-          const remote = buildTeamChatAcpRemoteCommand({
-            requestId: args.conversationId,
-            profile: args.profile
-          })
-          const proc = spawn('ssh', teamChatSshArgs(args.host, remote), {
-            stdio: ['pipe', 'pipe', 'pipe']
-          })
-          return {
-            client: new HermesAcpSession(proc, args.profile, args.mailToken),
-            dispose: async () => {
-              await stopRemoteTeamChat(args.host, args.conversationId)
-              proc.kill()
-            }
-          }
-        }
+        host: args.host,
+        profile: args.profile,
+        mailToken: args.mailToken,
+        capabilityProbe,
+        localFilesCapability,
+        backupRoot: args.acpBackupRoot ?? '',
+        store: args.store,
+        controller
       })
-      const activeSession = sessionHandle
-      controller.stage = 'agent'
-      controller.cancelAgent = async () => {
-        if (!activeSession.client.cancel()) {
-          await activeSession.invalidate()
-          return true
-        }
-        controller.hardStopTimer = setTimeout(() => {
-          void activeSession.invalidate()
-        }, ACP_CANCEL_GRACE_MS)
-        controller.hardStopTimer.unref?.()
-        return true
-      }
     }
     let conversationMessage = appendRemoteImageInstructions(args.message, remoteImages)
     for (let round = 0; round <= MAX_LOCAL_TOOL_ROUNDS; round += 1) {
-      const cancelled = cancellationResult(controller.cancelledReason)
+      const cancelled = teamChatCancellationResult(controller.cancelledReason)
       if (cancelled) {
         return attachTeamChatToolExecutions(cancelled, toolExecutions)
       }
       const fullMessage = formatTeamChatMessage({
         contextLine:
           round === 0
-            ? `${formatTeamChatDeviceContext(deviceContext)}${localProjectToolProtocolPrompt(excelCapability)}\n`
+            ? (acpContext ??
+              `${formatTeamChatDeviceContext(deviceContext)}${localProjectToolProtocolPrompt(excelCapability)}\n`)
             : undefined,
         history: round === 0 && (!sessionHandle || sessionHandle.created) ? args.history : [],
         message: conversationMessage
@@ -229,12 +215,20 @@ export async function runTeamChatMessage(args: {
             controller,
             onProgress: args.onProgress
           })
-      const stopped = cancellationResult(controller.cancelledReason)
+      const stopped = teamChatCancellationResult(controller.cancelledReason)
       if (stopped) {
         return attachTeamChatToolExecutions(stopped, toolExecutions)
       }
       if (!result.ok || !result.reply) {
         return attachTeamChatToolExecutions(result, toolExecutions)
+      }
+      if (capabilityProbe || localFilesCapability) {
+        return hasOrcaToolEnvelope(result.reply)
+          ? {
+              ok: false,
+              error: 'ACP capability probe did not execute the returned Orca tool envelope'
+            }
+          : result
       }
       const toolTurn = await advanceTeamChatLocalToolTurn({
         reply: result.reply,

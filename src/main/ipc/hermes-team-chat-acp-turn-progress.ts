@@ -7,6 +7,12 @@ import {
   type AcpJsonRecord
 } from './hermes-team-chat-acp-values'
 
+const MAX_REPLY_BYTES = 4 * 1024 * 1024
+const MAX_THOUGHT_CHARS = 4_096
+const MAX_TOOL_SUMMARIES = 512
+const MAX_TOOL_ID_CHARS = 256
+const MAX_PLAN_ENTRIES = 256
+
 export class HermesAcpTurnProgress {
   reply = ''
   private thoughtIndex = 0
@@ -25,7 +31,11 @@ export class HermesAcpTurnProgress {
 
   handleUpdate(update: AcpJsonRecord): void {
     if (update.sessionUpdate === 'agent_message_chunk') {
-      this.reply += acpTextContent(update.content)
+      const chunk = acpTextContent(update.content)
+      if (Buffer.byteLength(this.reply) + Buffer.byteLength(chunk) > MAX_REPLY_BYTES) {
+        throw new Error('ACP reply exceeded the local size limit')
+      }
+      this.reply += chunk
       return
     }
     if (update.sessionUpdate === 'agent_thought_chunk') {
@@ -41,7 +51,7 @@ export class HermesAcpTurnProgress {
       return
     }
     if (update.sessionUpdate === 'plan' && Array.isArray(update.entries)) {
-      update.entries.forEach((entry, index) => {
+      update.entries.slice(0, MAX_PLAN_ENTRIES).forEach((entry, index) => {
         if (isAcpRecord(entry) && typeof entry.content === 'string') {
           this.emit({
             id: `plan-${index}`,
@@ -70,7 +80,10 @@ export class HermesAcpTurnProgress {
   }
 
   private handleThought(update: AcpJsonRecord): void {
-    const detail = acpTextContent(update.content).replaceAll(/\s+/g, ' ').trim()
+    const detail = acpTextContent(update.content)
+      .slice(0, MAX_THOUGHT_CHARS)
+      .replaceAll(/\s+/g, ' ')
+      .trim()
     if (!detail) {
       return
     }
@@ -78,7 +91,9 @@ export class HermesAcpTurnProgress {
       this.thoughtIndex += 1
       this.activeThoughtId = `thought-${this.thoughtIndex}`
     }
-    this.activeThoughtText = this.activeThoughtText ? `${this.activeThoughtText} ${detail}` : detail
+    this.activeThoughtText = (
+      this.activeThoughtText ? `${this.activeThoughtText} ${detail}` : detail
+    ).slice(0, MAX_THOUGHT_CHARS)
     this.emit({
       id: this.activeThoughtId,
       kind: 'thought',
@@ -91,8 +106,14 @@ export class HermesAcpTurnProgress {
   private handleToolCall(update: AcpJsonRecord): void {
     this.completeThought()
     const id = typeof update.toolCallId === 'string' ? update.toolCallId : `tool-${Date.now()}`
+    if (id.length > MAX_TOOL_ID_CHARS) {
+      throw new Error('ACP tool id exceeded the local size limit')
+    }
+    if (!this.toolSummaries.has(id) && this.toolSummaries.size >= MAX_TOOL_SUMMARIES) {
+      throw new Error('ACP tool count exceeded the local limit')
+    }
     const summary = {
-      title: typeof update.title === 'string' ? update.title : '도구 실행',
+      title: typeof update.title === 'string' ? update.title.slice(0, 240) : '도구 실행',
       detail: acpConciseDetail(update)
     }
     this.toolSummaries.set(id, summary)
@@ -107,7 +128,7 @@ export class HermesAcpTurnProgress {
 
   private handleToolUpdate(update: AcpJsonRecord): void {
     const id = typeof update.toolCallId === 'string' ? update.toolCallId : ''
-    if (!id) {
+    if (!id || id.length > MAX_TOOL_ID_CHARS) {
       return
     }
     const summary = this.toolSummaries.get(id)

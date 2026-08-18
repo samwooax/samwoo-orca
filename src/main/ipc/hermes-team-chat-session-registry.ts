@@ -104,7 +104,7 @@ export class HermesTeamChatSessionRegistry {
     if (record.idleTimer) {
       clearTimeout(record.idleTimer)
     }
-    record.client.close()
+    await record.client.close()
     await record.dispose().catch(() => {})
   }
 

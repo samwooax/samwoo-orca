@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  connectionId: null as string | null,
+  connectionId: null as string | null | undefined,
   runtimeEnvironmentId: null as string | null,
   ensureChatServer: vi.fn(),
   createBrowserTab: vi.fn(),
@@ -63,7 +63,7 @@ describe('Hermes chat launch', () => {
   it('opens a new chat tab with the assigned profile and current folder', async () => {
     const { launchHermesProfileChat } = await import('./hermes-chat-launch')
 
-    await launchHermesProfileChat('folder-1', 'ai_center')
+    await launchHermesProfileChat('folder:folder-1', 'ai_center')
 
     expect(mocks.createBrowserTab).toHaveBeenCalledTimes(1)
     const [, rawUrl, options] = mocks.createBrowserTab.mock.calls[0]
@@ -78,7 +78,7 @@ describe('Hermes chat launch', () => {
     mocks.connectionId = 'employee-laptop'
     const { launchHermesProfileChat } = await import('./hermes-chat-launch')
 
-    await launchHermesProfileChat('folder-1', 'ai_center')
+    await launchHermesProfileChat('folder:folder-1', 'ai_center')
 
     expect(mocks.ensureChatServer).not.toHaveBeenCalled()
     expect(mocks.createBrowserTab).not.toHaveBeenCalled()
@@ -89,7 +89,18 @@ describe('Hermes chat launch', () => {
     mocks.runtimeEnvironmentId = 'paired-runtime'
     const { launchHermesProfileChat } = await import('./hermes-chat-launch')
 
-    await launchHermesProfileChat('folder-1', 'ai_center')
+    await launchHermesProfileChat('folder:folder-1', 'ai_center')
+
+    expect(mocks.ensureChatServer).not.toHaveBeenCalled()
+    expect(mocks.createBrowserTab).not.toHaveBeenCalled()
+    expect(mocks.createTab).not.toHaveBeenCalled()
+  })
+
+  it('does not assume an unresolved workspace is local', async () => {
+    mocks.connectionId = undefined
+    const { launchHermesProfileChat } = await import('./hermes-chat-launch')
+
+    await launchHermesProfileChat('folder:missing', 'ai_center')
 
     expect(mocks.ensureChatServer).not.toHaveBeenCalled()
     expect(mocks.createBrowserTab).not.toHaveBeenCalled()

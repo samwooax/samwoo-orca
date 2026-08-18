@@ -534,8 +534,8 @@ Renderer HermesTeamChatView
   -> 시스템 ssh
   -> Hermes host의 agent/ACP process
   -> 모델 응답
-  -> 필요 시 <orca_local_files> / <orca_local_documents> / <orca_local_commands>
-  -> main이 선택한 local project 또는 요청 한정 문서 첨부를 검증한 뒤 실행
+  -> ai_center local project는 ACP fs/terminal, 그 외는 fallback <orca_local_*>
+  -> Electron main이 선택한 local project 또는 요청 한정 문서 첨부를 검증한 뒤 실행
   -> 결과를 Hermes 모델에 돌려줌
 
 호환 경로: token-protected local loopback chat server (기본 127.0.0.1:47821)
@@ -547,6 +547,8 @@ Renderer HermesTeamChatView
 - 일반 모델은 one-shot stream, Hermes 모델은 JSONL ACP persistent session을 사용하며 idle session을 정리한다.
 - local chat HTTP server는 loopback에만 bind하고 app userData의 제한 권한 token file로 요청을 인증한다.
 - chat URL query에는 profile, label, host, cwd와 현재 `mailtoken`이 포함된다. 실제 화면은 BrowserPane이 해당 route를 인식해 native React view로 대체한다.
+- 비패키지 개발 실행에서 정확히 `ai_center` profile이고 `SAMWOO_HERMES_ACP_CAPABILITY_PROBE=fs|terminal`을 설정했으며 Store가 local project directory를 승인한 경우에만 ACP initialize가 해당 client capability를 광고한다. Probe의 `session/new.cwd`는 승인된 client project directory이고 mode/cwd 변경은 기존 ACP session을 교체한다.
+- 이 0단계 probe는 allowlist된 capability/method 외 content/path/command를 제외한 ACP 메타데이터만 JSONL로 기록한다. Client-bound fs/terminal 요청은 실행 없이 거절하고 permission request는 항상 취소하며, 커스텀 envelope도 실행하지 않는다. 이 관측 분기는 비패키지 개발 실행에만 남고 실제 `ai_center` local project 실행은 아래의 별도 bridge가 담당한다. Profile 문자열 gate는 rollout 조건이지 서버가 검증한 entitlement 경계가 아니다.
 - native file picker는 96KB 이하 UTF-8 텍스트와 64MiB 이하 PDF/XLSX/PPTX/PNG/JPEG를 구분한다. binary는 renderer/Base64에 싣지 않고 Electron main의 private artifact store로 복사·해시한 뒤 opaque ID만 renderer에 반환한다.
 - Hermes Team Chat 탭이 활성일 때 project Explorer의 파일 선택은 Native Chat용 `@상대경로` 문자열을 삽입하지 않는다. Renderer는 현재 chat route의 local project root와 Explorer relative path를 main에 보내고, main은 Store 허용 root·canonical containment·regular file을 다시 확인한 뒤 binary는 같은 private artifact store로, 96KB 이하 UTF-8 파일은 text attachment로 admission한다.
 - artifact는 conversation에 귀속하고 동시에 하나의 request에만 배타적으로 결합한다. request 종료 시 결합만 해제해 같은 대화의 후속 질문에서 재사용하며, 사용자가 첨부를 제거하거나 대화를 닫을 때, 1시간 TTL 만료 또는 앱 종료 시 실제 파일을 정리한다. 붙여넣은 이미지는 기존 임시 파일·SSH upload 호환 경로를 사용하고 turn 종료 뒤 재사용하지 않는다.
@@ -554,6 +556,16 @@ Renderer HermesTeamChatView
 표시 history, model/effort와 conversation ID는 renderer localStorage가 소유하고, main은 in-flight controller와 Hermes ACP process를 소유한다. Conversation당 active request는 하나로 직렬화하며 host/profile/mail token이 바뀌거나 process가 닫히면 session을 교체하고 30분 idle 뒤 정리한다. Loopback server의 send/cancel/close는 chat token을 요구하지만 direct Electron IPC는 trusted preload/renderer 경계를 신뢰한다.
 
 원격 SSH는 로컬에서 shell 없이 argv로 실행하지만 `StrictHostKeyChecking=accept-new`라 첫 연결은 TOFU다. 현재 원격 Claude 실행은 bypass/dangerous permission mode를 사용하고 Hermes ACP permission request는 취소 중이 아니면 허용 option을 자동 선택한다. 따라서 remote profile filesystem, SSH key/known_hosts와 Tailnet ACL도 이 기능의 신뢰 경계다.
+
+2026-08-18 read-only 확인 기준 Hermes 0.20.0 ACP adapter는 initialize의 `client_capabilities`를 수신하지만 agent tool routing에 사용하지 않고, native `read_file`·`write_file`·`terminal`은 서버 host에서 실행한다. 따라서 이 버전에서 ACP client fs/terminal routing은 미지원이며, 위 probe는 지원 여부를 재검증하는 관측 분기일 뿐 로컬 실행 경로가 아니다.
+
+- 정확히 `ai_center` profile이고 Store가 local project directory를 승인한 경우 개발·패키지 실행 모두 별도 local-files rollout을 자동으로 연다. 별도 환경변수나 실행 옵션은 필요하지 않다. 다른 profile, SSH workspace, 승인되지 않았거나 connection 해석이 끝나지 않은 workspace는 기존 경로를 유지한다.
+- 이 rollout도 remote session cwd를 `/opt/data/profiles/ai_center`에 유지한다. 대신 Orca가 Hermes 프로세스를 시작할 때 일회성 Python `-c` shim을 주입해 initialize/prompt/tool dispatch를 연결하고, 모델에는 승인된 local project를 `/workspace` virtual namespace로만 노출한다. 서버 설치 파일·DB·SSH host 설정은 변경하지 않으며 실제 파일 권한과 실행은 Electron main이 소유한다.
+- ACP `fs/read_text_file`·`fs/write_text_file`과 replace-mode patch를 client로 전달하고 ACP `terminal`도 함께 광고해 Hermes `terminal`·`process`를 client-bound 표준 terminal 메서드로 변환한다. `execute_code`·`search_files`와 ACP stdin/PTY는 계속 거절한다.
+- Electron main executor는 canonical project-root jail, `/workspace` POSIX path, traversal·backslash·ADS·Windows device name·symlink/hardlink·`.git` write 거부, UTF-8 regular file 및 512KiB 상한을 적용한다. 기존 파일 write는 같은 turn의 prior-read SHA-256을 요구하고 project queue 안에서 재검증·backup·temp rename을 수행한다. Backup은 app userData 아래 private directory에 원본 bytes로 보관하며 file당 20개, 30일, project당 256MiB, 전체 512MiB 상한으로 정리한다.
+- Terminal cwd는 `/workspace` 아래 existing directory로만 매핑하고, 각 명령을 spawn하기 전에 Electron native 승인창으로 명령·local cwd와 비격리 경고를 보여준다. 승인은 45초 뒤 만료한다. Windows local project는 Git Bash 우선, WSL project는 해당 distro의 `env -i sh`, macOS/Linux는 비로그인 shell을 사용한다. 전달 environment는 allowlist로 줄이고 output tail 64KiB에 control stripping·secret redaction을 적용한다.
+- Foreground는 `create → wait → output → release`, background는 terminal ID 기반 `list/poll/log/wait/kill`로 변환한다. 동시 live process 4개, retained record 16개, foreground 120초, background 30분을 상한으로 둔다. Timeout·전체 cancel·session close와 foreground turn 종료에서 해당 descendant tree를 정리하되, 정상 turn 종료의 background process는 다음 turn process 도구를 위해 유지한다. ACP JSONL frame, turn당 request/read budget, concurrency, session ID와 active-turn generation도 검증해 duplicate·late·canceled request가 재실행되지 않게 한다.
+- Terminal cwd 검증은 실행 시작 위치만 정할 뿐 접근 jail이 아니다. 실행 프로세스에는 outbound firewall이나 writable copy-on-write 격리가 없으므로 승인된 shell은 사용자 OS 권한으로 project 밖 파일과 network에 접근할 수 있고 shell write는 ACP file backup·SHA 경계를 우회한다. 이 explicit `ai_center` trust boundary 때문에 이 경로를 sandbox라고 부르지 않는다. 다른 profile·SSH/Runtime workspace에는 capability를 광고하지 않으며 서버 설치 파일·DB와 인바운드 SSH 경계는 바뀌지 않는다.
 
 #### 로컬 파일 도구
 
@@ -709,6 +721,7 @@ renderer `useSamwooScheduleRunner`
 | 중간     | SAMWOO bearer의 localStorage 저장   | renderer/XSS가 성공하면 token 탈취 가능, local shape만으로 시작 gate를 통과 가능                                 | main `safeStorage` 보관 + opaque session handle, 시작 시 server validation                                             |
 | 중간     | Hermes `mailtoken` query            | loopback URL·브라우저 history/state에 bearer가 나타남                                                            | main-side session ID로 치환하고 token은 main memory에서만 resolve                                                      |
 | 중간     | Hermes file write 승인              | root/path/hash 검증은 있지만 write별 사용자 승인은 없음                                                          | 민감 파일 policy와 변경 preview/일괄 승인 추가                                                                         |
+| 중간     | Hermes ACP local terminal           | 정확한 `ai_center`로 제한하고 명령별 승인하지만 command는 OS sandbox 없이 사용자 권한으로 실행                   | outbound policy·격리가 필요하면 별도 조직 trust policy와 GUI 실측 후 추가                                              |
 | 낮음     | Hermes binary attachment lifecycle  | private artifact가 crash 뒤 남거나 잘못된 conversation/request에 재사용될 수 있음                                | startup stale cleanup, conversation 소유권, request 배타 결합, hash 재검증, TTL과 remove/conversation/app cleanup 유지 |
 | 중간     | local command cancellation          | 채팅 취소가 foreground child process를 즉시 죽이지 않음                                                          | process를 in-flight controller에 등록하고 cross-platform process-tree 종료                                             |
 | 중간     | Hermes request/background lifecycle | request ID 충돌이 controller를 교체할 수 있고 background command가 chat보다 오래 생존                            | main 발급 ID, collision reject, app/workspace teardown에 process registry 연결                                         |

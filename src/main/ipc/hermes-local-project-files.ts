@@ -1,6 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { isAbsolute, join, relative, resolve } from 'node:path'
-import { lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile
+} from 'node:fs/promises'
 import type { Store } from '../persistence'
 import { resolveAuthorizedPath } from './filesystem-auth'
 import type {
@@ -8,12 +18,20 @@ import type {
   LocalFileRequest,
   LocalFileResult
 } from './hermes-local-file-protocol'
+import { createLocalProjectFile } from './hermes-local-project-file-creation'
 
-const MAX_FILE_BYTES = 512 * 1024
+export const LOCAL_PROJECT_MAX_FILE_BYTES = 512 * 1024
 const MAX_RESULT_BYTES = 768 * 1024
 const MAX_DIRECTORY_ENTRIES = 500
 
 const projectQueues = new Map<string, Promise<void>>()
+
+export type LocalFileOverwriteSnapshot = {
+  absolutePath: string
+  relativePath: string
+  content: Buffer
+  sha256: string
+}
 
 function validateRelativePath(value: string, allowRoot: boolean): string {
   if (!value || value.includes('\0') || isAbsolute(value)) {
@@ -80,7 +98,7 @@ function requireUtf8Text(content: Buffer): void {
 
 function decodeContent(value: string): Buffer {
   const content = Buffer.from(value, 'base64')
-  if (content.length > MAX_FILE_BYTES || content.toString('base64') !== value) {
+  if (content.length > LOCAL_PROJECT_MAX_FILE_BYTES || content.toString('base64') !== value) {
     throw new Error('invalid or oversized file content')
   }
   requireUtf8Text(content)
@@ -121,7 +139,7 @@ async function readProjectPath(
 ): Promise<LocalFileResult> {
   const target = await resolveProjectPath(root, operation.path, store)
   const info = await lstat(target.path)
-  if (!info.isFile() || info.size > MAX_FILE_BYTES) {
+  if (!info.isFile() || info.size > LOCAL_PROJECT_MAX_FILE_BYTES) {
     throw new Error('path is not a supported file')
   }
   const content = await readFile(target.path)
@@ -138,7 +156,9 @@ async function readProjectPath(
 async function writeProjectPath(
   root: string,
   operation: Extract<LocalFileOperation, { kind: 'write' }>,
-  store: Store
+  store: Store,
+  beforeOverwrite?: (snapshot: LocalFileOverwriteSnapshot) => Promise<void>,
+  beforeCommit?: () => void
 ): Promise<LocalFileResult> {
   const target = await resolveProjectPath(root, operation.path, store)
   // Why: canonical-path checking also blocks an innocent-looking symlink into .git.
@@ -147,7 +167,13 @@ async function writeProjectPath(
   }
   const content = decodeContent(operation.contentBase64)
   let current: Buffer | null = null
+  let currentMode: number | null = null
   try {
+    const info = await lstat(target.path)
+    if (!info.isFile() || info.size > LOCAL_PROJECT_MAX_FILE_BYTES) {
+      throw new Error('path is not a supported file')
+    }
+    currentMode = info.mode
     current = await readFile(target.path)
   } catch (error) {
     if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
@@ -161,9 +187,10 @@ async function writeProjectPath(
   ) {
     throw new Error('file changed or already exists; read it again before writing')
   }
+  beforeCommit?.()
   await mkdir(join(target.path, '..'), { recursive: true })
   if (current === null) {
-    await writeFile(target.path, content, { flag: 'wx' })
+    await createLocalProjectFile(target.path, content, beforeCommit)
     return {
       id: operation.id,
       ok: true,
@@ -174,9 +201,23 @@ async function writeProjectPath(
   const temporary = `${target.path}.orca-${randomUUID()}.tmp`
   try {
     await writeFile(temporary, content, { flag: 'wx' })
-    if (sha256(await readFile(target.path)) !== operation.expectedSha256) {
+    if (process.platform !== 'win32' && currentMode !== null) {
+      await chmod(temporary, currentMode & 0o7777)
+    }
+    const latest = await readFile(target.path)
+    if (sha256(latest) !== operation.expectedSha256) {
       throw new Error('file changed; read it again before writing')
     }
+    await beforeOverwrite?.({
+      absolutePath: target.path,
+      relativePath: target.relativePath,
+      content: latest,
+      sha256: sha256(latest)
+    })
+    if (sha256(await readFile(target.path)) !== operation.expectedSha256) {
+      throw new Error('file changed while its backup was created; read it again before writing')
+    }
+    beforeCommit?.()
     await rename(temporary, target.path)
   } finally {
     await rm(temporary, { force: true }).catch(() => {})
@@ -192,7 +233,9 @@ async function writeProjectPath(
 async function executeOperation(
   root: string,
   operation: LocalFileOperation,
-  store: Store
+  store: Store,
+  beforeOverwrite?: (snapshot: LocalFileOverwriteSnapshot) => Promise<void>,
+  beforeCommit?: () => void
 ): Promise<LocalFileResult> {
   try {
     if (operation.kind === 'list') {
@@ -201,7 +244,7 @@ async function executeOperation(
     if (operation.kind === 'read') {
       return await readProjectPath(root, operation, store)
     }
-    return await writeProjectPath(root, operation, store)
+    return await writeProjectPath(root, operation, store, beforeOverwrite, beforeCommit)
   } catch (error) {
     return {
       id: operation.id,
@@ -237,6 +280,8 @@ export async function executeLocalFileRequest(args: {
   store: Store
   onOperationStart?: (operation: LocalFileOperation) => void
   onOperationComplete?: (operation: LocalFileOperation, result: LocalFileResult) => void
+  beforeOverwrite?: (snapshot: LocalFileOverwriteSnapshot) => Promise<void>
+  beforeCommit?: () => void
 }): Promise<LocalFileResult[]> {
   const root = await resolveProjectRoot(args.cwd, args.store)
   return runQueued(root, async () => {
@@ -244,7 +289,13 @@ export async function executeLocalFileRequest(args: {
     let resultBytes = 0
     for (const operation of args.request.operations) {
       args.onOperationStart?.(operation)
-      const result = await executeOperation(root, operation, args.store)
+      const result = await executeOperation(
+        root,
+        operation,
+        args.store,
+        args.beforeOverwrite,
+        args.beforeCommit
+      )
       args.onOperationComplete?.(operation, result)
       resultBytes += Buffer.byteLength(JSON.stringify(result))
       if (resultBytes > MAX_RESULT_BYTES) {

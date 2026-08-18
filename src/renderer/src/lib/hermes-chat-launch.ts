@@ -3,6 +3,7 @@ import { getConnectionId } from '@/lib/connection-context'
 import { isWebRuntimeSessionActive } from '@/runtime/web-runtime-session'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { getSamwooAuth } from '@/lib/samwoo-auth-store'
+import { parseWorkspaceKey } from '../../../shared/workspace-scope'
 import {
   DEFAULT_HERMES_DASHBOARD_HOST,
   DEFAULT_HERMES_LAUNCH_COMMAND,
@@ -14,16 +15,18 @@ function resolveWorkspaceCwd(workspaceKey: string): string {
   if (separatorIndex >= 0) {
     return workspaceKey.slice(separatorIndex + 2)
   }
+  const scope = parseWorkspaceKey(workspaceKey)
+  const folderWorkspaceId = scope?.type === 'folder' ? scope.folderWorkspaceId : workspaceKey
   const folderWorkspace = useAppStore
     .getState()
-    .folderWorkspaces?.find((workspace) => workspace.id === workspaceKey)
+    .folderWorkspaces?.find((workspace) => workspace.id === folderWorkspaceId)
   return folderWorkspace?.folderPath ?? ''
 }
 
 export function canLaunchHermesChat(workspaceKey: string): boolean {
   const state = useAppStore.getState()
   return (
-    !getConnectionId(workspaceKey) &&
+    getConnectionId(workspaceKey) === null &&
     !isWebRuntimeSessionActive(getRuntimeEnvironmentIdForWorktree(state, workspaceKey))
   )
 }

@@ -1,4 +1,5 @@
 import { HERMES_ACP_REASONING_BRIDGE } from './hermes-team-chat-acp-reasoning-bridge'
+import { HERMES_ACP_LOCAL_FILES_BRIDGE } from './hermes-team-chat-acp-local-files-bridge'
 
 export const TEAM_CHAT_MODELS = [
   {
@@ -165,11 +166,16 @@ export function buildTeamChatRemoteCommand(args: {
 export function buildTeamChatAcpRemoteCommand(args: {
   requestId: string
   profile: string
+  localFiles?: boolean
 }): string {
   const profileHome = `/opt/data/profiles/${args.profile}`
+  const bridge =
+    args.localFiles && args.profile === 'ai_center'
+      ? HERMES_ACP_LOCAL_FILES_BRIDGE
+      : HERMES_ACP_REASONING_BRIDGE
   const sessionScript =
     `${MAIL_TOKEN_STDIN_BOOTSTRAP}; cd ${profileHome} && HERMES_HOME=${profileHome} ` +
-    `/opt/hermes/.venv/bin/python3 -c ${shellQuote(HERMES_ACP_REASONING_BRIDGE)}`
+    `/opt/hermes/.venv/bin/python3 -c ${shellQuote(bridge)}`
   const command = `sh -lc ${shellQuote(sessionScript)}`
   // Why: ACP survives individual prompts; the local idle timer normally closes it, while this cap cleans up orphaned remote sessions.
   return wrapTeamChatSession(args.requestId, command, REMOTE_ACP_SESSION_TIMEOUT_SECONDS)

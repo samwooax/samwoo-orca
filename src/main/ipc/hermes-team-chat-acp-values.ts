@@ -23,7 +23,9 @@ export function acpConciseDetail(update: AcpJsonRecord): string | undefined {
   if (Array.isArray(update.locations)) {
     const paths = update.locations
       .map((location) =>
-        isAcpRecord(location) && typeof location.path === 'string' ? location.path : ''
+        isAcpRecord(location) && typeof location.path === 'string'
+          ? location.path.slice(0, 240)
+          : ''
       )
       .filter(Boolean)
     if (paths.length) {

@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { approveLocalCommandRequest } from './hermes-local-command-approval'
+import {
+  approveHermesAcpTerminalCommand,
+  approveLocalCommandRequest
+} from './hermes-local-command-approval'
 
 const { getFocusedWindowMock, showMessageBoxMock } = vi.hoisted(() => ({
   getFocusedWindowMock: vi.fn(),
@@ -62,5 +65,22 @@ describe('approveLocalCommandRequest', () => {
       })
     ).resolves.toBe(true)
     expect(showMessageBoxMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('approveHermesAcpTerminalCommand', () => {
+  it('shows the unsandboxed boundary before a visibly delimited command', async () => {
+    await expect(
+      approveHermesAcpTerminalCommand('echo safe\u202eevil\u001b[31m', 'C:\\repo')
+    ).resolves.toBe(false)
+
+    expect(showMessageBoxMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultId: 1,
+        cancelId: 1,
+        detail:
+          'This command is not sandboxed. It can access files outside the project and the network, bypass file backups, and return its output to Hermes. Approval expires after 45 seconds.\n\nWorking directory:\nC:\\\\repo\n\nCommand:\necho safe\\u{202e}evil\\u{1b}[31m'
+      })
+    )
   })
 })

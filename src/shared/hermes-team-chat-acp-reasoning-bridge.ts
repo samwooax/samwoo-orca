@@ -1,5 +1,4 @@
-export const HERMES_ACP_REASONING_BRIDGE = `
-from acp_adapter.entry import main
+export const HERMES_ACP_REASONING_PATCH = `
 from acp_adapter.server import HermesACPAgent
 from hermes_constants import parse_reasoning_effort
 
@@ -17,5 +16,10 @@ async def _set_config_option_with_reasoning(self, config_id, session_id, value, 
 
 # Why: Hermes 0.20 stores ACP config options but does not apply reasoning_effort to its agent.
 HermesACPAgent.set_config_option = _set_config_option_with_reasoning
+`.trim()
+
+export const HERMES_ACP_REASONING_BRIDGE = `
+from acp_adapter.entry import main
+${HERMES_ACP_REASONING_PATCH}
 main()
 `.trim()

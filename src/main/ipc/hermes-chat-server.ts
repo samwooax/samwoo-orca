@@ -28,6 +28,7 @@ import {
 } from './hermes-team-chat-attachment-normalization'
 import { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
 import { registerTeamChatArtifactHandlers } from './hermes-team-chat-artifact-ipc'
+import { HERMES_ACP_CAPABILITY_PROBE_ENV } from './hermes-team-chat-acp-capability-probe'
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
 const MAIL_TOKEN_RE = /^[A-Za-z0-9._-]{1,256}$/
@@ -156,6 +157,9 @@ async function handleTeamChatRequest(
       store,
       artifactStore,
       mailToken,
+      isDevelopment: !app.isPackaged,
+      acpCapabilityProbeMode: process.env[HERMES_ACP_CAPABILITY_PROBE_ENV],
+      acpBackupRoot: join(app.getPath('userData'), 'hermes-acp-file-backups'),
       onProgress
     })
   } catch (error) {
