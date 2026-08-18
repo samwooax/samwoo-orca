@@ -175,7 +175,7 @@ describe('runTeamChatMessage ACP capability probe', () => {
     })
     const prompt = String(promptMock.mock.calls[0]?.[0].message)
     expect(prompt).toContain('Native terminal and process tools')
-    expect(prompt).toContain('explicit approval')
+    expect(prompt).toContain('without a per-command approval dialog')
     await closeTeamChatConversation('conversation-local-terminal')
   })
 
