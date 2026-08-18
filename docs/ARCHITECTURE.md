@@ -1,6 +1,6 @@
 # SAMWOO-ORCA 시스템 아키텍처
 
-> 기준: 2026-08-18, Git commit `6bdf1480e`, `package.json` 버전 `1.4.212`
+> 기준: 2026-08-18, Git commit `b32efad74`, `package.json` 버전 `1.4.213`
 >
 > 이 문서는 기능 소개가 아니라 현재 소스 코드의 실행 경로, 상태 소유권, 신뢰 경계와 장애 지점을 기록한다. 배포본이 다른 commit으로 빌드되었다면 해당 배포본을 별도로 대조해야 한다.
 
@@ -562,6 +562,7 @@ Renderer HermesTeamChatView
 - 정확히 `ai_center` profile이고 Store가 local project directory를 승인한 경우 개발·패키지 실행 모두 별도 local-files rollout을 자동으로 연다. 별도 환경변수나 실행 옵션은 필요하지 않다. 다른 profile, SSH workspace, 승인되지 않았거나 connection 해석이 끝나지 않은 workspace는 기존 경로를 유지한다.
 - 이 rollout도 remote session cwd를 `/opt/data/profiles/ai_center`에 유지한다. 대신 Orca가 Hermes 프로세스를 시작할 때 일회성 Python `-c` shim을 주입해 initialize/prompt/tool dispatch를 연결하고, 모델에는 승인된 local project를 `/workspace` virtual namespace로만 노출한다. 서버 설치 파일·DB·SSH host 설정은 변경하지 않으며 실제 파일 권한과 실행은 Electron main이 소유한다.
 - ACP `fs/read_text_file`·`fs/write_text_file`과 replace-mode patch를 client로 전달하고 ACP `terminal`도 함께 광고해 Hermes `terminal`·`process`를 client-bound 표준 terminal 메서드로 변환한다. `execute_code`·`search_files`와 ACP stdin/PTY는 계속 거절한다.
+- Hermes의 ACP Python SDK는 terminal 호출의 추가 keyword를 wire `_meta`로 감싸므로 bridge는 `samwoo` namespace를 직접 넘긴다. 없는 파일 read는 native path 대신 `file does not exist`를 반환하고 같은 turn의 신규 write를 허용한다.
 - Electron main executor는 canonical project-root jail, `/workspace` POSIX path, traversal·backslash·ADS·Windows device name·symlink/hardlink·`.git` write 거부, UTF-8 regular file 및 512KiB 상한을 적용한다. 기존 파일 write는 같은 turn의 prior-read SHA-256을 요구하고 project queue 안에서 재검증·backup·temp rename을 수행한다. Backup은 app userData 아래 private directory에 원본 bytes로 보관하며 file당 20개, 30일, project당 256MiB, 전체 512MiB 상한으로 정리한다.
 - Terminal cwd는 `/workspace` 아래 existing directory로만 매핑하고, 각 명령을 spawn하기 전에 Electron native 승인창으로 명령·local cwd와 비격리 경고를 보여준다. 승인은 45초 뒤 만료한다. Windows local project는 Git Bash 우선, WSL project는 해당 distro의 `env -i sh`, macOS/Linux는 비로그인 shell을 사용한다. 전달 environment는 allowlist로 줄이고 output tail 64KiB에 control stripping·secret redaction을 적용한다.
 - Foreground는 `create → wait → output → release`, background는 terminal ID 기반 `list/poll/log/wait/kill`로 변환한다. 동시 live process 4개, retained record 16개, foreground 120초, background 30분을 상한으로 둔다. Timeout·전체 cancel·session close와 foreground turn 종료에서 해당 descendant tree를 정리하되, 정상 turn 종료의 background process는 다음 turn process 도구를 위해 유지한다. ACP JSONL frame, turn당 request/read budget, concurrency, session ID와 active-turn generation도 검증해 duplicate·late·canceled request가 재실행되지 않게 한다.
