@@ -33,31 +33,23 @@ type TerminalRecord = {
   terminationReason: string | null
 }
 
-type ApproveTerminalCommand = (command: string, cwd: string) => Promise<boolean>
-
 export class HermesAcpTerminal {
   private readonly records = new Map<string, TerminalRecord>()
-  private approvalQueueTail = Promise.resolve()
   private pendingCreates = 0
   private closing = false
   private closePromise: Promise<void> | null = null
 
   private constructor(
     private readonly projectRoot: string,
-    private readonly store: Store,
-    private readonly approve: ApproveTerminalCommand
+    private readonly store: Store
   ) {}
 
-  static async create(args: {
-    cwd: string
-    store: Store
-    approve: ApproveTerminalCommand
-  }): Promise<HermesAcpTerminal> {
+  static async create(args: { cwd: string; store: Store }): Promise<HermesAcpTerminal> {
     const projectRoot = await resolveAuthorizedPath(args.cwd, args.store)
     if (!(await stat(projectRoot)).isDirectory()) {
       throw new Error('selected project root is not a directory')
     }
-    return new HermesAcpTerminal(projectRoot, args.store, args.approve)
+    return new HermesAcpTerminal(projectRoot, args.store)
   }
 
   isSupportedMethod(method: unknown): method is string {
@@ -162,12 +154,8 @@ export class HermesAcpTerminal {
       virtualCwd: request.virtualCwd,
       store: this.store
     })
-    if (
-      !(await this.approveSerially(request.command, root, canContinue)) ||
-      !canContinue() ||
-      this.closing
-    ) {
-      throw new Error('local terminal command was denied or cancelled')
+    if (!canContinue() || this.closing) {
+      throw new Error('local terminal command was cancelled')
     }
     const invocation = resolveHermesAcpTerminalInvocation({
       commandText: request.command,
@@ -175,7 +163,7 @@ export class HermesAcpTerminal {
       store: this.store
     })
     if (!canContinue()) {
-      throw new Error('local terminal command was denied or cancelled')
+      throw new Error('local terminal command was cancelled')
     }
     const child = spawn(invocation.command, invocation.args, {
       cwd: invocation.cwd,
@@ -277,25 +265,6 @@ export class HermesAcpTerminal {
       : Promise.resolve().then(() => void record.child.kill('SIGKILL'))
     record.termination = termination
     return termination
-  }
-
-  private async approveSerially(
-    command: string,
-    root: string,
-    canContinue: () => boolean
-  ): Promise<boolean> {
-    const previous = this.approvalQueueTail
-    let release = (): void => {}
-    const gate = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    this.approvalQueueTail = previous.catch(() => {}).then(() => gate)
-    await previous.catch(() => {})
-    try {
-      return !this.closing && canContinue() && (await this.approve(command, root))
-    } finally {
-      release()
-    }
   }
 
   private requireRecord(id: string): TerminalRecord {

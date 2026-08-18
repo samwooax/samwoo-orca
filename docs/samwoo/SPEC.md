@@ -131,7 +131,7 @@ Tailscale MagicDNS는 관리 Windows PC에서 해석 실패한 이력이 있어 
 
 Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. 봇이 구조화된 로컬 작업 요청을 반환하면 Orca 메인 프로세스가 선택한 프로젝트 루트 안에서 실행하고 결과를 같은 대화 세션에 돌려준다.
 
-- 파일: 목록, UTF-8 텍스트 읽기·쓰기. 프로토콜상 삭제는 지원하지 않는다.
+- 파일: 목록, UTF-8 텍스트 읽기·쓰기. 파일 프로토콜 자체는 삭제를 지원하지 않지만 exact `ai_center` ACP에서는 terminal의 platform shell 명령으로 삭제·이동·이름 변경을 수행할 수 있다.
 - 파일 1개 최대 512KiB, 결과 최대 768KiB, 디렉터리 목록 최대 500개.
 - 프로젝트 루트 탈출, 심볼릭 링크 탈출, Git 메타데이터 쓰기를 차단한다.
 - SHA-256 예상 리비전으로 동시 수정 충돌을 막고 임시 파일+rename으로 원자적 저장한다.
@@ -155,9 +155,9 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 
 - Hermes 0.20.0이 client capability를 native tool routing에 연결하지 않는 한계를 Electron이 주입하는 일회성 runtime shim으로 보완한다. 서버 설치 파일·DB·프로필 설정은 수정하지 않고 연결 방향도 노트북에서 Hermes 호스트로 나가는 SSH만 사용한다.
 - 파일은 `/workspace` virtual namespace, canonical local project root, 같은 turn의 prior-read SHA-256, overwrite 전 app-private backup을 적용한다. `terminal`의 cwd도 `/workspace` 아래 기존 directory로만 매핑하지만 이는 명령의 접근 권한을 가두는 OS sandbox가 아니다.
-- terminal 명령은 매번 native 승인창에 명령과 cwd, 비격리 경고를 표시하고 45초 안에 허용된 경우에만 Electron main에서 현재 사용자 권한으로 실행한다. Windows local project는 Git Bash를 우선하고 WSL project는 해당 distro의 비로그인 `sh`, macOS/Linux는 비로그인 shell을 사용하며 전달 환경변수는 allowlist로 제한한다.
+- terminal 명령과 background process 시작은 별도 native 승인창 없이 Electron main에서 현재 사용자 권한으로 즉시 실행한다. Windows local project는 Git Bash를 우선하고 WSL project는 해당 distro의 비로그인 `sh`, macOS/Linux는 비로그인 shell을 사용하며 전달 환경변수는 allowlist로 제한한다. 삭제·이동·이름 변경·검색처럼 ACP 파일 API가 지원하지 않는 작업도 terminal을 사용한다.
 - 전경 명령은 최대 120초, 백그라운드 명령은 최대 30분, 동시 실행은 4개, 보존 record는 16개, 합산 출력 tail은 64KiB다. 출력은 terminal control 제거와 secret redaction을 거치며 timeout·전체 취소·session 종료, 그리고 foreground turn 종료 시 descendant process tree 정리를 시도한다. 정상 완료한 turn의 background process는 다음 turn의 process 도구로 계속 관리한다. 백그라운드는 `list`·`poll`·`log`·`wait`·`kill`만 지원하고 ACP stdin/PTY, `execute_code`, `search_files`는 계속 비활성이다.
-- 이 `ai_center` 전용 경로는 의도적으로 **비격리 로컬 실행**이다. 승인한 명령은 프로젝트 밖 파일과 네트워크에 사용자 계정 권한으로 접근할 수 있고, shell이 직접 바꾼 파일은 ACP 파일 write의 backup·SHA 검사를 거치지 않는다. Outbound firewall이나 copy-on-write 격리가 없으므로 sandbox라고 부르지 않는다.
+- 이 `ai_center` 전용 경로는 사용자가 명시적으로 선택한 **무승인·비격리 로컬 실행**이다. 모델이 낸 명령은 프로젝트 밖 파일과 네트워크에 사용자 계정 권한으로 접근할 수 있고, shell이 직접 바꾼 파일은 ACP 파일 write의 backup·SHA 검사를 거치지 않는다. Outbound firewall이나 copy-on-write 격리가 없으므로 sandbox라고 부르지 않는다.
 
 문서 브리지는 `samwoo/upstream-v1.4.168`의 `v1.4.204` 공개 릴리스(2026-08-16)까지 통합·배포됐다. envelope JSON 파싱이 실패하면 main이 결정적으로 교정한다: 완전한 JSON 값 뒤에 닫는 delimiter만 꼬리로 붙은 경우 값은 그대로 두고 꼬리만 버리고, 내부 결함은 닫는 delimiter 정확히 한 개를 삭제하는 후보 중 스칼라 토큰이 접합될 수 없는 위치만 고려해 파싱 가능한 복원 결과가 유일할 때만 채택한다. 다의적이거나 잘린 JSON은 교정하지 않고, 문자열·값·필드는 바꾸지 않으며, 교정 후에도 기존 schema 검증을 통과해야 실행한다. host가 교정하지 못한 malformed envelope는 operation 실행 전 같은 모델 세션에 최대 두 번 교정을 요청한다. PDF text element는 지정 크기에서 넘칠 때 6pt까지 원래 비율로 자동 축소한다. Excel create는 정확한 v1 필드 예시(차트 canonical 형식·anchor `position` 포함)를 모델에 제공하고, `overwrite` 누락과 관측된 column/row/autofilter/validation/chart(`chartType`→`type`, 공유 `categories` 배분, series `{sheet,range}`→`values`) 별칭만 충돌 없이 정규화한 뒤 동일한 worker schema·semantic validation을 적용한다. `formula.references` 검증은 openpyxl Tokenizer의 RANGE operand로 시트 참조를 추출해 `=SUM(시트!범위)` 류 오탐을 제거하고, 실패 시 오탈 참조 셀 주소와 casefold 중복 제거된 누락 시트명 상위 5개를 각 항목 절단·전체 상한 안에서 반환한다. 차트 create는 선언된 픽셀 width/height를 실제 렌더 크기에 적용한다. worker schema 오류는 실패 경로와 그 지점의 기대 형태(허용 key·타입·enum·pattern)를 함께 반환하고, `fill` 색 문자열·freezePane 셀 주소 별칭은 main이 정규화한다. 표·named range 이름은 Excel과 동일하게 한글 등 유니코드 문자를 허용하되 TRUE/FALSE·R/C·셀 주소형(전각 숫자·RC 표기 포함) 예약 이름은 조기 거부하고, 표의 중복 열 이름과 병합 범위 안 anchor 아닌 셀의 내용(값·수식·hyperlink·comment) 선언도 spec 단계에서 정확한 사유로 거부한다. modify에서 기존 병합 내부 셀은 서식만 허용하고 값 기록은 정밀 오류로 거부한다. conditionalFormats의 `cellIs`·숫자 `formula` 별칭은 canonical `cell`·`value`로 정규화하고, 선언된 빈 문자열 셀은 빈 셀과 동치로 검증하며, `spec.cells`/`spec.merges`/`spec.freeze_panes` 실패는 어긋난 셀·범위를 선언값 vs 기록값과 함께 반환한다. 설치본 GUI 실측 전에는 배포 완료로 간주하지 않는다.
 
@@ -381,7 +381,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | 프로필           | 서버가 토큰으로 결정, renderer 제공 프로필 불신                   |
 | 노트북 접근      | 인바운드 SSH 불필요·차단, 앱의 아웃바운드 연결만 사용             |
 | 로컬 파일 브리지 | 선택 루트 내부, symlink/traversal/Git metadata 차단, 512KiB       |
-| 로컬 ACP 터미널  | 정확한 `ai_center`에서 자동 활성화·명령별 승인. OS sandbox는 아님 |
+| 로컬 ACP 터미널  | 정확한 `ai_center`에서 자동 활성화·무승인 즉시 실행. OS sandbox는 아님 |
 | 공유 파일        | ETag 조건부 쓰기·삭제, 파일 16MiB, 비밀 파일·대형 생성물 제외     |
 | 작업 항목        | 공유당 최대 200개, 제목 300자, 담당자는 같은 프로필 login 1명     |
 | 메신저           | 프로필·채널 격리, 답장 대상 검증, 4,000자, 목록 응답 8MiB 한도    |
@@ -416,7 +416,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | 08-10 | CSV 직원명을 워크스페이스 협업 UI에도 적용                             | 담당자·변경자·댓글 사용자를 영문 login으로 노출하지 않되 식별·권한·Hermes 프로필 표기는 변경하지 않는다                                                                  |
 | 08-10 | Windows 10 전용 검증 항목은 운영 게이트에서 제외                       | 지원 Windows의 일반 설치·업데이트 계약만 유지하고 특정 구버전 OS 실측을 필수 조건으로 두지 않는다                                                                        |
 | 08-09 | 팀 채팅 입력창의 메일·메시지 열람 안내 문구 제거                       | 입력 영역이 좁아지고 매 대화마다 반복 노출돼 실효가 없다고 판단. 토큰 전달 경로와 서버 측 제한은 그대로다                                                                |
-| 08-18 | `ai_center` local ACP fs/terminal 자동 활성화                          | 환경변수를 없애고 exact profile·승인된 workspace로 한정한다. 비격리 범위는 승인창·문서에 명시한다                                                                        |
+| 08-18 | `ai_center` local ACP fs/terminal 자동 활성화                          | 환경변수를 없애고 exact profile·승인된 workspace로 한정한다. terminal/process는 사용자 요청에 따라 명령별 승인 없이 비격리 실행하며 그 범위를 문서에 명시한다                     |
 
 ## 14. 구현 기록
 

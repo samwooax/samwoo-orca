@@ -64,10 +64,10 @@ function createParams(command = 'printf ok') {
   }
 }
 
-async function createTerminal(approve = vi.fn().mockResolvedValue(true)) {
-  const terminal = await HermesAcpTerminal.create({ cwd: root, store, approve })
+async function createTerminal() {
+  const terminal = await HermesAcpTerminal.create({ cwd: root, store })
   terminals.push(terminal)
-  return { terminal, approve }
+  return terminal
 }
 
 beforeEach(async () => {
@@ -95,8 +95,8 @@ afterEach(async () => {
 })
 
 describe('HermesAcpTerminal', () => {
-  it('creates a command after approval and exposes bounded output and exit status', async () => {
-    const { terminal, approve } = await createTerminal()
+  it('creates a command without approval and exposes bounded output and exit status', async () => {
+    const terminal = await createTerminal()
 
     const created = (await terminal.handle(
       'terminal/create',
@@ -106,7 +106,6 @@ describe('HermesAcpTerminal', () => {
       new AbortController().signal
     )) as { terminalId: string }
 
-    expect(approve).toHaveBeenCalledWith('printf ok', root)
     expect(mocks.spawn).toHaveBeenCalledWith('/bin/sh', ['-c', 'printf ok'], {
       cwd: root,
       env: { PATH: '/usr/bin' },
@@ -139,7 +138,7 @@ describe('HermesAcpTerminal', () => {
   })
 
   it('preserves UTF-8 characters split across output chunks', async () => {
-    const { terminal } = await createTerminal()
+    const terminal = await createTerminal()
     const created = (await terminal.handle(
       'terminal/create',
       createParams(),
@@ -162,25 +161,19 @@ describe('HermesAcpTerminal', () => {
     ).resolves.toMatchObject({ output: '한글' })
   })
 
-  it('reserves capacity before approval and serializes approval dialogs', async () => {
-    const approvals: ((approved: boolean) => void)[] = []
-    const approve = vi.fn(
-      () =>
-        new Promise<boolean>((resolve) => {
-          approvals.push(resolve)
-        })
-    )
-    const { terminal } = await createTerminal(approve)
-    const creations = Array.from({ length: 4 }, (_, index) =>
-      terminal.handle(
-        'terminal/create',
-        createParams(`command-${index}`),
-        1,
-        active,
-        new AbortController().signal
+  it('rejects a fifth live command at the terminal capacity', async () => {
+    const terminal = await createTerminal()
+    const creations = await Promise.all(
+      Array.from({ length: 4 }, (_, index) =>
+        terminal.handle(
+          'terminal/create',
+          createParams(`command-${index}`),
+          1,
+          active,
+          new AbortController().signal
+        )
       )
     )
-    await vi.waitFor(() => expect(approve).toHaveBeenCalledTimes(1))
 
     await expect(
       terminal.handle(
@@ -192,13 +185,7 @@ describe('HermesAcpTerminal', () => {
       )
     ).rejects.toThrow('capacity is reached')
 
-    for (let index = 0; index < creations.length; index += 1) {
-      approvals[index](true)
-      if (index + 1 < creations.length) {
-        await vi.waitFor(() => expect(approve).toHaveBeenCalledTimes(index + 2))
-      }
-    }
-    await expect(Promise.all(creations)).resolves.toHaveLength(4)
+    expect(creations).toHaveLength(4)
     expect(mocks.spawn).toHaveBeenCalledTimes(4)
     for (const child of children) {
       child.emit('close', 0, null)
@@ -206,7 +193,7 @@ describe('HermesAcpTerminal', () => {
   })
 
   it('kills descendant processes and release removes the terminal record', async () => {
-    const { terminal } = await createTerminal()
+    const terminal = await createTerminal()
     const created = (await terminal.handle(
       'terminal/create',
       createParams('node server.js'),
@@ -260,7 +247,7 @@ describe('HermesAcpTerminal', () => {
 
   it('terminates a foreground command when its bounded timeout expires', async () => {
     vi.useFakeTimers()
-    const { terminal } = await createTerminal()
+    const terminal = await createTerminal()
     const created = (await terminal.handle(
       'terminal/create',
       createParams('long-running'),
@@ -290,7 +277,7 @@ describe('HermesAcpTerminal', () => {
           releaseCleanup = resolve
         })
     )
-    const { terminal } = await createTerminal()
+    const terminal = await createTerminal()
     await terminal.handle(
       'terminal/create',
       createParams('long-running'),
@@ -308,41 +295,43 @@ describe('HermesAcpTerminal', () => {
     await first
   })
 
-  it('never spawns when approval is denied or the turn is cancelled during approval', async () => {
-    const denied = await createTerminal(vi.fn().mockResolvedValue(false))
+  it('never spawns when the turn is cancelled before or during command setup', async () => {
+    const cancelled = await createTerminal()
     await expect(
-      denied.terminal.handle(
+      cancelled.handle(
         'terminal/create',
-        createParams('denied'),
+        createParams('cancelled'),
         4,
-        active,
+        () => false,
         new AbortController().signal
       )
-    ).rejects.toThrow('denied or cancelled')
+    ).rejects.toThrow('cancelled')
     expect(mocks.spawn).not.toHaveBeenCalled()
 
-    let releaseApproval = (_approved: boolean): void => {}
-    const approval = new Promise<boolean>((resolve) => {
-      releaseApproval = resolve
-    })
-    const pending = await createTerminal(vi.fn().mockReturnValue(approval))
+    let releaseDirectory = (_root: string): void => {}
+    mocks.resolveDirectory.mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        releaseDirectory = resolve
+      })
+    )
+    const pending = await createTerminal()
     let canContinue = true
-    const creation = pending.terminal.handle(
+    const creation = pending.handle(
       'terminal/create',
-      createParams('cancelled'),
+      createParams('cancelled-during-setup'),
       5,
       () => canContinue,
       new AbortController().signal
     )
     canContinue = false
-    releaseApproval(true)
+    releaseDirectory(root)
 
-    await expect(creation).rejects.toThrow('denied or cancelled')
+    await expect(creation).rejects.toThrow('cancelled')
     expect(mocks.spawn).not.toHaveBeenCalled()
   })
 
-  it('rejects bridge metadata, argv, and environment injection before approval or spawn', async () => {
-    const { terminal, approve } = await createTerminal()
+  it('rejects bridge metadata, argv, and environment injection before spawn', async () => {
+    const terminal = await createTerminal()
 
     await expect(
       terminal.handle(
@@ -399,7 +388,6 @@ describe('HermesAcpTerminal', () => {
       )
     ).rejects.toThrow('command is invalid')
 
-    expect(approve).not.toHaveBeenCalled()
     expect(mocks.spawn).not.toHaveBeenCalled()
   })
 })

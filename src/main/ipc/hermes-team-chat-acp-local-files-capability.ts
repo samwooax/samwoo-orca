@@ -31,8 +31,10 @@ export function formatHermesAcpLocalFilesContext(localTerminal: boolean): string
     'Read an existing file before overwriting it; create a new file directly when a read reports that it does not exist.',
     ...(localTerminal
       ? [
-          'Native terminal and process tools run on the user computer after explicit approval.',
+          'Native terminal and process tools run on the user computer without a per-command approval dialog.',
           'Shell commands are unsandboxed: they may access outside /workspace and the network, and their writes bypass file-tool backups.',
+          'Use terminal commands for deletion, moves, renames, search, and other operations not supported by read_file, write_file, or patch.',
+          'Local search_files, execute_code, and apply-patch are unavailable; use the terminal instead.',
           'Use /workspace only as terminal workdir; use paths relative to that workdir inside shell text. PTY input is unavailable.'
         ]
       : ['Local terminal and process execution are unavailable.']),

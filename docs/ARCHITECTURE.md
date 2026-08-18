@@ -561,12 +561,12 @@ Renderer HermesTeamChatView
 
 - 정확히 `ai_center` profile이고 Store가 local project directory를 승인한 경우 개발·패키지 실행 모두 별도 local-files rollout을 자동으로 연다. 별도 환경변수나 실행 옵션은 필요하지 않다. 다른 profile, SSH workspace, 승인되지 않았거나 connection 해석이 끝나지 않은 workspace는 기존 경로를 유지한다.
 - 이 rollout도 remote session cwd를 `/opt/data/profiles/ai_center`에 유지한다. 대신 Orca가 Hermes 프로세스를 시작할 때 일회성 Python `-c` shim을 주입해 initialize/prompt/tool dispatch를 연결하고, 모델에는 승인된 local project를 `/workspace` virtual namespace로만 노출한다. 서버 설치 파일·DB·SSH host 설정은 변경하지 않으며 실제 파일 권한과 실행은 Electron main이 소유한다.
-- ACP `fs/read_text_file`·`fs/write_text_file`과 replace-mode patch를 client로 전달하고 ACP `terminal`도 함께 광고해 Hermes `terminal`·`process`를 client-bound 표준 terminal 메서드로 변환한다. `execute_code`·`search_files`와 ACP stdin/PTY는 계속 거절한다.
+- ACP `fs/read_text_file`·`fs/write_text_file`과 replace-mode patch를 client로 전달하고 ACP `terminal`도 함께 광고해 Hermes `terminal`·`process`를 client-bound 표준 terminal 메서드로 변환한다. 파일 삭제·이동·이름 변경·검색은 terminal로 수행하며 `execute_code`·`search_files`와 ACP stdin/PTY는 계속 거절한다.
 - Hermes의 ACP Python SDK는 terminal 호출의 추가 keyword를 wire `_meta`로 감싸므로 bridge는 `samwoo` namespace를 직접 넘긴다. 없는 파일 read는 native path 대신 `file does not exist`를 반환하고 같은 turn의 신규 write를 허용한다.
 - Electron main executor는 canonical project-root jail, `/workspace` POSIX path, traversal·backslash·ADS·Windows device name·symlink/hardlink·`.git` write 거부, UTF-8 regular file 및 512KiB 상한을 적용한다. 기존 파일 write는 같은 turn의 prior-read SHA-256을 요구하고 project queue 안에서 재검증·backup·temp rename을 수행한다. Backup은 app userData 아래 private directory에 원본 bytes로 보관하며 file당 20개, 30일, project당 256MiB, 전체 512MiB 상한으로 정리한다.
-- Terminal cwd는 `/workspace` 아래 existing directory로만 매핑하고, 각 명령을 spawn하기 전에 Electron native 승인창으로 명령·local cwd와 비격리 경고를 보여준다. 승인은 45초 뒤 만료한다. Windows local project는 Git Bash 우선, WSL project는 해당 distro의 `env -i sh`, macOS/Linux는 비로그인 shell을 사용한다. 전달 environment는 allowlist로 줄이고 output tail 64KiB에 control stripping·secret redaction을 적용한다.
+- Terminal cwd는 `/workspace` 아래 existing directory로만 매핑하되 명령별 승인창 없이 바로 spawn한다. Windows local project는 Git Bash 우선, WSL project는 해당 distro의 `env -i sh`, macOS/Linux는 비로그인 shell을 사용한다. 전달 environment는 allowlist로 줄이고 output tail 64KiB에 control stripping·secret redaction을 적용한다.
 - Foreground는 `create → wait → output → release`, background는 terminal ID 기반 `list/poll/log/wait/kill`로 변환한다. 동시 live process 4개, retained record 16개, foreground 120초, background 30분을 상한으로 둔다. Timeout·전체 cancel·session close와 foreground turn 종료에서 해당 descendant tree를 정리하되, 정상 turn 종료의 background process는 다음 turn process 도구를 위해 유지한다. ACP JSONL frame, turn당 request/read budget, concurrency, session ID와 active-turn generation도 검증해 duplicate·late·canceled request가 재실행되지 않게 한다.
-- Terminal cwd 검증은 실행 시작 위치만 정할 뿐 접근 jail이 아니다. 실행 프로세스에는 outbound firewall이나 writable copy-on-write 격리가 없으므로 승인된 shell은 사용자 OS 권한으로 project 밖 파일과 network에 접근할 수 있고 shell write는 ACP file backup·SHA 경계를 우회한다. 이 explicit `ai_center` trust boundary 때문에 이 경로를 sandbox라고 부르지 않는다. 다른 profile·SSH/Runtime workspace에는 capability를 광고하지 않으며 서버 설치 파일·DB와 인바운드 SSH 경계는 바뀌지 않는다.
+- Terminal cwd 검증은 실행 시작 위치만 정할 뿐 접근 jail이 아니다. 실행 프로세스에는 outbound firewall이나 writable copy-on-write 격리가 없으므로 모델이 낸 shell은 사용자 OS 권한으로 project 밖 파일과 network에 접근할 수 있고 shell write는 ACP file backup·SHA 경계를 우회한다. 사용자가 선택한 explicit no-prompt `ai_center` trust boundary이므로 이 경로를 sandbox라고 부르지 않는다. 다른 profile·SSH/Runtime workspace에는 capability를 광고하지 않으며 서버 설치 파일·DB와 인바운드 SSH 경계는 바뀌지 않는다.
 
 #### 로컬 파일 도구
 
@@ -722,7 +722,7 @@ renderer `useSamwooScheduleRunner`
 | 중간     | SAMWOO bearer의 localStorage 저장   | renderer/XSS가 성공하면 token 탈취 가능, local shape만으로 시작 gate를 통과 가능                                 | main `safeStorage` 보관 + opaque session handle, 시작 시 server validation                                             |
 | 중간     | Hermes `mailtoken` query            | loopback URL·브라우저 history/state에 bearer가 나타남                                                            | main-side session ID로 치환하고 token은 main memory에서만 resolve                                                      |
 | 중간     | Hermes file write 승인              | root/path/hash 검증은 있지만 write별 사용자 승인은 없음                                                          | 민감 파일 policy와 변경 preview/일괄 승인 추가                                                                         |
-| 중간     | Hermes ACP local terminal           | 정확한 `ai_center`로 제한하고 명령별 승인하지만 command는 OS sandbox 없이 사용자 권한으로 실행                   | outbound policy·격리가 필요하면 별도 조직 trust policy와 GUI 실측 후 추가                                              |
+| 중간     | Hermes ACP local terminal           | 정확한 `ai_center`로 제한하지만 no-prompt command는 OS sandbox 없이 사용자 권한으로 실행                         | explicit full-trust 정책을 유지하고 격리가 필요하면 별도 조직 policy와 GUI 실측 후 추가                               |
 | 낮음     | Hermes binary attachment lifecycle  | private artifact가 crash 뒤 남거나 잘못된 conversation/request에 재사용될 수 있음                                | startup stale cleanup, conversation 소유권, request 배타 결합, hash 재검증, TTL과 remove/conversation/app cleanup 유지 |
 | 중간     | local command cancellation          | 채팅 취소가 foreground child process를 즉시 죽이지 않음                                                          | process를 in-flight controller에 등록하고 cross-platform process-tree 종료                                             |
 | 중간     | Hermes request/background lifecycle | request ID 충돌이 controller를 교체할 수 있고 background command가 chat보다 오래 생존                            | main 발급 ID, collision reject, app/workspace teardown에 process registry 연결                                         |
@@ -782,9 +782,9 @@ renderer `useSamwooScheduleRunner`
 - SAMWOO 업무 profile과 Orca application profile을 혼동하지 않는다.
 - raw password, mail secret, bearer token을 prompt/transcript/log에 넣지 않는다.
 - 공유 workspace profile과 permission은 서버가 결정하게 한다.
-- Hermes local tool은 선택된 local project root 밖으로 나가지 못하게 한다.
+- Hermes 파일·문서 API는 선택된 local project root 밖으로 나가지 못하게 한다. exact `ai_center` terminal은 명시된 full-trust 예외다.
 - 문서 첨부는 main-owned artifact ID와 요청 한정 virtual path로만 읽고 번역 결과는 검증된 신규 local project path에만 쓴다.
-- artifact 지원을 위해 arbitrary command나 전역 package install을 허용하지 않는다.
+- legacy artifact envelope는 임의 명령이나 전역 package install을 추가로 허용하지 않는다. exact `ai_center` terminal의 기존 full-trust 권한은 별도 경계다.
 
 ## 19. 기능별 기본 검증 매트릭스
 

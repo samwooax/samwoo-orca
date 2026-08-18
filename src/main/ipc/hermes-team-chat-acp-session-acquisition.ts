@@ -10,7 +10,6 @@ import type {
   TeamChatSessionHandle
 } from './hermes-team-chat-session-registry'
 import type { TeamChatRunController } from './hermes-team-chat-run-controller'
-import { approveHermesAcpTerminalCommand } from './hermes-local-command-approval'
 import { HermesAcpTerminal } from './hermes-team-chat-acp-terminal'
 import { stopRemoteTeamChat, teamChatSshArgs } from './hermes-team-chat-ssh-process'
 
@@ -40,8 +39,7 @@ export async function acquireHermesTeamChatAcpSession(args: {
   const terminal = args.localFilesCapability?.localTerminal
     ? await HermesAcpTerminal.create({
         cwd: args.localFilesCapability.projectRoot,
-        store: args.store,
-        approve: approveHermesAcpTerminalCommand
+        store: args.store
       })
     : null
   const sessionHandle = await args.registry.acquire({

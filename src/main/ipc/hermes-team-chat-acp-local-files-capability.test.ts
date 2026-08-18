@@ -40,4 +40,12 @@ describe('resolveHermesAcpLocalFilesCapability', () => {
     expect(context).toContain('create a new file directly')
     expect(context).toContain('when a read reports that it does not exist')
   })
+
+  it('grants no-prompt terminal access for unsupported file operations', () => {
+    const context = formatHermesAcpLocalFilesContext(true)
+
+    expect(context).toContain('without a per-command approval dialog')
+    expect(context).toContain('deletion, moves, renames, search')
+    expect(context).toContain('use the terminal instead')
+  })
 })
