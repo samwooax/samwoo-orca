@@ -24,7 +24,10 @@ const {
   stopRemoteTeamChatMock: vi.fn()
 }))
 
-vi.mock('node:child_process', () => ({ spawn: spawnMock }))
+vi.mock('node:child_process', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  spawn: spawnMock
+}))
 vi.mock('./hermes-local-project-files', () => ({
   executeLocalFileRequest: executeLocalFileRequestMock
 }))
