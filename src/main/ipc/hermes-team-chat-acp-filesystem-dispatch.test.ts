@@ -4,11 +4,17 @@ import { HermesAcpFilesystemRequestDispatcher } from './hermes-team-chat-acp-fil
 
 function createDispatcher(handle = vi.fn().mockResolvedValue({ content: 'ok' })) {
   const resetReadRevisions = vi.fn()
-  const filesystem = { handle, resetReadRevisions } as unknown as HermesAcpFilesystem
+  const cancelActivePreviews = vi.fn()
+  const filesystem = {
+    handle,
+    resetReadRevisions,
+    cancelActivePreviews
+  } as unknown as HermesAcpFilesystem
   return {
     dispatcher: new HermesAcpFilesystemRequestDispatcher(filesystem),
     handle,
-    resetReadRevisions
+    resetReadRevisions,
+    cancelActivePreviews
   }
 }
 
@@ -62,14 +68,23 @@ describe('HermesAcpFilesystemRequestDispatcher', () => {
   it('returns cancellation instead of a late filesystem response', async () => {
     let release = (_value: unknown): void => {}
     let canCommit = (): boolean => true
+    let signal: AbortSignal | undefined
     const result = new Promise((resolve) => {
       release = resolve
     })
-    const handle = vi.fn((_method: string, _params: unknown, commitGuard: () => boolean) => {
-      canCommit = commitGuard
-      return result
-    })
-    const { dispatcher } = createDispatcher(handle)
+    const handle = vi.fn(
+      (
+        _method: string,
+        _params: unknown,
+        commitGuard: () => boolean,
+        requestSignal: AbortSignal
+      ) => {
+        canCommit = commitGuard
+        signal = requestSignal
+        return result
+      }
+    )
+    const { dispatcher, cancelActivePreviews } = createDispatcher(handle)
     dispatcher.beginTurn()
     const response = dispatcher.dispatch(
       {
@@ -82,8 +97,38 @@ describe('HermesAcpFilesystemRequestDispatcher', () => {
     expect(canCommit()).toBe(true)
     dispatcher.cancelTurn()
     expect(canCommit()).toBe(false)
+    expect(signal?.aborted).toBe(true)
+    expect(cancelActivePreviews).toHaveBeenCalledOnce()
     release({ content: 'late' })
 
+    await expect(response).resolves.toMatchObject({ error: { code: -32_800 } })
+  })
+
+  it('aborts each in-flight request when a prompt ends normally', async () => {
+    let signal: AbortSignal | undefined
+    let release = (_value: unknown): void => {}
+    const pending = new Promise((resolve) => {
+      release = resolve
+    })
+    const { dispatcher } = createDispatcher(
+      vi.fn((_method: string, _params: unknown, _canCommit: () => boolean, value: AbortSignal) => {
+        signal = value
+        return pending
+      })
+    )
+    dispatcher.beginTurn()
+    const response = dispatcher.dispatch(
+      {
+        id: 'end-turn',
+        method: 'fs/read_text_file',
+        params: { sessionId: 'session-a', path: '/workspace/a.txt' }
+      },
+      'session-a'
+    )
+
+    dispatcher.endTurn()
+    expect(signal?.aborted).toBe(true)
+    release({ content: 'late' })
     await expect(response).resolves.toMatchObject({ error: { code: -32_800 } })
   })
 
@@ -116,11 +161,49 @@ describe('HermesAcpFilesystemRequestDispatcher', () => {
     expect(dispatcher.isSupportedMethod('terminal/create')).toBe(false)
   })
 
+  it('keeps four maximum Office previews within the aggregate read budget', async () => {
+    const content = 'x'.repeat(Math.ceil((700 * 1024 * 4) / 3) + 1_024)
+    const { dispatcher } = createDispatcher(vi.fn().mockResolvedValue({ content }))
+    dispatcher.beginTurn()
+
+    for (let index = 0; index < 4; index += 1) {
+      await expect(
+        dispatcher.dispatch(
+          {
+            id: `preview-${index}`,
+            method: 'fs/read_text_file',
+            params: { sessionId: 'session-a', path: `/workspace/preview-${index}.xlsx` }
+          },
+          'session-a'
+        )
+      ).resolves.toMatchObject({ result: { content } })
+    }
+    await expect(
+      dispatcher.dispatch(
+        {
+          id: 'preview-overflow',
+          method: 'fs/read_text_file',
+          params: { sessionId: 'session-a', path: '/workspace/preview-overflow.xlsx' }
+        },
+        'session-a'
+      )
+    ).resolves.toMatchObject({ error: { code: -32_000 } })
+  })
+
   it('cancels one request and bounds request ids without retaining an old turn', async () => {
-    const pending = new Promise(() => {})
+    let release = (_value: unknown): void => {}
+    let firstSignal: AbortSignal | undefined
+    const pending = new Promise((resolve) => {
+      release = resolve
+    })
     const handle = vi
       .fn()
-      .mockReturnValueOnce(pending)
+      .mockImplementationOnce(
+        (_method: string, _params: unknown, _canCommit: () => boolean, signal: AbortSignal) => {
+          firstSignal = signal
+          return pending
+        }
+      )
       .mockResolvedValueOnce({ content: 'next turn' })
     const { dispatcher } = createDispatcher(handle)
     dispatcher.beginTurn()
@@ -133,8 +216,10 @@ describe('HermesAcpFilesystemRequestDispatcher', () => {
       'session-a'
     )
     dispatcher.cancelRequest('first')
+    expect(firstSignal?.aborted).toBe(true)
     dispatcher.cancelTurn()
     dispatcher.beginTurn()
+    release({ content: 'cancelled' })
 
     await expect(
       dispatcher.dispatch(
@@ -157,6 +242,6 @@ describe('HermesAcpFilesystemRequestDispatcher', () => {
       )
     ).resolves.toMatchObject({ error: { code: -32_600 }, id: '' })
     expect(handle).toHaveBeenCalledTimes(2)
-    void first
+    await expect(first).resolves.toMatchObject({ error: { code: -32_800 } })
   })
 })

@@ -83,6 +83,12 @@ jobs:
           restore-keys: |
             electron-builder-win-
 
+      - name: Cache pinned LibreOffice MSI
+        uses: actions/cache@v5
+        with:
+          path: tmp/hermes-libreoffice-cache
+          key: hermes-libreoffice-win-x64-26.2.5-f15ba07bfcb0186986cf3171063506f5d207c11f8cc051ba0d135209e9e915f9
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -206,6 +212,7 @@ jobs:
             config/scripts/electron-builder-samwoo-config.test.mjs `
             config/scripts/excel-artifact-packaging-contract.test.mjs `
             config/scripts/hermes-local-document-packaging.test.mjs `
+            config/scripts/hermes-local-document-bundle-smoke-assertions.test.mjs `
             config/scripts/hermes-excel-artifact-worker-manifest.test.mjs `
             config/scripts/samwoo-brand-assets.test.mjs `
             config/scripts/samwoo-windows-internal-signing-workflow.test.mjs `
@@ -216,15 +223,18 @@ jobs:
           pnpm exec vitest run --config config/vitest.config.ts `
             src/main/ipc/hermes-team-chat-acp-capability-probe-runner.test.ts `
             src/main/ipc/hermes-team-chat-acp-capability-probe.test.ts `
+            src/main/ipc/hermes-excel-artifact-worker-client.test.ts `
             src/main/ipc/hermes-team-chat-acp-filesystem-dispatch.test.ts `
             src/main/ipc/hermes-team-chat-acp-filesystem.test.ts `
             src/main/ipc/hermes-team-chat-acp-jsonl-reader.test.ts `
             src/main/ipc/hermes-team-chat-acp-local-files-capability.test.ts `
+            src/main/ipc/hermes-team-chat-acp-office-preview.test.ts `
             src/main/ipc/hermes-team-chat-acp-terminal-directory.test.ts `
             src/main/ipc/hermes-team-chat-acp-terminal-dispatch.test.ts `
             src/main/ipc/hermes-team-chat-acp-terminal-shell.test.ts `
             src/main/ipc/hermes-team-chat-acp-terminal.test.ts `
             src/main/ipc/hermes-team-chat-acp-turn-progress.test.ts `
+            src/shared/hermes-team-chat-acp-local-files-bridge.test.ts `
             src/renderer/src/lib/hermes-chat-launch.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

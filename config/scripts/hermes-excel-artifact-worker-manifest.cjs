@@ -8,7 +8,10 @@ function workerFiles(root, directory = root) {
     const path = join(directory, entry.name)
     if (entry.isDirectory()) {
       files.push(...workerFiles(root, path))
-    } else if (entry.isFile() && entry.name !== 'manifest.json') {
+    } else if (
+      entry.isFile() &&
+      relative(root, path).replaceAll('\\', '/') !== 'manifest.json'
+    ) {
       files.push(path)
     }
   }

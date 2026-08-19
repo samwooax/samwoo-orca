@@ -18,6 +18,8 @@ function acpProcess(
     clientRequestMethod?: string
     clientRequestParams?: Record<string, unknown>
     acceptClientResult?: boolean
+    cancelClientRequest?: boolean
+    acceptedClientErrorCode?: number
     trailingClientRequest?: Record<string, unknown>
   } = {}
 ): FakeProcess {
@@ -77,6 +79,13 @@ function acpProcess(
               content: 'file-secret'
             }
           })
+          if (options.cancelClientRequest) {
+            emitJson(proc, {
+              jsonrpc: '2.0',
+              method: '$/cancel_request',
+              params: { requestId: request.id }
+            })
+          }
           return
         }
         if (options.trailingClientRequest) {
@@ -159,6 +168,8 @@ function acpProcess(
       } else if (
         (request.error?.code === -32_000 ||
           request.error?.code === -32_601 ||
+          (typeof options.acceptedClientErrorCode === 'number' &&
+            request.error?.code === options.acceptedClientErrorCode) ||
           (options.acceptClientResult && 'result' in request)) &&
         request.id === pendingProbePromptId
       ) {
@@ -293,7 +304,11 @@ describe('runHermesAcpProcess', () => {
           localTerminal: false,
           projectRoot: 'C:\\selected'
         },
-        filesystem: { handle, resetReadRevisions: vi.fn() } as never
+        filesystem: {
+          handle,
+          resetReadRevisions: vi.fn(),
+          cancelActivePreviews: vi.fn()
+        } as never
       }
     })
 
@@ -316,7 +331,8 @@ describe('runHermesAcpProcess', () => {
         sessionId: 'session-1',
         path: '/workspace/src/a.ts'
       },
-      expect.any(Function)
+      expect.any(Function),
+      expect.any(AbortSignal)
     )
     expect(outbound.find((request) => request.method === 'initialize')?.params).toMatchObject({
       clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } }
@@ -327,6 +343,48 @@ describe('runHermesAcpProcess', () => {
     expect(outbound).toContainEqual(
       expect.objectContaining({ result: { content: 'local content' } })
     )
+  })
+
+  it('routes ACP request cancellation into the filesystem AbortSignal', async () => {
+    const proc = acpProcess({
+      clientRequestMethod: 'fs/read_text_file',
+      clientRequestParams: { sessionId: 'session-1', path: '/workspace/src/a.ts' },
+      cancelClientRequest: true,
+      acceptedClientErrorCode: -32_800
+    })
+    let observedSignal: AbortSignal | undefined
+    const handle = vi.fn(
+      (_method: string, _params: unknown, _canCommit: () => boolean, signal: AbortSignal) => {
+        observedSignal = signal
+        return new Promise((resolve) => {
+          signal.addEventListener('abort', () => resolve({ content: 'late' }), { once: true })
+        })
+      }
+    )
+    const session = new HermesAcpSession(proc as never, 'ai_center', '', {
+      localFiles: {
+        capability: {
+          clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
+          localTerminal: false,
+          projectRoot: 'C:\\selected'
+        },
+        filesystem: {
+          handle,
+          resetReadRevisions: vi.fn(),
+          cancelActivePreviews: vi.fn()
+        } as never
+      }
+    })
+
+    await expect(
+      session.prompt({
+        requestId: 'request-cancel-local-file',
+        modelId: 'gpt-5.6-sol',
+        effort: 'high',
+        message: 'cancel the local file request'
+      })
+    ).resolves.toEqual({ ok: true, reply: 'probe observed' })
+    expect(observedSignal?.aborted).toBe(true)
   })
 
   it('ends local file authority before processing a trailing request in the same chunk', async () => {
@@ -346,7 +404,11 @@ describe('runHermesAcpProcess', () => {
           localTerminal: false,
           projectRoot: 'C:\\selected'
         },
-        filesystem: { handle, resetReadRevisions: vi.fn() } as never
+        filesystem: {
+          handle,
+          resetReadRevisions: vi.fn(),
+          cancelActivePreviews: vi.fn()
+        } as never
       }
     })
 
@@ -389,7 +451,11 @@ describe('runHermesAcpProcess', () => {
           localTerminal: true,
           projectRoot: 'C:\\selected'
         },
-        filesystem: { handle: vi.fn(), resetReadRevisions: vi.fn() } as never,
+        filesystem: {
+          handle: vi.fn(),
+          resetReadRevisions: vi.fn(),
+          cancelActivePreviews: vi.fn()
+        } as never,
         terminal: terminal as never
       }
     })
@@ -421,7 +487,11 @@ describe('runHermesAcpProcess', () => {
           localTerminal: false,
           projectRoot: 'C:\\selected'
         },
-        filesystem: { handle, resetReadRevisions: vi.fn() } as never
+        filesystem: {
+          handle,
+          resetReadRevisions: vi.fn(),
+          cancelActivePreviews: vi.fn()
+        } as never
       }
     })
     const pending = session.prompt({
@@ -481,7 +551,11 @@ describe('runHermesAcpProcess', () => {
           localTerminal: false,
           projectRoot: 'C:\\selected'
         },
-        filesystem: { handle, resetReadRevisions: vi.fn() } as never
+        filesystem: {
+          handle,
+          resetReadRevisions: vi.fn(),
+          cancelActivePreviews: vi.fn()
+        } as never
       }
     })
 

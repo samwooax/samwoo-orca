@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 import os
 import sys
 import traceback
@@ -14,6 +15,7 @@ from orca_excel_artifact.capabilities import ExcelArtifactCapability, detect_cap
 from orca_excel_artifact.errors import ArtifactError
 from orca_excel_artifact.worker import WorkerContext, run_job
 from orca_document_worker import run_document_job
+from orca_office_preview import run_office_preview
 
 
 def _request(value: object) -> dict[str, Any]:
@@ -54,8 +56,10 @@ def _run(value: dict[str, Any]) -> dict[str, Any]:
         return {"ok": True, "capability": capability.public_dict()}
     if action == "document":
         return run_document_job(_request(value.get("documentRequest")))
+    if action == "officePreview":
+        return run_office_preview(_request(value.get("previewRequest")))
     if action != "run":
-        raise ValueError("hostAction must be capability or run")
+        raise ValueError("hostAction is unsupported")
     context = WorkerContext.for_workspace(
         Path(str(value["workspace"])),
         artifact_resolver=_artifact_resolver(value.get("artifacts", [])),
@@ -65,6 +69,7 @@ def _run(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
+    multiprocessing.freeze_support()
     for stream in (sys.stdin, sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")

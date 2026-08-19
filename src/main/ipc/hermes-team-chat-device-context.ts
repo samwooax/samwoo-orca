@@ -30,7 +30,7 @@ export function formatTeamChatDeviceContext(context: TeamChatDeviceContext): str
   const identity = JSON.stringify(context)
   return [
     `[작업컨텍스트] ${identity}`,
-    '[장비접근제한] 노트북으로 SSH하거나 네트워크로 직접 접속하지 마세요. 프로젝트 파일은 아래 Orca 로컬파일도구로만 요청하세요.',
+    '[장비접근제한] 노트북으로 SSH하거나 네트워크로 직접 접속하지 마세요. 프로젝트 작업은 아래 Orca 로컬 도구로만 요청하세요.',
     ''
   ].join('\n')
 }

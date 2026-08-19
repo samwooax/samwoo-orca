@@ -113,7 +113,8 @@ describe('runTeamChatMessage ACP capability probe', () => {
     expect(acpFilesystemCreateMock).toHaveBeenCalledWith({
       cwd: 'C:\\selected',
       store: baseRequest.store,
-      backupRoot: 'C:\\private-backups'
+      backupRoot: 'C:\\private-backups',
+      officePreview: expect.anything()
     })
     expect(acpTerminalCreateMock).toHaveBeenCalledWith({
       cwd: 'C:\\selected',
@@ -136,6 +137,7 @@ describe('runTeamChatMessage ACP capability probe', () => {
     })
     const prompt = String(promptMock.mock.calls[0]?.[0].message)
     expect(prompt).toContain('/workspace')
+    expect(prompt).toContain('XLSX and PPTX')
     expect(prompt).not.toMatch(/<\/?orca_/)
     const remote = String(spawnMock.mock.calls[0]?.[1]?.[1])
     expect(remote).toContain('SAMWOO ACP local-files bridge requires Hermes 0.20.0')
@@ -176,6 +178,7 @@ describe('runTeamChatMessage ACP capability probe', () => {
     const prompt = String(promptMock.mock.calls[0]?.[0].message)
     expect(prompt).toContain('Native terminal and process tools')
     expect(prompt).toContain('without a per-command approval dialog')
+    expect(prompt).toContain('deletion, moves, renames, search')
     await closeTeamChatConversation('conversation-local-terminal')
   })
 

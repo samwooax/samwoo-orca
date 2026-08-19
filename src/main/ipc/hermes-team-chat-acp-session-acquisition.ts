@@ -5,6 +5,7 @@ import { HermesAcpSession } from './hermes-team-chat-acp-client'
 import type { HermesAcpCapabilityProbe } from './hermes-team-chat-acp-capability-probe'
 import type { HermesAcpLocalFilesCapability } from './hermes-team-chat-acp-local-files-capability'
 import { HermesAcpFilesystem } from './hermes-team-chat-acp-filesystem'
+import { HermesAcpOfficePreview } from './hermes-team-chat-acp-office-preview'
 import type {
   HermesTeamChatSessionRegistry,
   TeamChatSessionHandle
@@ -33,7 +34,8 @@ export async function acquireHermesTeamChatAcpSession(args: {
     ? await HermesAcpFilesystem.create({
         cwd: args.localFilesCapability.projectRoot,
         store: args.store,
-        backupRoot: args.backupRoot
+        backupRoot: args.backupRoot,
+        officePreview: new HermesAcpOfficePreview()
       })
     : null
   const terminal = args.localFilesCapability?.localTerminal

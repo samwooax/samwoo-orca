@@ -16,6 +16,7 @@ import { basename, join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as FilesystemAuth from './filesystem-auth'
 import { HermesAcpFilesystem } from './hermes-team-chat-acp-filesystem'
+import { HERMES_ACP_OFFICE_PREVIEW_PREFIX } from './hermes-team-chat-acp-office-preview'
 
 const { resolveAuthorizedPathMock } = vi.hoisted(() => ({
   resolveAuthorizedPathMock: vi.fn(async (path: string) => resolve(path))
@@ -42,8 +43,16 @@ afterEach(async () => {
   await Promise.all(temporaryPaths.map((path) => rm(path, { recursive: true, force: true })))
 })
 
-async function createFilesystem(customBackupRoot = backupRoot): Promise<HermesAcpFilesystem> {
-  return HermesAcpFilesystem.create({ cwd: root, store, backupRoot: customBackupRoot })
+async function createFilesystem(
+  customBackupRoot = backupRoot,
+  officePreview: Parameters<typeof HermesAcpFilesystem.create>[0]['officePreview'] = null
+): Promise<HermesAcpFilesystem> {
+  return HermesAcpFilesystem.create({
+    cwd: root,
+    store,
+    backupRoot: customBackupRoot,
+    officePreview
+  })
 }
 
 async function backupFiles(): Promise<string[]> {
@@ -68,6 +77,72 @@ describe('HermesAcpFilesystem', () => {
     await expect(
       filesystem.handle('fs/read_text_file', { path: '/workspace/src/a.ts', line: 0 })
     ).rejects.toThrow('positive integer')
+  })
+
+  it('renders XLSX and PPTX reads as bounded visual preview payloads', async () => {
+    await writeFile(join(root, 'report.xlsx'), 'office fixture')
+    const render = vi.fn().mockResolvedValue({
+      kind: 'xlsx',
+      mediaType: 'image/png',
+      imageBase64: 'aGVsbG8=',
+      width: 800,
+      height: 600,
+      startIndex: 2,
+      endIndex: 4,
+      totalCount: 7,
+      nextIndex: 5
+    })
+    const filesystem = await createFilesystem(backupRoot, {
+      render,
+      cancelAll: vi.fn()
+    } as never)
+    const signal = new AbortController().signal
+
+    const result = (await filesystem.handle(
+      'fs/read_text_file',
+      {
+        path: '/workspace/report.xlsx',
+        line: 2,
+        limit: 3,
+        _meta: { samwoo: { officePreview: { version: 1 } } }
+      },
+      () => true,
+      signal
+    )) as { content: string; _meta: unknown }
+
+    expect(render).toHaveBeenCalledWith({
+      sourcePath: join(root, 'report.xlsx'),
+      kind: 'xlsx',
+      startIndex: 2,
+      count: 3,
+      signal
+    })
+    expect(result.content).toBe(
+      `${HERMES_ACP_OFFICE_PREVIEW_PREFIX}${JSON.stringify(await render.mock.results[0].value)}`
+    )
+    expect(result._meta).toEqual({ samwoo: { kind: 'office-preview', version: 1 } })
+    await expect(
+      filesystem.handle('fs/write_text_file', {
+        path: '/workspace/report.xlsx',
+        content: 'not binary'
+      })
+    ).rejects.toThrow('cannot be written')
+  })
+
+  it.each([
+    { samwoo: { officePreview: { version: 1 } }, extra: true },
+    { samwoo: { officePreview: { version: 1 }, extra: true } },
+    { samwoo: { officePreview: { version: 1, extra: true } } }
+  ])('requires the exact Office preview metadata shape: %j', async (_meta) => {
+    await writeFile(join(root, 'report.xlsx'), 'office fixture')
+    const filesystem = await createFilesystem(backupRoot, {
+      render: vi.fn(),
+      cancelAll: vi.fn()
+    } as never)
+
+    await expect(
+      filesystem.handle('fs/read_text_file', { path: '/workspace/report.xlsx', _meta })
+    ).rejects.toThrow('office preview request metadata is invalid')
   })
 
   it('reports a missing file without exposing the native project path', async () => {

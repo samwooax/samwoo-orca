@@ -8,17 +8,19 @@ import posixpath
 import re
 import shutil
 import subprocess
-import tempfile
 import zipfile
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from .archive import ZipInspection, inspect_zip, safe_read_member
+from .artifact_temporary_directory import artifact_temporary_directory
 from .errors import ArtifactError
 from .limits import DEFAULT_LIMITS, ArtifactLimits
+from .renderers import _minimal_conversion_environment, _terminate_process_tree
 from .workspace import hash_regular_file
 
 
@@ -40,6 +42,34 @@ _UNSUPPORTED_FEATURE_PREFIXES: dict[str, tuple[str, ...]] = {
     "threaded_comments": ("xl/threadedComments/", "xl/persons/"),
     "web_extensions": ("xl/webextensions/",),
 }
+_PREVIEW_FORBIDDEN_CONTENT_TYPE_FRAGMENTS = (
+    "macroenabled",
+    "vbaproject",
+    "activex",
+    "oleobject",
+    "ms-office.active",
+)
+_PREVIEW_FORBIDDEN_PART_FRAGMENTS = (
+    "/activex/",
+    "/embeddings/",
+    "/externallinks/",
+    "vbaproject.bin",
+    "encryptedpackage",
+    "encryptioninfo",
+)
+_PREVIEW_FORBIDDEN_RELATIONSHIP_FRAGMENTS = (
+    "/activex",
+    "/attachedtemplate",
+    "/externallink",
+    "/oleobject",
+    "/vbaproject",
+)
+_PREVIEW_FORBIDDEN_INVENTORY_FEATURES = (
+    "activex",
+    "external_links",
+    "macros",
+    "ole_objects",
+)
 _SUPPORTED_PART_PREFIXES: dict[str, tuple[str, ...]] = {
     "charts": ("xl/charts/chart",),
     "images": ("xl/media/",),
@@ -330,6 +360,73 @@ def inspect_ooxml(path: Path | str, *, limits: ArtifactLimits = DEFAULT_LIMITS) 
     # material and must be reported.
     fingerprints["theme_parts"] = _fingerprint_members(inspection, theme_parts)
     return inspection, FeatureInventory(counts, inspection.names, fingerprints)
+
+
+def _preview_security_error(feature: str) -> ArtifactError:
+    return ArtifactError(
+        "input_format_invalid",
+        "The workbook contains active or external content that cannot be previewed safely.",
+        "Remove macros, ActiveX, OLE objects, and external links, then save a standard XLSX file.",
+        {"stage": "preview_security", "feature": feature},
+    )
+
+
+def _relationship_target_is_external(raw_target: str) -> bool:
+    decoded = raw_target.strip()
+    for _ in range(3):
+        expanded = unquote(decoded)
+        if expanded == decoded:
+            break
+        decoded = expanded
+    try:
+        parsed = urlsplit(decoded)
+    except ValueError:
+        return True
+    return bool(
+        parsed.scheme
+        or parsed.netloc
+        or decoded.startswith("//")
+        or decoded.startswith("\\\\")
+        or "\\" in decoded
+    )
+
+
+def reject_unsafe_workbook_preview_content(
+    inspection: ZipInspection,
+    inventory: FeatureInventory,
+) -> None:
+    """Reject workbook content that LibreOffice must not open for preview."""
+
+    for feature in _PREVIEW_FORBIDDEN_INVENTORY_FEATURES:
+        if inventory.counts.get(feature, 0) > 0:
+            raise _preview_security_error(feature)
+    content_types = _parse_xml(
+        safe_read_member(inspection, "[Content_Types].xml", max_bytes=4 * 1024 * 1024),
+        part="[Content_Types].xml",
+    )
+    for node in content_types:
+        content_type = (node.attrib.get("ContentType") or "").casefold()
+        if any(fragment in content_type for fragment in _PREVIEW_FORBIDDEN_CONTENT_TYPE_FRAGMENTS):
+            raise _preview_security_error("active_content_type")
+    for member in inspection.members:
+        normalized = f"/{member.name.casefold().strip('/')}"
+        if any(fragment in normalized for fragment in _PREVIEW_FORBIDDEN_PART_FRAGMENTS):
+            raise _preview_security_error("active_package_part")
+    for name in sorted(part for part in inspection.names if part.endswith(".rels")):
+        root = _parse_xml(safe_read_member(inspection, name), part=name)
+        for relation in root.findall("rel:Relationship", _NAMESPACES):
+            relation_type = (relation.attrib.get("Type") or "").casefold()
+            target = relation.attrib.get("Target") or ""
+            if (
+                (relation.attrib.get("TargetMode") or "").strip().casefold() == "external"
+                or _relationship_target_is_external(target)
+            ):
+                raise _preview_security_error("external_relationship")
+            if any(
+                fragment in relation_type
+                for fragment in _PREVIEW_FORBIDDEN_RELATIONSHIP_FRAGMENTS
+            ):
+                raise _preview_security_error("active_relationship")
 
 
 def compare_feature_inventories(
@@ -1014,7 +1111,7 @@ def render_workbook_pdf(
     path: Path | str,
     output_dir: Path | str,
     *,
-    timeout_seconds: int = 120,
+    timeout_seconds: float = 120,
     executable: Path | None = None,
 ) -> Path:
     """Render with isolated LibreOffice state; never invoke a shell."""
@@ -1029,8 +1126,12 @@ def render_workbook_pdf(
             "LibreOffice rendering is unavailable on the worker host.",
             "Install LibreOffice or submit without renderPreview validation.",
         )
-    with tempfile.TemporaryDirectory(prefix="orca-lo-profile-") as profile:
-        profile_uri = Path(profile).resolve().as_uri()
+    with artifact_temporary_directory(prefix="orca-lo-profile-") as work:
+        profile = work / "profile"
+        scratch = work / "scratch"
+        profile.mkdir(mode=0o700)
+        scratch.mkdir(mode=0o700)
+        profile_uri = profile.resolve().as_uri()
         command = [
             str(office),
             "--headless",
@@ -1044,18 +1145,26 @@ def render_workbook_pdf(
             str(destination),
             str(source),
         ]
+        popen_options: dict[str, Any] = {
+            "args": command,
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.STDOUT,
+            "shell": False,
+            "cwd": str(scratch),
+            "env": _minimal_conversion_environment(profile, scratch),
+        }
+        if os.name == "posix":
+            popen_options["start_new_session"] = True
+        elif os.name == "nt":
+            popen_options["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        process: subprocess.Popen[bytes] | None = None
         try:
-            completed = subprocess.run(
-                command,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                timeout=timeout_seconds,
-                check=False,
-                shell=False,
-                env={**os.environ, "HOME": profile},
-            )
+            process = subprocess.Popen(**popen_options)
+            process.communicate(timeout=timeout_seconds)
         except subprocess.TimeoutExpired:
+            if process is not None:
+                _terminate_process_tree(process)
             raise ArtifactError(
                 "timeout",
                 "LibreOffice workbook rendering timed out.",
@@ -1063,6 +1172,8 @@ def render_workbook_pdf(
                 {"stage": "render"},
             ) from None
         except OSError:
+            if process is not None:
+                _terminate_process_tree(process)
             raise ArtifactError(
                 "render_failed",
                 "LibreOffice could not be started.",
@@ -1070,7 +1181,7 @@ def render_workbook_pdf(
                 {"stage": "render"},
             ) from None
         target = destination / f"{source.stem}.pdf"
-        if completed.returncode != 0 or not target.is_file() or target.stat().st_size == 0:
+        if process.returncode != 0 or not target.is_file() or target.stat().st_size == 0:
             raise ArtifactError(
                 "render_failed",
                 "LibreOffice did not produce a usable PDF preview.",
@@ -1089,6 +1200,7 @@ def validate_workbook(
     timeout_seconds: int = 120,
     workbook_spec: Mapping[str, Any] | None = None,
     action: str | None = None,
+    reject_unsafe_preview_content: bool = False,
 ) -> ValidationReport:
     """Run structural, editable-object, reference, optional spec, and render checks."""
 
@@ -1104,6 +1216,8 @@ def validate_workbook(
     checks: list[dict[str, str]] = []
     workbook_path = Path(path)
     inspection, inventory = inspect_ooxml(workbook_path, limits=limits)
+    if reject_unsafe_preview_content:
+        reject_unsafe_workbook_preview_content(inspection, inventory)
     checks.append({"name": "ooxml.package", "status": "passed", "message": "OOXML package structure and XML parsed successfully."})
     workbook, sheets, tables, charts = _openpyxl_inspect(workbook_path)
     checks.append({"name": "openpyxl.reopen", "status": "passed", "message": f"openpyxl {_engine_version('openpyxl')} reopened the editable workbook."})
@@ -1156,6 +1270,7 @@ def inspect_xlsx(
     *,
     expected_sha256: str | None = None,
     limits: ArtifactLimits = DEFAULT_LIMITS,
+    reject_unsafe_preview_content: bool = False,
 ) -> dict[str, Any]:
     """Public, path-free XLSX inspection used by the generic input router."""
 
@@ -1172,6 +1287,7 @@ def inspect_xlsx(
         workbook_path,
         {"openXml": True, "formulas": False, "charts": False, "renderPreview": False},
         limits=limits,
+        reject_unsafe_preview_content=reject_unsafe_preview_content,
     )
     return {
         "kind": "xlsx",

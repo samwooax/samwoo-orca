@@ -1,40 +1,203 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { Worker } from 'node:worker_threads'
 import { join, resolve } from 'node:path'
-import { strToU8, zipSync } from 'fflate'
+import { strToU8, unzipSync, zipSync } from 'fflate'
+import {
+  assertOfficePreview,
+  assertWorkerManifest
+} from './hermes-local-document-bundle-smoke-assertions.mjs'
 
 const workerPath = resolve('out/main/hermes-local-document-worker-entry.js')
+const NODE_WORKER_TIMEOUT_MS = 60_000
+const OFFICE_WORKER_TIMEOUT_MS = 180_000
+const MAX_OFFICE_STDOUT_CHARS = 2 * 1024 * 1024
+const MAX_OFFICE_STDERR_CHARS = 64 * 1024
 
 function run(workerData) {
   return new Promise((resolveResult, reject) => {
     const worker = new Worker(workerPath, { workerData })
-    worker.once('message', resolveResult)
-    worker.once('error', reject)
+    let settled = false
+    let terminating = false
+    const finish = (error, value) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      clearTimeout(timer)
+      if (error) {
+        reject(error)
+      } else {
+        resolveResult(value)
+      }
+    }
+    const timer = setTimeout(() => {
+      terminating = true
+      void worker
+        .terminate()
+        .then(() => finish(new Error('Bundled document worker timed out')))
+        .catch((error) => finish(error))
+    }, NODE_WORKER_TIMEOUT_MS)
+    worker.once('message', (value) => {
+      terminating = true
+      void worker
+        .terminate()
+        .then(() => finish(null, value))
+        .catch((error) => finish(error))
+    })
+    worker.once('error', (error) => finish(error))
+    worker.once('exit', (code) => {
+      if (!settled && !terminating) {
+        finish(new Error(`Bundled document worker exited without a result (${code})`))
+      }
+    })
   })
+}
+
+function waitForClose(worker, timeoutMs = 2_000) {
+  if (worker.exitCode !== null || worker.signalCode !== null) {
+    return Promise.resolve()
+  }
+  return new Promise((resolveClose) => {
+    let finished = false
+    const finish = () => {
+      if (finished) {
+        return
+      }
+      finished = true
+      clearTimeout(timer)
+      worker.off('close', finish)
+      resolveClose()
+    }
+    const timer = setTimeout(finish, timeoutMs)
+    worker.once('close', finish)
+  })
+}
+
+async function terminateOfficeWorker(worker) {
+  if (worker.exitCode !== null || worker.signalCode !== null) {
+    return
+  }
+  if (process.platform === 'win32' && worker.pid) {
+    const systemRoot = process.env.SystemRoot || process.env.WINDIR
+    if (systemRoot) {
+      const taskkill = spawn(
+        join(systemRoot, 'System32', 'taskkill.exe'),
+        ['/PID', String(worker.pid), '/T', '/F'],
+        { windowsHide: true, stdio: 'ignore' }
+      )
+      await new Promise((resolveKill) => {
+        let finished = false
+        const finish = () => {
+          if (finished) {
+            return
+          }
+          finished = true
+          clearTimeout(timer)
+          resolveKill()
+        }
+        const timer = setTimeout(() => {
+          taskkill.kill('SIGKILL')
+          finish()
+        }, 5_000)
+        taskkill.once('error', finish)
+        taskkill.once('close', finish)
+      })
+    }
+  } else if (worker.pid) {
+    try {
+      process.kill(-worker.pid, 'SIGKILL')
+    } catch {
+      worker.kill('SIGKILL')
+    }
+  }
+  if (worker.exitCode === null && worker.signalCode === null) {
+    worker.kill('SIGKILL')
+  }
+  await waitForClose(worker)
 }
 
 function runOfficeWorker(executable, payload) {
   return new Promise((resolveResult, reject) => {
-    const worker = spawn(executable, [], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+    const worker = spawn(executable, [], {
+      detached: process.platform !== 'win32',
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
     let stdout = ''
     let stderr = ''
-    worker.stdout.setEncoding('utf8')
-    worker.stderr.setEncoding('utf8')
-    worker.stdout.on('data', (chunk) => (stdout += chunk))
-    worker.stderr.on('data', (chunk) => (stderr += chunk))
-    worker.once('error', reject)
-    worker.once('close', (code) => {
-      if (code !== 0 || !stdout.trim()) {
-        reject(new Error(`Office document worker failed (${code}): ${stderr}`))
+    let settling = false
+    const settle = (error, value) => {
+      clearTimeout(timer)
+      if (error) {
+        reject(error)
+      } else {
+        resolveResult(value)
+      }
+    }
+    const failAfterTeardown = (error) => {
+      if (settling) {
         return
       }
-      resolveResult(JSON.parse(stdout.trim()))
+      settling = true
+      void terminateOfficeWorker(worker).then(
+        () => settle(error),
+        (cleanupError) => settle(cleanupError)
+      )
+    }
+    const timer = setTimeout(
+      () => failAfterTeardown(new Error('Office document worker timed out')),
+      OFFICE_WORKER_TIMEOUT_MS
+    )
+    worker.stdout.setEncoding('utf8')
+    worker.stderr.setEncoding('utf8')
+    worker.stdout.on('data', (chunk) => {
+      stdout += chunk
+      if (stdout.length > MAX_OFFICE_STDOUT_CHARS) {
+        failAfterTeardown(new Error('Office document worker output exceeded its limit'))
+      }
+    })
+    worker.stderr.on('data', (chunk) => {
+      stderr = `${stderr}${chunk}`.slice(-MAX_OFFICE_STDERR_CHARS)
+    })
+    worker.once('error', (error) => {
+      if (!settling) {
+        settling = true
+        settle(error)
+      }
+    })
+    worker.once('close', (code) => {
+      if (settling) {
+        return
+      }
+      settling = true
+      if (process.env.ORCA_ARTIFACT_DEBUG === '1' && stderr.trim()) {
+        process.stderr.write(stderr)
+      }
+      if (code !== 0 || !stdout.trim()) {
+        settle(new Error(`Office document worker failed (${code}): ${stderr}`))
+        return
+      }
+      try {
+        settle(null, JSON.parse(stdout.trim()))
+      } catch {
+        settle(new Error('Office document worker returned invalid JSON'))
+      }
     })
     worker.stdin.end(`${JSON.stringify(payload)}\n`)
   })
+}
+
+function assertUnsafeWorkbookRejected(value, label) {
+  if (
+    value.ok !== false ||
+    value.error?.code !== 'input_format_invalid' ||
+    value.error?.details?.stage !== 'preview_security'
+  ) {
+    throw new Error(`${label} preview safety contract failed: ${JSON.stringify(value)}`)
+  }
 }
 
 function xlsxFixture() {
@@ -105,6 +268,12 @@ if (process.platform === 'win32' && process.arch === 'x64') {
   if (!existsSync(executable)) {
     throw new Error(`Bundled office document worker is missing: ${executable}`)
   }
+  const libreOfficePath = join(resolve(executable, '..'), 'libreoffice', 'program', 'soffice.exe')
+  if (!existsSync(libreOfficePath)) {
+    throw new Error(`Bundled LibreOffice is missing: ${libreOfficePath}`)
+  }
+  const bundleRoot = resolve(executable, '..')
+  await assertWorkerManifest(bundleRoot, 'before rendering')
   const directory = await mkdtemp(join(tmpdir(), 'orca-office-document-smoke-'))
   try {
     const invalidWorkbook = await runOfficeWorker(executable, {
@@ -190,6 +359,104 @@ if (process.platform === 'win32' && process.arch === 'x64') {
       )
     }
 
+    const workbookPreview = await runOfficeWorker(executable, {
+      hostAction: 'officePreview',
+      previewRequest: {
+        sourcePath: workbookPath,
+        libreOfficePath,
+        kind: 'xlsx',
+        startIndex: 1,
+        count: 4
+      }
+    })
+    await assertOfficePreview(workbookPreview, 'XLSX')
+
+    const macroWorkbookPath = join(directory, 'unsafe-macro.xlsx')
+    const macroWorkbook = unzipSync(new Uint8Array(await readFile(workbookPath)))
+    macroWorkbook['xl/vbaProject.bin'] = strToU8('preview safety fixture')
+    await writeFile(macroWorkbookPath, zipSync(macroWorkbook))
+    assertUnsafeWorkbookRejected(
+      await runOfficeWorker(executable, {
+        hostAction: 'officePreview',
+        previewRequest: {
+          sourcePath: macroWorkbookPath,
+          libreOfficePath,
+          kind: 'xlsx',
+          startIndex: 1,
+          count: 1
+        }
+      }),
+      'XLSX macro'
+    )
+
+    const externalWorkbookPath = join(directory, 'unsafe-external.xlsx')
+    const externalWorkbook = unzipSync(new Uint8Array(await readFile(workbookPath)))
+    const relationshipsPath = 'xl/_rels/workbook.xml.rels'
+    const relationships = Buffer.from(externalWorkbook[relationshipsPath]).toString('utf8')
+    externalWorkbook[relationshipsPath] = strToU8(
+      relationships.replace(
+        '</Relationships>',
+        '<Relationship Id="rIdOrcaUnsafe" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink" Target="https://example.invalid/data.xlsx" TargetMode="eXtErNaL"/></Relationships>'
+      )
+    )
+    await writeFile(externalWorkbookPath, zipSync(externalWorkbook))
+    assertUnsafeWorkbookRejected(
+      await runOfficeWorker(executable, {
+        hostAction: 'officePreview',
+        previewRequest: {
+          sourcePath: externalWorkbookPath,
+          libreOfficePath,
+          kind: 'xlsx',
+          startIndex: 1,
+          count: 1
+        }
+      }),
+      'XLSX external relationship'
+    )
+
+    const presentationPath = join(directory, 'visual-check.pptx')
+    const presentation = await runOfficeWorker(executable, {
+      hostAction: 'document',
+      documentRequest: {
+        action: 'create_pptx',
+        outputPath: presentationPath,
+        artifacts: [],
+        documentSpec: {
+          layout: 'widescreen',
+          slides: [
+            {
+              title: 'Hermes visual verification',
+              elements: [
+                {
+                  type: 'text',
+                  text: 'LibreOffice rendered this slide for the vision model.',
+                  x: 1,
+                  y: 2,
+                  width: 10,
+                  height: 1,
+                  fontSize: 24
+                }
+              ]
+            }
+          ]
+        }
+      }
+    })
+    if (!presentation.ok || !existsSync(presentationPath)) {
+      throw new Error(`Bundled PPTX creation failed: ${JSON.stringify(presentation)}`)
+    }
+    const presentationPreview = await runOfficeWorker(executable, {
+      hostAction: 'officePreview',
+      previewRequest: {
+        sourcePath: presentationPath,
+        libreOfficePath,
+        kind: 'pptx',
+        startIndex: 1,
+        count: 4
+      }
+    })
+    await assertOfficePreview(presentationPreview, 'PPTX')
+
     const outputPath = join(directory, '한국어-번역.pdf')
     const created = await runOfficeWorker(executable, {
       hostAction: 'document',
@@ -231,9 +498,12 @@ if (process.platform === 'win32' && process.arch === 'x64') {
     if (!verified.ok || !verified.value.items?.[0]?.text.includes('한국어 PDF 번역 검증')) {
       throw new Error(`Bundled created PDF verification failed: ${JSON.stringify(verified)}`)
     }
+    await assertWorkerManifest(bundleRoot, 'after rendering')
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
 }
 
-console.log('[hermes-local-document-bundle-smoke] extraction and visible PDF/XLSX creation passed')
+console.log(
+  '[hermes-local-document-bundle-smoke] extraction, creation, and LibreOffice visual previews passed'
+)

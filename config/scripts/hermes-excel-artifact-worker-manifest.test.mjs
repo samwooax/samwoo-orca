@@ -18,6 +18,7 @@ describe('Excel Artifact worker manifest', () => {
     roots.push(root)
     mkdirSync(join(root, '_internal'))
     writeFileSync(join(root, '_internal', 'engine.dll'), 'engine')
+    writeFileSync(join(root, '_internal', 'manifest.json'), 'nested manifest')
     const executable = join(root, 'orca-excel-artifact-worker.exe')
     writeFileSync(executable, 'unsigned')
     manifestWriter.writeExcelArtifactWorkerManifest(root)
@@ -25,6 +26,9 @@ describe('Excel Artifact worker manifest', () => {
     const manifest = manifestWriter.writeExcelArtifactWorkerManifest(root)
     expect(manifest['orca-excel-artifact-worker.exe']).toBe(
       createHash('sha256').update('signed').digest('hex')
+    )
+    expect(manifest['_internal/manifest.json']).toBe(
+      createHash('sha256').update('nested manifest').digest('hex')
     )
     expect(JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'))).toEqual(manifest)
   })

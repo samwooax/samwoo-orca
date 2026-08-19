@@ -15,7 +15,7 @@ describe('team chat device context', () => {
     expect(context).not.toContain('tailscaleIpv4')
   })
 
-  it('requires all project access to use the local file protocol', () => {
+  it('requires all project access to use the local tool bridge', () => {
     const context = formatTeamChatDeviceContext({
       laptopName: 'DESKTOP-NEW',
       laptopUser: 'employee',
@@ -23,6 +23,6 @@ describe('team chat device context', () => {
     })
 
     expect(context).toContain('노트북으로 SSH하거나 네트워크로 직접 접속하지 마세요')
-    expect(context).toContain('Orca 로컬파일도구로만 요청하세요')
+    expect(context).toContain('Orca 로컬 도구로만 요청하세요')
   })
 })

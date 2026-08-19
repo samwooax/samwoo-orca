@@ -14,7 +14,6 @@ import signal
 import stat
 import subprocess
 import sys
-import tempfile
 import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
@@ -30,6 +29,7 @@ from .artifacts import (
     sha256_file,
     total_artifact_bytes,
 )
+from .artifact_temporary_directory import artifact_temporary_directory
 from .errors import ArtifactError
 from .inputs import inspect_input
 from .limits import ArtifactLimits, DEFAULT_LIMITS
@@ -172,18 +172,40 @@ def _check_deadline(deadline: float) -> None:
 def _terminate_process_tree(process: subprocess.Popen[Any]) -> None:
     if process.poll() is not None:
         return
+    if os.name == "nt":
+        system_root = os.environ.get("SystemRoot") or os.environ.get("WINDIR")
+        taskkill = Path(system_root) / "System32" / "taskkill.exe" if system_root else None
+        if taskkill is not None and taskkill.is_file():
+            try:
+                subprocess.run(
+                    [str(taskkill), "/PID", str(process.pid), "/T", "/F"],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=2,
+                    check=False,
+                    shell=False,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        try:
+            process.wait(timeout=0.5)
+            return
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        try:
+            process.kill()
+            process.wait(timeout=0.5)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        return
     try:
-        if os.name == "posix":
-            os.killpg(process.pid, signal.SIGTERM)
-        else:
-            process.terminate()
+        os.killpg(process.pid, signal.SIGTERM)
         process.wait(timeout=1.5)
     except (OSError, subprocess.TimeoutExpired):
         try:
-            if os.name == "posix":
-                os.killpg(process.pid, signal.SIGKILL)
-            else:
-                process.kill()
+            os.killpg(process.pid, signal.SIGKILL)
             process.wait(timeout=1.5)
         except (OSError, subprocess.TimeoutExpired):
             pass
@@ -198,6 +220,7 @@ def _minimal_conversion_environment(profile: Path, scratch: Path) -> dict[str, s
         "PATH": os.defpath,
         "LANG": "C.UTF-8",
         "LC_ALL": "C.UTF-8",
+        "PYTHONDONTWRITEBYTECODE": "1",
         "SAL_USE_VCLPLUGIN": "svp",
         # This is defence in depth.  OPC relationship inspection is the primary
         # remote-resource gate because LibreOffice is not an OS network sandbox.
@@ -569,8 +592,7 @@ def render_pdf(
     )
     _check_deadline(deadline)
     output_root = ensure_private_directory(output_directory)
-    with tempfile.TemporaryDirectory(prefix="pdf-preview-", dir=output_root) as temporary:
-        work = Path(temporary)
+    with artifact_temporary_directory(prefix="pdf-preview-", directory=output_root) as work:
         rendered, isolation = _render_pdf_pages(
             Path(path), metadata["selection"], work, limits=limits, cancel=cancel, deadline=deadline
         )
@@ -631,8 +653,7 @@ def render_pptx(
     )
     executable = _validated_executable(libreoffice)
     output_root = ensure_private_directory(output_directory)
-    with tempfile.TemporaryDirectory(prefix="pptx-preview-", dir=output_root) as temporary:
-        work = Path(temporary)
+    with artifact_temporary_directory(prefix="pptx-preview-", directory=output_root) as work:
         profile = work / "profile"
         conversion = work / "converted"
         profile.mkdir(mode=0o700)
@@ -746,8 +767,8 @@ def render_image(
     output_root = ensure_private_directory(output_directory)
     from PIL import Image, ImageOps
 
-    with tempfile.TemporaryDirectory(prefix="image-preview-", dir=output_root) as temporary:
-        staged = Path(temporary) / "image.png"
+    with artifact_temporary_directory(prefix="image-preview-", directory=output_root) as work:
+        staged = work / "image.png"
         try:
             with Image.open(path) as source:
                 normalized = ImageOps.exif_transpose(source)

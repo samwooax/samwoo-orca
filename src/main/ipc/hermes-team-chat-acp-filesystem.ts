@@ -1,5 +1,4 @@
 import { lstat, stat } from 'node:fs/promises'
-import { isAbsolute, join, posix, relative, resolve } from 'node:path'
 import type { Store } from '../persistence'
 import { isENOENT, resolveAuthorizedPath } from './filesystem-auth'
 import {
@@ -10,13 +9,17 @@ import {
 import type { LocalFileResult } from './hermes-local-file-protocol'
 import type { AcpJsonRecord } from './hermes-team-chat-acp-values'
 import { HermesAcpFileBackupStore } from './hermes-team-chat-acp-file-backups'
+import type { HermesAcpOfficePreview } from './hermes-team-chat-acp-office-preview'
+import {
+  HERMES_ACP_MAX_OFFICE_DOCUMENT_BYTES,
+  hermesAcpOfficeKind,
+  renderHermesAcpOfficeFile
+} from './hermes-team-chat-acp-office-file'
+import { resolveHermesAcpProjectFile } from './hermes-team-chat-acp-file-path'
 
-const MAX_ACP_PATH_CHARS = 4096
 const READ_OPERATION_ID = 'acp-read'
 const WRITE_OPERATION_ID = 'acp-write'
-const VIRTUAL_PROJECT_ROOT = '/workspace'
-const WINDOWS_DEVICE_SEGMENT_RE =
-  /^(?:aux|clock\$|con|conin\$|conout\$|nul|prn|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i
+const NEVER_ABORTED_SIGNAL = new AbortController().signal
 const PUBLIC_ERROR_PATTERNS = [
   /^(?:path|content) must be a string$/,
   /^(?:line|limit) must be a positive integer$/,
@@ -28,22 +31,13 @@ const PUBLIC_ERROR_PATTERNS = [
   /^file changed/,
   /^invalid (?:or oversized file content|relative path)$/,
   /^binary files are not supported$/,
+  /^office preview/,
   /^local file (?:operation failed|read returned|write returned)/,
   /^ACP filesystem method is not supported$/,
   /^ACP prompt was cancelled$/,
   /^file does not exist$/,
   /^Access denied:/
 ] as const
-
-type ResolvedProjectFile = {
-  absolutePath: string
-  relativePath: string
-}
-
-function isInsideRoot(root: string, target: string): boolean {
-  const offset = relative(root, target)
-  return offset === '' || (!offset.startsWith('..') && !isAbsolute(offset))
-}
 
 function requiredString(params: AcpJsonRecord, key: string): string {
   const value = params[key]
@@ -91,41 +85,6 @@ function sliceTextLines(content: string, line?: number, limit?: number): string 
     .join('\n')
 }
 
-function validateVirtualSegments(relativePath: string): string[] {
-  const segments = relativePath.split('/')
-  if (
-    segments.some(
-      (segment) =>
-        !segment ||
-        segment === '.' ||
-        segment === '..' ||
-        segment.includes(':') ||
-        WINDOWS_DEVICE_SEGMENT_RE.test(segment) ||
-        /[. ]$/.test(segment)
-    )
-  ) {
-    throw new Error('ACP file path contains an unsupported segment')
-  }
-  return segments
-}
-
-async function rejectSymlinkSegments(root: string, segments: string[]): Promise<void> {
-  let current = root
-  for (const segment of segments) {
-    current = join(current, segment)
-    try {
-      if ((await lstat(current)).isSymbolicLink()) {
-        throw new Error('symbolic links are not supported')
-      }
-    } catch (error) {
-      if (isENOENT(error)) {
-        return
-      }
-      throw error
-    }
-  }
-}
-
 export class HermesAcpFilesystem {
   private readonly revisions = new Map<string, string>()
   private readonly backups: HermesAcpFileBackupStore
@@ -133,7 +92,8 @@ export class HermesAcpFilesystem {
   private constructor(
     private readonly projectRoot: string,
     private readonly store: Store,
-    backupRoot: string
+    backupRoot: string,
+    private readonly officePreview: HermesAcpOfficePreview | null
   ) {
     this.backups = new HermesAcpFileBackupStore(backupRoot, projectRoot)
   }
@@ -142,29 +102,44 @@ export class HermesAcpFilesystem {
     cwd: string
     store: Store
     backupRoot: string
+    officePreview?: HermesAcpOfficePreview | null
   }): Promise<HermesAcpFilesystem> {
     const projectRoot = await resolveAuthorizedPath(args.cwd, args.store)
     if (!(await stat(projectRoot)).isDirectory()) {
       throw new Error('selected project root is not a directory')
     }
-    return new HermesAcpFilesystem(projectRoot, args.store, args.backupRoot)
+    return new HermesAcpFilesystem(
+      projectRoot,
+      args.store,
+      args.backupRoot,
+      args.officePreview ?? null
+    )
   }
 
   resetReadRevisions(): void {
     this.revisions.clear()
   }
 
+  cancelActivePreviews(): void {
+    this.officePreview?.cancelAll()
+  }
+
   async handle(
     method: string,
     params: AcpJsonRecord,
-    canCommit: () => boolean = () => true
+    canCommit: () => boolean = () => true,
+    signal: AbortSignal = NEVER_ABORTED_SIGNAL
   ): Promise<unknown> {
     try {
+      const canContinue = () => !signal.aborted && canCommit()
+      if (!canContinue()) {
+        throw new Error('ACP prompt was cancelled')
+      }
       if (method === 'fs/read_text_file') {
-        return await this.readTextFile(params)
+        return await this.readTextFile(params, signal)
       }
       if (method === 'fs/write_text_file') {
-        await this.writeTextFile(params, canCommit)
+        await this.writeTextFile(params, canContinue)
         return null
       }
       throw new Error('ACP filesystem method is not supported')
@@ -173,51 +148,41 @@ export class HermesAcpFilesystem {
     }
   }
 
-  private async resolveFile(pathValue: string): Promise<ResolvedProjectFile> {
-    if (
-      !pathValue ||
-      pathValue.length > MAX_ACP_PATH_CHARS ||
-      pathValue.includes('\0') ||
-      pathValue.includes('\\') ||
-      !posix.isAbsolute(pathValue)
-    ) {
-      throw new Error('ACP file paths must be absolute')
-    }
-    const normalizedPath = posix.normalize(pathValue)
-    const virtualRelativePath = posix.relative(VIRTUAL_PROJECT_ROOT, normalizedPath)
-    if (
-      virtualRelativePath === '' ||
-      virtualRelativePath.startsWith('..') ||
-      posix.isAbsolute(virtualRelativePath)
-    ) {
-      throw new Error('path resolves outside the selected project')
-    }
-    const segments = validateVirtualSegments(virtualRelativePath)
-    await rejectSymlinkSegments(this.projectRoot, segments)
-    const absolutePath = await resolveAuthorizedPath(
-      resolve(this.projectRoot, ...segments),
-      this.store
-    )
-    await rejectSymlinkSegments(this.projectRoot, segments)
-    if (!isInsideRoot(this.projectRoot, absolutePath) || absolutePath === this.projectRoot) {
-      throw new Error('path resolves outside the selected project')
-    }
-    return { absolutePath, relativePath: relative(this.projectRoot, absolutePath) }
-  }
-
-  private async readTextFile(params: AcpJsonRecord): Promise<{ content: string }> {
-    const target = await this.resolveFile(requiredString(params, 'path'))
+  private async readTextFile(
+    params: AcpJsonRecord,
+    signal: AbortSignal
+  ): Promise<{ content: string; _meta?: AcpJsonRecord }> {
+    const target = await resolveHermesAcpProjectFile({
+      pathValue: requiredString(params, 'path'),
+      projectRoot: this.projectRoot,
+      store: this.store
+    })
     const info = await lstat(target.absolutePath).catch((error) => {
       if (isENOENT(error)) {
         throw new Error('file does not exist')
       }
       throw error
     })
-    if (!info.isFile() || info.size > LOCAL_PROJECT_MAX_FILE_BYTES || info.nlink > 1) {
+    const officeKind = hermesAcpOfficeKind(target.absolutePath)
+    const maxBytes = officeKind
+      ? HERMES_ACP_MAX_OFFICE_DOCUMENT_BYTES
+      : LOCAL_PROJECT_MAX_FILE_BYTES
+    if (!info.isFile() || info.size > maxBytes || info.nlink > 1) {
       throw new Error('path is not a supported file')
     }
     const line = optionalPositiveInteger(params, 'line')
     const limit = optionalPositiveInteger(params, 'limit')
+    if (officeKind) {
+      return renderHermesAcpOfficeFile({
+        preview: this.officePreview,
+        params,
+        sourcePath: target.absolutePath,
+        kind: officeKind,
+        startIndex: line,
+        count: limit,
+        signal
+      })
+    }
     const [rawResult] = await executeLocalFileRequest({
       cwd: this.projectRoot,
       store: this.store,
@@ -227,6 +192,9 @@ export class HermesAcpFilesystem {
       }
     })
     const result = requireSuccessfulResult(rawResult)
+    if (signal.aborted) {
+      throw new Error('ACP prompt was cancelled')
+    }
     if (typeof result.contentBase64 !== 'string' || !result.sha256) {
       throw new Error('local file read returned an invalid result')
     }
@@ -243,8 +211,15 @@ export class HermesAcpFilesystem {
   }
 
   private async writeTextFile(params: AcpJsonRecord, canCommit: () => boolean): Promise<void> {
-    const target = await this.resolveFile(requiredString(params, 'path'))
+    const target = await resolveHermesAcpProjectFile({
+      pathValue: requiredString(params, 'path'),
+      projectRoot: this.projectRoot,
+      store: this.store
+    })
     const content = requiredString(params, 'content')
+    if (hermesAcpOfficeKind(target.absolutePath)) {
+      throw new Error('office preview files cannot be written with the text file API')
+    }
     let expectedSha256: string | null = null
     try {
       const info = await lstat(target.absolutePath)

@@ -48,4 +48,12 @@ describe('resolveHermesAcpLocalFilesCapability', () => {
     expect(context).toContain('deletion, moves, renames, search')
     expect(context).toContain('use the terminal instead')
   })
+
+  it('explains paginated visual Office previews', () => {
+    const context = formatHermesAcpLocalFilesContext(true)
+
+    expect(context).toContain('XLSX and PPTX')
+    expect(context).toContain('rendered visual preview')
+    expect(context).toContain('limit selects up to 4')
+  })
 })

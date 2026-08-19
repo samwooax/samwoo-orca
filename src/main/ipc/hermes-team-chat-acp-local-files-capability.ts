@@ -28,6 +28,7 @@ export function formatHermesAcpLocalFilesContext(localTerminal: boolean): string
     '[Local project tools]',
     'Use the native read_file, write_file, and patch tools for files under /workspace.',
     'ACP file-tool access is served by Orca and restricted to the selected project root.',
+    'For XLSX and PPTX files, read_file returns a rendered visual preview instead of text; offset selects the first page or slide and limit selects up to 4.',
     'Read an existing file before overwriting it; create a new file directly when a read reports that it does not exist.',
     ...(localTerminal
       ? [

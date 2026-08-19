@@ -1,4 +1,5 @@
 import { HERMES_ACP_REASONING_PATCH } from './hermes-team-chat-acp-reasoning-bridge'
+import { HERMES_ACP_OFFICE_HISTORY_BRIDGE } from './hermes-team-chat-acp-office-history-bridge'
 import { HERMES_ACP_LOCAL_TERMINAL_BRIDGE } from './hermes-team-chat-acp-terminal-bridge'
 
 export const HERMES_ACP_LOCAL_FILES_BRIDGE = `
@@ -7,6 +8,7 @@ ${HERMES_ACP_REASONING_PATCH}
 
 import asyncio
 import json
+import logging
 import os
 import posixpath
 from contextvars import ContextVar
@@ -28,6 +30,9 @@ _original_initialize = HermesACPAgent.initialize
 _original_prompt = HermesACPAgent.prompt
 _original_dispatch = ToolRegistry.dispatch
 _virtual_root = "/workspace"
+_office_preview_prefix = "__SAMWOO_OFFICE_PREVIEW_V1__"
+_office_client_timeout = 270
+_bridge_logger = logging.getLogger(__name__)
 _local_tool_names = {
     "execute_code", "patch", "process", "read_file", "search_files", "terminal", "write_file"
 }
@@ -92,16 +97,69 @@ def _read_content(path, offset=None, limit=None):
     wire_path = _workspace_path(path, profile_cwd)
     line = int(offset) if offset is not None else None
     line_limit = int(limit) if limit is not None else None
+    preview_meta = {"samwoo": {"officePreview": {"version": 1}}} if _is_office_preview_path(wire_path) else {}
     response, _ = _client_call(
         lambda conn, session_id: conn.read_text_file(
-            path=wire_path, session_id=session_id, line=line, limit=line_limit
+            path=wire_path, session_id=session_id, line=line, limit=line_limit, **preview_meta
         ),
         _filesystem_ready,
+        timeout=_office_client_timeout if preview_meta else 60,
     )
-    return response.content, wire_path
+    return response.content, wire_path, getattr(response, "field_meta", None)
+
+def _is_office_preview_path(path):
+    lowered = str(path or "").lower()
+    return lowered.endswith(".xlsx") or lowered.endswith(".pptx")
+
+${HERMES_ACP_OFFICE_HISTORY_BRIDGE}
+
+def _mark_office_history_dirty():
+    route = _active_acp_route.get()
+    if route is None:
+        return
+    state = route[0].session_manager.get_session(route[2])
+    if state is not None:
+        state._samwoo_office_history_dirty = True
+
+def _office_preview(content, wire_path, field_meta):
+    expected_meta = {"samwoo": {"kind": "office-preview", "version": 1}}
+    if field_meta != expected_meta:
+        raise RuntimeError("local office preview metadata is invalid")
+    if not content.startswith(_office_preview_prefix):
+        raise RuntimeError("local office preview response is invalid")
+    value = json.loads(content[len(_office_preview_prefix):])
+    media_type = value.get("mediaType")
+    image_base64 = value.get("imageBase64")
+    kind = value.get("kind")
+    if media_type not in ("image/png", "image/jpeg") or not isinstance(image_base64, str):
+        raise RuntimeError("local office preview image is invalid")
+    label = "slides" if kind == "pptx" else "pages"
+    start = int(value.get("startIndex"))
+    end = int(value.get("endIndex"))
+    total = int(value.get("totalCount"))
+    next_index = value.get("nextIndex")
+    summary = _office_history_marker + "Rendered %s %d-%d of %d from %s." % (
+        label, start, end, total, wire_path
+    )
+    if next_index is not None:
+        summary += " Call read_file again with offset=%d and limit up to 4 for the next preview." % int(next_index)
+    _mark_office_history_dirty()
+    return {
+        "_multimodal": True,
+        "content": [
+            {"type": "text", "text": summary},
+            {
+                "type": "image_url",
+                "image_url": {"url": "data:" + media_type + ";base64," + image_base64},
+            },
+        ],
+        "text_summary": summary,
+    }
 
 def _read(path, offset=None, limit=None):
-    content, wire_path = _read_content(path, offset, limit)
+    content, wire_path, field_meta = _read_content(path, offset, limit)
+    if _is_office_preview_path(wire_path):
+        return _office_preview(content, wire_path, field_meta)
     return json.dumps({"content": content, "path": wire_path}, ensure_ascii=False)
 
 def _write(path, content):
@@ -122,13 +180,15 @@ def _write(path, content):
     return json.dumps({"success": True, "path": wire_path}, ensure_ascii=False)
 
 def _patch(arguments):
+    if _is_office_preview_path(arguments.get("path")):
+        return _tool_error("XLSX and PPTX files cannot be patched with the text file API")
     if str(arguments.get("mode") or "replace") != "replace":
         return _tool_error("apply patches are unavailable; use replace mode or read_file then write_file")
     old = arguments.get("old_string")
     new = arguments.get("new_string")
     if not isinstance(old, str) or not isinstance(new, str) or not old:
         return _tool_error("patch replace mode requires non-empty old_string and string new_string")
-    content, _ = _read_content(arguments.get("path"))
+    content, _, _ = _read_content(arguments.get("path"))
     count = content.count(old)
     if count == 0:
         return _tool_error("old_string was not found")
@@ -155,10 +215,18 @@ async def _initialize_with_local_files(
 async def _prompt_with_local_files(self, prompt, session_id, **kwargs):
     state = self.session_manager.get_session(session_id)
     profile_cwd = getattr(state, "cwd", "") if state is not None else ""
+    history_dirty = _prune_office_preview_history(state) if state is not None else False
     token = _active_acp_route.set((self, asyncio.get_running_loop(), session_id, profile_cwd))
     try:
         return await _original_prompt(self, prompt=prompt, session_id=session_id, **kwargs)
     finally:
+        if state is not None:
+            history_dirty = _prune_office_preview_history(state) or history_dirty
+            history_dirty = bool(
+                getattr(state, "_samwoo_office_history_dirty", False)
+            ) or history_dirty
+            if history_dirty and _prune_persisted_office_preview_history(state):
+                state._samwoo_office_history_dirty = False
         _active_acp_route.reset(token)
 
 def _dispatch_local_files(self, name, args, **kwargs):

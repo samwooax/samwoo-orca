@@ -7,6 +7,11 @@ const MAX_CONCURRENT_REQUESTS = 4
 const MAX_READ_BYTES_PER_TURN = 4 * 1024 * 1024
 const MAX_RECENT_RESPONSES = 128
 
+type InFlightFilesystemRequest = {
+  abort: AbortController
+  response: Promise<AcpJsonRecord>
+}
+
 function requestKey(generation: number, id: string | number): string {
   return `${generation}:${typeof id}:${id}`
 }
@@ -20,9 +25,8 @@ export class HermesAcpFilesystemRequestDispatcher {
   private generation = 0
   private requestCount = 0
   private readBytes = 0
-  private readonly inFlight = new Map<string, Promise<AcpJsonRecord>>()
+  private readonly inFlight = new Map<string, InFlightFilesystemRequest>()
   private readonly recent = new Map<string, AcpJsonRecord>()
-  private readonly cancelled = new Set<string>()
 
   constructor(private readonly filesystem: HermesAcpFilesystem) {}
 
@@ -31,9 +35,8 @@ export class HermesAcpFilesystemRequestDispatcher {
     this.activeTurn = true
     this.requestCount = 0
     this.readBytes = 0
-    this.inFlight.clear()
+    this.abortInFlight()
     this.recent.clear()
-    this.cancelled.clear()
     this.filesystem.resetReadRevisions()
   }
 
@@ -42,9 +45,9 @@ export class HermesAcpFilesystemRequestDispatcher {
       this.generation += 1
     }
     this.activeTurn = false
-    this.inFlight.clear()
+    this.abortInFlight()
     this.recent.clear()
-    this.cancelled.clear()
+    this.filesystem.cancelActivePreviews()
   }
 
   cancelTurn(): void {
@@ -52,16 +55,13 @@ export class HermesAcpFilesystemRequestDispatcher {
       this.generation += 1
     }
     this.activeTurn = false
-    this.inFlight.clear()
+    this.abortInFlight()
     this.recent.clear()
-    this.cancelled.clear()
+    this.filesystem.cancelActivePreviews()
   }
 
   cancelRequest(id: string | number): void {
-    const key = requestKey(this.generation, id)
-    if (this.inFlight.has(key)) {
-      this.cancelled.add(key)
-    }
+    this.inFlight.get(requestKey(this.generation, id))?.abort.abort()
   }
 
   isSupportedMethod(method: unknown): method is string {
@@ -81,12 +81,13 @@ export class HermesAcpFilesystemRequestDispatcher {
     }
     const pending = this.inFlight.get(key)
     if (pending) {
-      return pending
+      return pending.response
     }
     if (this.inFlight.size >= MAX_CONCURRENT_REQUESTS) {
       return Promise.resolve(errorResponse(id, -32_000, 'too many ACP filesystem requests'))
     }
-    const task = this.execute(message, sessionId, id, key, generation)
+    const abort = new AbortController()
+    const task = this.execute(message, sessionId, id, generation, abort.signal)
       .then((response) => {
         if (this.activeTurn && generation === this.generation) {
           this.recent.set(key, response)
@@ -101,7 +102,7 @@ export class HermesAcpFilesystemRequestDispatcher {
         return response
       })
       .finally(() => this.inFlight.delete(key))
-    this.inFlight.set(key, task)
+    this.inFlight.set(key, { abort, response: task })
     return task
   }
 
@@ -109,8 +110,8 @@ export class HermesAcpFilesystemRequestDispatcher {
     message: AcpJsonRecord,
     sessionId: string,
     id: string | number,
-    key: string,
-    generation: number
+    generation: number,
+    signal: AbortSignal
   ): Promise<AcpJsonRecord> {
     const method = message.method
     if (!this.isSupportedMethod(method)) {
@@ -127,10 +128,9 @@ export class HermesAcpFilesystemRequestDispatcher {
     if (this.requestCount > MAX_REQUESTS_PER_TURN) {
       return errorResponse(id, -32_000, 'ACP filesystem request limit reached')
     }
-    const canCommit = () =>
-      this.activeTurn && generation === this.generation && !this.cancelled.has(key)
+    const canCommit = () => this.activeTurn && generation === this.generation && !signal.aborted
     try {
-      const result = await this.filesystem.handle(method, params, canCommit)
+      const result = await this.filesystem.handle(method, params, canCommit, signal)
       if (!canCommit()) {
         return errorResponse(id, -32_800, 'ACP prompt was cancelled')
       }
@@ -151,5 +151,12 @@ export class HermesAcpFilesystemRequestDispatcher {
         error instanceof Error ? error.message : 'ACP filesystem request failed'
       )
     }
+  }
+
+  private abortInFlight(): void {
+    for (const request of this.inFlight.values()) {
+      request.abort.abort()
+    }
+    this.inFlight.clear()
   }
 }
