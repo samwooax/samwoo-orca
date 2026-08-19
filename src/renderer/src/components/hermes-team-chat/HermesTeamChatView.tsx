@@ -71,7 +71,8 @@ export function HermesTeamChatView({
   const currentMailToken = useSamwooAuthStore((state) => state.auth?.token)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const requestIdRef = useRef<string | null>(null)
-  const { progressEvents, resetProgress, finishProgress } = useHermesTeamChatProgress(requestIdRef)
+  const { progressEvents, progressOutcome, hadFailedProgress, resetProgress, finishProgress } =
+    useHermesTeamChatProgress(requestIdRef)
   const {
     attachments,
     attachmentNotice,
@@ -225,7 +226,7 @@ export function HermesTeamChatView({
       if (result.cancelled && requestIdRef.current === requestId) {
         requestIdRef.current = null
         setBusy(false)
-        finishProgress('failed')
+        finishProgress('cancelled')
       }
     }
   }, [finishProgress])
@@ -289,7 +290,12 @@ export function HermesTeamChatView({
           />
         )}
       </div>
-      <HermesTeamChatActivity events={progressEvents} busy={busy} />
+      <HermesTeamChatActivity
+        events={progressEvents}
+        busy={busy}
+        outcome={progressOutcome}
+        hadFailedProgress={hadFailedProgress}
+      />
       <div className="shrink-0 bg-background">
         <div className="px-3 pt-2 pb-4 sm:px-4">
           <div className="mx-auto w-full max-w-4xl">

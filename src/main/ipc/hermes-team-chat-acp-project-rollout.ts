@@ -1,4 +1,5 @@
 import type { Store } from '../persistence'
+import type { ExcelArtifactCapability } from '../../shared/hermes-excel-artifact'
 import {
   formatHermesAcpCapabilityProbeContext,
   type HermesAcpCapabilityProbe
@@ -15,6 +16,7 @@ import {
   resolveTeamChatProjectCapabilityProbe,
   resolveTeamChatProjectLocalFilesCapability
 } from './hermes-team-chat-project-directory'
+import { excelArtifactProtocolPrompt } from './hermes-excel-artifact-protocol'
 
 export type HermesAcpProjectRollout = {
   capabilityProbe: HermesAcpCapabilityProbe | null
@@ -54,10 +56,16 @@ export async function resolveHermesAcpProjectRollout(args: {
 
 export function formatHermesAcpProjectRolloutContext(
   context: TeamChatDeviceContext,
-  rollout: HermesAcpProjectRollout
+  rollout: HermesAcpProjectRollout,
+  excelCapability: ExcelArtifactCapability | null = null
 ): string | null {
   if (rollout.localFilesCapability) {
-    return `${formatTeamChatDeviceContext(context)}${formatHermesAcpLocalFilesContext(rollout.localFilesCapability.localTerminal)}`
+    return `${formatTeamChatDeviceContext(context)}${
+      excelCapability ? `${excelArtifactProtocolPrompt(excelCapability)}\n` : ''
+    }${formatHermesAcpLocalFilesContext(
+      rollout.localFilesCapability.localTerminal,
+      Boolean(excelCapability)
+    )}`
   }
   return rollout.capabilityProbe
     ? formatHermesAcpCapabilityProbeContext(context, rollout.capabilityProbe.mode)

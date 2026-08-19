@@ -810,9 +810,11 @@
     },
     "components": {
       "HermesTeamChatActivity": {
+        "completedWithFailures": "응답 완료 · 중간 오류 기록 있음",
+        "overallFailed": "응답 실패",
+        "cancelled": "응답 중단",
         "running": "작업 중 · {{value0}}단계",
-        "failed": "작업 종료 · 실패 {{value0}}건",
-        "completed": "작업 완료 · {{value0}}단계"
+        "completed": "응답 완료 · {{value0}}단계"
       },
       "HermesTeamChatView": {
         "model": "모델",
@@ -822,7 +824,7 @@
         "startConversation": "{{value0}}와 대화 시작",
         "emptyHint": "메시지를 입력하거나 프로젝트 파일을 선택하세요.",
         "attachmentTooLarge": "바이너리 첨부는 파일당 64MB 이하, 텍스트 첨부는 96KB 이하여야 합니다.",
-        "attachmentRejected": "일부 파일을 첨부하지 못했습니다. PDF, Excel, PowerPoint, 이미지, UTF-8 텍스트를 지원합니다.",
+        "attachmentRejected": "일부 파일을 첨부하지 못했습니다. PDF, Excel, PowerPoint, 이미지와 96KB 이하 UTF-8 텍스트를 지원하며 Word 파일은 아직 지원하지 않습니다.",
         "attachmentLimit": "첨부파일은 최대 5개까지 추가할 수 있습니다.",
         "imagePasteFailed": "이미지를 붙여넣지 못했습니다.",
         "pastedImage": "붙여넣은 이미지",

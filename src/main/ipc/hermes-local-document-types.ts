@@ -50,7 +50,7 @@ export type LocalDocumentOperation =
     }
 
 export type LocalDocumentRequest = { version: 1; operations: LocalDocumentOperation[] }
-export type LocalDocumentAttachment = { path: string; artifactId: string }
+export type LocalDocumentAttachment = { path: string; artifactId: string; sha256?: string }
 
 export type LocalDocumentSheetSummary = {
   name: string

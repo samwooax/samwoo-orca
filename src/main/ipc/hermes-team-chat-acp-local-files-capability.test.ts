@@ -56,4 +56,15 @@ describe('resolveHermesAcpLocalFilesCapability', () => {
     expect(context).toContain('rendered visual preview')
     expect(context).toContain('limit selects up to 4')
   })
+
+  it('routes spreadsheet changes through the bundled Excel worker when available', () => {
+    const context = formatHermesAcpLocalFilesContext(true, true)
+
+    expect(context).toContain('Excel Artifact v1 envelope')
+    expect(context).toContain('bundled local openpyxl and XlsxWriter')
+    expect(context).toContain('attached document block')
+    expect(context).toContain('project XLSX read_file preview')
+    expect(context).toContain('Do not use terminal Python')
+    expect(context).toContain('the only exception')
+  })
 })

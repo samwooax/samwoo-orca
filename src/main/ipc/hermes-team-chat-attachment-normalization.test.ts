@@ -30,12 +30,14 @@ describe('Hermes team chat document attachments', () => {
     })
 
     expect(prepared.message).toContain('Orca 문서 도구 경로: @attachments/1-KPI.xlsx')
+    expect(prepared.message).toContain(`SHA-256: ${'a'.repeat(64)}`)
     expect(prepared.message).toContain('[첨부 파일: notes.txt]')
     expect(prepared.message).not.toContain('UEsDBA==')
     expect(prepared.documents).toEqual([
       {
         path: '@attachments/1-KPI.xlsx',
-        artifactId: 'artifact-00000000-0000-4000-8000-000000000000'
+        artifactId: 'artifact-00000000-0000-4000-8000-000000000000',
+        sha256: 'a'.repeat(64)
       }
     ])
     expect(prepared.reusableArtifactIds).toEqual([])

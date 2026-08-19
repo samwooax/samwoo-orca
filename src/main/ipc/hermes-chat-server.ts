@@ -29,6 +29,7 @@ import {
 import { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
 import { registerTeamChatArtifactHandlers } from './hermes-team-chat-artifact-ipc'
 import { HERMES_ACP_CAPABILITY_PROBE_ENV } from './hermes-team-chat-acp-capability-probe'
+import { getExcelArtifactCapability } from './hermes-excel-artifact-worker-client'
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/
 const MAIL_TOKEN_RE = /^[A-Za-z0-9._-]{1,256}$/
@@ -264,7 +265,10 @@ export function registerHermesChatServerHandlers(store: Store): void {
   const artifactStore = new HermesBinaryArtifactStore(
     join(app.getPath('userData'), 'hermes-team-chat-artifacts')
   )
-  ipcMain.handle('hermes:ensureChatServer', async () => ensureServer(store, artifactStore))
+  ipcMain.handle('hermes:ensureChatServer', async () => {
+    void getExcelArtifactCapability()
+    return ensureServer(store, artifactStore)
+  })
   ipcMain.handle('hermes:sendTeamChat', async (event, input: unknown) =>
     input && typeof input === 'object'
       ? handleTeamChatRequest(

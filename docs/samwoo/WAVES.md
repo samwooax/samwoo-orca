@@ -3,7 +3,7 @@
 > 역할 분담: **`docs/samwoo/SPEC.md` = 무엇을·왜 (제품 결정·아키텍처·상태·기준)** / **이 문서 = 어떻게·언제 (웨이브별 실행·상태 추적)**.
 > 갱신 규칙: 웨이브 상태·완료 커밋은 코덱스가 작업 완료 시 갱신. 새 웨이브 추가·범위 변경은 Claude(검증자)가 반영.
 > 완료된 웨이브의 상세 지시서는 `_claude-proposals/archive/`로 이동한다 (파일명 유지).
-> 최종 갱신: 2026-08-16
+> 최종 갱신: 2026-08-19
 
 ## 웨이브 현황판
 
@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | ✅ v1.4.211 공개 완료 (2026-08-16)                                | fdaf99a27, c525a4d1c, run 31944744288                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.215 공개·ACP Excel 회귀 수정 코드 검증 완료, 릴리스 대기     | fdaf99a27, c525a4d1c, run 31944744288                                  |
 
 ## 웨이브 상세
 
@@ -218,3 +218,7 @@
 - 설치본 241,514,072바이트의 GitHub·로컬 SHA-256 `949dc6d694fdcc63b56bc864dfb8a437df95c68700ddf63dd236072822fd9248`, `latest.yml` 버전 `1.4.211`·크기·SHA-512·`isAdminRightsRequired: true`, blockmap 자산과 SAMWOO 내부 Authenticode 서명(Valid, thumbprint `81316CB47930717E9EB6949430BD80C2F4E6166D`)을 독립 검증했다.
 - 관리자가 2026-08-16 `v1.4.211`을 공개 최신 릴리스로 전환했다. 비인증 GitHub `/releases/latest` API와 공개 update manifest가 `v1.4.211`을 반환하고 설치기·blockmap·`latest.yml` 세 자산 URL이 모두 HTTP 200이며, 공개 설치기 streaming SHA-256·크기와 manifest SHA-512가 draft 검증값과 일치함을 확인했다.
 - 현재 stable-semver 서명 릴리스 절차로 대체된 `samwoo-windows-<SHA>` unsigned prerelease 16개와 대응 태그를 삭제해 미사용 자산 48개·3,008,066,937바이트를 정리했다. 회귀·검증 이력으로 명시된 draft 14개와 공개 stable 릴리스는 보존했다.
+- v1.4.212의 exact `ai_center` ACP local-files rollout이 native file/terminal을 켜는 대신 Excel Artifact capability와 outer tool loop를 함께 꺼, 번들 openpyxl/XlsxWriter가 정상이어도 원격 XLSX skill이 패키지 없는 사용자 `py.exe`로 우회하는 회귀를 만들었다. v1.4.215의 LibreOffice 시각 preview 변경과는 별개다.
+- 2026-08-19 수정은 ACP native file/terminal을 유지하면서 native-local project에만 Excel Artifact capability·prompt·결과 roundtrip을 같은 persistent ACP session에 복구한다. WSL/SSH/Runtime은 차단하고 Excel envelope 외 legacy Orca envelope는 fail-closed한다. Team Chat 진입 때 bundle probe를 background prewarm하며, 첨부 block과 project Office preview가 수정 입력용 SHA-256을 제공한다. 사용자 Python·pip·직접 soffice는 사용하지 않는다.
+- native picker는 HTML/HTM과 예약 binary 확장자를 제외한 임의 strict UTF-8·NUL-free 파일을 96KB 한도에서 받고, 같은 handle의 bounded read로 교체·증가 race를 방어한다. Word `.doc`/`.docx`는 미지원임을 거절 안내에 명시한다.
+- UI는 최종 transport/agent turn 결과와 중간 tool attempt를 분리해 `응답 완료 · 중간 오류 기록 있음`, `응답 실패`, `응답 중단`으로 표시한다. Hermes 관련 41개 test file 219건(1건 skip), Node/Web/CLI typecheck, changed-file native/type-aware lint, localization 3종, reliability·max-lines gate가 통과했다. 전체 `pnpm test`는 로컬 Corepack 환경에서 native-runtime bootstrap이 전역 `pnpm.cmd`를 찾지 못해 test 진입 전에 중단됐고 패키지 GUI 실측은 남아 있다.

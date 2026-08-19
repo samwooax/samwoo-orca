@@ -19,7 +19,6 @@ import {
   type TeamChatSessionHandle
 } from './hermes-team-chat-session-registry'
 import { acquireHermesTeamChatAcpSession } from './hermes-team-chat-acp-session-acquisition'
-import { resolveTeamChatProjectDirectory } from './hermes-team-chat-project-directory'
 import {
   formatHermesAcpProjectRolloutContext,
   resolveHermesAcpProjectRollout
@@ -35,8 +34,8 @@ import type { PreparedTeamChatImageAttachment } from './hermes-team-chat-attachm
 import { localProjectToolProtocolPrompt } from './hermes-local-project-tool-loop'
 import type { LocalDocumentAttachment } from './hermes-local-document-protocol'
 import type { HermesBinaryArtifactStore } from './hermes-binary-artifact-store'
-import { getExcelArtifactCapability } from './hermes-excel-artifact-worker-client'
-import type { ExcelArtifactCapability } from '../../shared/hermes-excel-artifact'
+import { hasExcelArtifactEnvelope } from './hermes-excel-artifact-protocol'
+import { resolveTeamChatExcelArtifactCapability } from './hermes-team-chat-excel-capability'
 import { teamChatSshArgs } from './hermes-team-chat-ssh-process'
 import type {
   HermesTeamChatResult,
@@ -56,17 +55,6 @@ import {
 import { teamChatCancellationResult } from './hermes-team-chat-cancellation-result'
 
 const hermesSessions = new HermesTeamChatSessionRegistry()
-
-async function availableExcelArtifactCapability(
-  cwd: string,
-  store: Store
-): Promise<ExcelArtifactCapability | null> {
-  const capability = await getExcelArtifactCapability()
-  if (!capability || !cwd.trim()) {
-    return capability
-  }
-  return (await resolveTeamChatProjectDirectory(cwd, store)) ? capability : null
-}
 
 async function runOneShotRemoteTeamChat(args: {
   requestId: string
@@ -152,14 +140,17 @@ export async function runTeamChatMessage(args: {
       cwd: args.cwd,
       store: args.store
     })
-    const excelCapability =
-      capabilityProbe || localFilesCapability
-        ? null
-        : await availableExcelArtifactCapability(args.cwd, args.store)
-    const acpContext = formatHermesAcpProjectRolloutContext(deviceContext, {
-      capabilityProbe,
-      localFilesCapability
-    })
+    const excelCapability = capabilityProbe
+      ? null
+      : await resolveTeamChatExcelArtifactCapability(args.cwd, args.store)
+    const acpContext = formatHermesAcpProjectRolloutContext(
+      deviceContext,
+      {
+        capabilityProbe,
+        localFilesCapability
+      },
+      excelCapability
+    )
     if (!isHermes) {
       // Why: a dormant ACP session cannot observe Claude turns; close it so returning to Hermes rehydrates complete UI history.
       await hermesSessions.close(args.conversationId)
@@ -222,13 +213,21 @@ export async function runTeamChatMessage(args: {
       if (!result.ok || !result.reply) {
         return attachTeamChatToolExecutions(result, toolExecutions)
       }
-      if (capabilityProbe || localFilesCapability) {
+      if (capabilityProbe) {
         return hasOrcaToolEnvelope(result.reply)
           ? {
               ok: false,
               error: 'ACP capability probe did not execute the returned Orca tool envelope'
             }
           : result
+      }
+      if (localFilesCapability && (!excelCapability || !hasExcelArtifactEnvelope(result.reply))) {
+        return hasOrcaToolEnvelope(result.reply)
+          ? {
+              ok: false,
+              error: 'ACP local tools did not execute the returned Orca tool envelope'
+            }
+          : attachTeamChatToolExecutions(result, toolExecutions)
       }
       const toolTurn = await advanceTeamChatLocalToolTurn({
         reply: result.reply,

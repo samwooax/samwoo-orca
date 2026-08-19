@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { TeamChatProgressEvent } from '../../../../shared/hermes-team-chat-progress'
-import { finishTeamChatProgress, upsertTeamChatProgress } from './use-hermes-team-chat-progress'
+import {
+  finishTeamChatProgress,
+  preserveFailedTeamChatProgress,
+  upsertTeamChatProgress
+} from './use-hermes-team-chat-progress'
 
 function event(overrides: Partial<TeamChatProgressEvent> = {}): TeamChatProgressEvent {
   return {
@@ -27,5 +31,10 @@ describe('Hermes team chat progress state', () => {
       event({ status: 'failed' }),
       event({ id: 'tool-2', status: 'completed' })
     ])
+  })
+
+  it('preserves a failure after the visible event changes or rolls out of the list', () => {
+    expect(preserveFailedTeamChatProgress(false, event({ status: 'failed' }))).toBe(true)
+    expect(preserveFailedTeamChatProgress(true, event({ status: 'completed' }))).toBe(true)
   })
 })

@@ -131,8 +131,11 @@ def _office_preview(content, wire_path, field_meta):
     media_type = value.get("mediaType")
     image_base64 = value.get("imageBase64")
     kind = value.get("kind")
+    sha256 = value.get("sha256")
     if media_type not in ("image/png", "image/jpeg") or not isinstance(image_base64, str):
         raise RuntimeError("local office preview image is invalid")
+    if not isinstance(sha256, str) or len(sha256) != 64 or any(ch not in "0123456789abcdef" for ch in sha256):
+        raise RuntimeError("local office preview SHA-256 is invalid")
     label = "slides" if kind == "pptx" else "pages"
     start = int(value.get("startIndex"))
     end = int(value.get("endIndex"))
@@ -141,6 +144,7 @@ def _office_preview(content, wire_path, field_meta):
     summary = _office_history_marker + "Rendered %s %d-%d of %d from %s." % (
         label, start, end, total, wire_path
     )
+    summary += " Source SHA-256: %s." % sha256
     if next_index is not None:
         summary += " Call read_file again with offset=%d and limit up to 4 for the next preview." % int(next_index)
     _mark_office_history_dirty()

@@ -23,12 +23,15 @@ export function resolveHermesAcpLocalFilesCapability(args: {
   }
 }
 
-export function formatHermesAcpLocalFilesContext(localTerminal: boolean): string {
+export function formatHermesAcpLocalFilesContext(
+  localTerminal: boolean,
+  excelArtifactAvailable = false
+): string {
   return [
     '[Local project tools]',
     'Use the native read_file, write_file, and patch tools for files under /workspace.',
     'ACP file-tool access is served by Orca and restricted to the selected project root.',
-    'For XLSX and PPTX files, read_file returns a rendered visual preview instead of text; offset selects the first page or slide and limit selects up to 4.',
+    'For XLSX and PPTX files, read_file returns a rendered visual preview and source SHA-256 instead of text; offset selects the first page or slide and limit selects up to 4.',
     'Read an existing file before overwriting it; create a new file directly when a read reports that it does not exist.',
     ...(localTerminal
       ? [
@@ -39,7 +42,14 @@ export function formatHermesAcpLocalFilesContext(localTerminal: boolean): string
           'Use /workspace only as terminal workdir; use paths relative to that workdir inside shell text. PTY input is unavailable.'
         ]
       : ['Local terminal and process execution are unavailable.']),
-    'Do not emit Orca envelope tags.',
+    ...(excelArtifactAvailable
+      ? [
+          'For XLSX creation, editing, and validation, use only the Excel Artifact v1 envelope described above; it runs the bundled local openpyxl and XlsxWriter engines.',
+          'Use the SHA-256 from an attached document block or a project XLSX read_file preview as the Excel input sha256.',
+          'Do not use terminal Python, pip, package installation, or soffice for XLSX work.',
+          'Do not emit Orca local file, document, or command envelopes; the Excel Artifact envelope is the only exception.'
+        ]
+      : ['Do not emit Orca envelope tags.']),
     ''
   ].join('\n')
 }

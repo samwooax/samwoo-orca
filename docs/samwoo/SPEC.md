@@ -155,8 +155,9 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 
 - Hermes 0.20.0이 client capability를 native tool routing에 연결하지 않는 한계를 Electron이 주입하는 일회성 runtime shim으로 보완한다. 서버 설치 파일·DB·프로필 설정은 수정하지 않고 연결 방향도 노트북에서 Hermes 호스트로 나가는 SSH만 사용한다.
 - 파일은 `/workspace` virtual namespace, canonical local project root, 같은 turn의 prior-read SHA-256, overwrite 전 app-private backup을 적용한다. `terminal`의 cwd도 `/workspace` 아래 기존 directory로만 매핑하지만 이는 명령의 접근 권한을 가두는 OS sandbox가 아니다.
-- `.xlsx`·`.pptx`에 대한 `read_file`은 UTF-8 읽기 대신 번들 LibreOffice→PDF→PDFium/Pillow 경로로 한 번에 최대 4페이지/슬라이드를 렌더한다. 1-based `offset`과 최대 4의 `limit`으로 다음 묶음을 읽으며, 최대 700KiB PNG/JPEG를 versioned ACP metadata와 sentinel로 인증한 뒤 Hermes `_multimodal` 이미지 결과로 같은 모델 turn에 돌려준다. 입력은 64MiB, 전체 렌더는 120초, worker는 cleanup 여유를 포함해 160초, cold bundle 검증을 포함한 ACP 응답은 270초 안으로 제한하고 원본은 변경하지 않는다. XLSX의 macro·ActiveX·OLE·외부 relationship은 LibreOffice 실행 전에 거부한다. 취소·timeout에는 LibreOffice descendant tree 정리가 끝난 뒤 요청을 완료하며, 대화 기록에는 active 여부와 무관하게 최신 Office 이미지만 유지하고 앞선 이미지는 텍스트 요약으로 바꾼다.
+- `.xlsx`·`.pptx`에 대한 `read_file`은 UTF-8 읽기 대신 번들 LibreOffice→PDF→PDFium/Pillow 경로로 한 번에 최대 4페이지/슬라이드를 렌더하고 원본 SHA-256을 같은 결과에 포함한다. 1-based `offset`과 최대 4의 `limit`으로 다음 묶음을 읽으며, 최대 700KiB PNG/JPEG를 versioned ACP metadata와 sentinel로 인증한 뒤 Hermes `_multimodal` 이미지 결과로 같은 모델 turn에 돌려준다. 입력은 64MiB, 전체 렌더는 120초, worker는 cleanup 여유를 포함해 160초, cold bundle 검증을 포함한 ACP 응답은 270초 안으로 제한하고 원본은 변경하지 않는다. XLSX의 macro·ActiveX·OLE·외부 relationship은 LibreOffice 실행 전에 거부한다. 취소·timeout에는 LibreOffice descendant tree 정리가 끝난 뒤 요청을 완료하며, 대화 기록에는 active 여부와 무관하게 최신 Office 이미지만 유지하고 앞선 이미지는 텍스트 요약으로 바꾼다.
 - terminal 명령과 background process 시작은 별도 native 승인창 없이 Electron main에서 현재 사용자 권한으로 즉시 실행한다. Windows local project는 Git Bash를 우선하고 WSL project는 해당 distro의 비로그인 `sh`, macOS/Linux는 비로그인 shell을 사용하며 전달 환경변수는 allowlist로 제한한다. 삭제·이동·이름 변경·검색처럼 ACP 파일 API가 지원하지 않는 작업도 terminal을 사용한다.
+- XLSX 생성·수정·검증은 ACP terminal의 사용자 Python으로 우회하지 않는다. exact `ai_center` native-local ACP에서만 검증된 Excel Artifact capability와 envelope를 기존 Electron main outer loop로 전달해 bundled worker에서 실행하고, WSL/SSH/Runtime에는 광고하지 않는다. file/document/command envelope는 계속 거부하며 ACP native 파일·terminal과 Excel Artifact worker는 같은 대화 세션에서 함께 사용할 수 있다.
 - 전경 명령은 최대 120초, 백그라운드 명령은 최대 30분, 동시 실행은 4개, 보존 record는 16개, 합산 출력 tail은 64KiB다. 출력은 terminal control 제거와 secret redaction을 거치며 timeout·전체 취소·session 종료, 그리고 foreground turn 종료 시 descendant process tree 정리를 시도한다. 정상 완료한 turn의 background process는 다음 turn의 process 도구로 계속 관리한다. 백그라운드는 `list`·`poll`·`log`·`wait`·`kill`만 지원하고 ACP stdin/PTY, `execute_code`, `search_files`는 계속 비활성이다.
 - 이 `ai_center` 전용 경로는 사용자가 명시적으로 선택한 **무승인·비격리 로컬 실행**이다. 모델이 낸 명령은 프로젝트 밖 파일과 네트워크에 사용자 계정 권한으로 접근할 수 있고, shell이 직접 바꾼 파일은 ACP 파일 write의 backup·SHA 검사를 거치지 않는다. Outbound firewall이나 copy-on-write 격리가 없으므로 sandbox라고 부르지 않는다.
 
@@ -167,7 +168,7 @@ Hermes 서버는 사용자 노트북 파일에 직접 접근하지 않는다. �
 ### 5.4 팀 채팅 첨부·기록과 세션 접근
 
 - 한 메시지 최대 5개 첨부.
-- 텍스트 허용 확장자는 `.txt`, `.md`, `.csv`, `.json`, `.yaml`, `.yml`, `.log`이며 1개 최대 96KB다.
+- 직접 고른 텍스트는 예약된 binary 확장자를 제외하고 regular·non-symlink, strict UTF-8·NUL-free, 1개 최대 96KB 조건으로 판별한다. native picker는 HTML/HTM을 포함한 알려진 문서 필터와 `All files` 선택을 함께 제공한다. Word `.doc`/`.docx`는 아직 지원하지 않는다.
 - PDF/XLSX/PPTX/PNG/JPEG는 파일당 64MiB까지 허용하며 Electron main이 signature·확장자·해시를 확인하고 private artifact store에 보관한다.
 - Hermes Team Chat 탭에서 프로젝트 Explorer 파일을 선택하면 `@상대경로` 텍스트를 넣지 않고 main이 현재 local project root와 실제 파일을 다시 검증해 첨부한다. PDF/XLSX/PPTX/이미지는 private artifact로, 96KB 이하 UTF-8 파일은 text attachment로 전달한다.
 - 전송한 text/artifact 첨부는 같은 대화의 composer에 남아 후속 질문에도 다시 전달한다. 붙여넣기 임시 이미지는 turn 한정이며, 첨부 제거·대화 교체·view 종료 시 main-owned artifact를 해제한다.
@@ -488,8 +489,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.211` | 공개 유지                | PNG/JPEG 선택형 첨부를 conversation/request-bound artifact ID로 읽어 SSH 전송. Actions run `31944744288`, 공개 latest·update manifest 확인 후 2026-08-16 공개                                            |
 | `v1.4.212` | draft 폐기 완료·GUI 실패 | `ai_center` ACP terminal 메타가 SDK에서 이중 중첩되고, 없는 파일 읽기 오류가 일반화돼 신규 파일 생성을 중단함. Actions run `32111154186`, 2026-08-18 설치본 실측 후 draft 삭제                           |
 | `v1.4.213` | 공개 유지                | Actions run `32113622524`, 설치기 241,552,592바이트·SHA-256 `d8c9cd0…9ccb7`·내부 서명 검증. 관리자 설치본에서 `ai_center`의 `pwd`, 신규 파일 생성·재읽기·첨부 확인 후 공개 latest·manifest HTTP 200 확인 |
-| `v1.4.214` | 공개 유지                | exact `ai_center` ACP terminal/process 무승인 실행. Actions run `32121382630`, 설치기 241,555,040바이트·SHA-256 `a7e53192…127de`·서명/자산 검증 후 공개 latest·manifest 확인                          |
-| `v1.4.215` | **공개 — 최신**          | bundled LibreOffice XLSX/PPTX 시각 미리보기. Actions run `32203907871`, 설치기 978,924,520바이트·SHA-256 `3667c22f…64ad`·서명/자산 검증 후 공개 latest·tag 확인                                 |
+| `v1.4.214` | 공개 유지                | exact `ai_center` ACP terminal/process 무승인 실행. Actions run `32121382630`, 설치기 241,555,040바이트·SHA-256 `a7e53192…127de`·서명/자산 검증 후 공개 latest·manifest 확인                             |
+| `v1.4.215` | **공개 — 최신**          | bundled LibreOffice XLSX/PPTX 시각 미리보기. Actions run `32203907871`, 설치기 978,924,520바이트·SHA-256 `3667c22f…64ad`·서명/자산 검증 후 공개 latest·tag 확인                                          |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 

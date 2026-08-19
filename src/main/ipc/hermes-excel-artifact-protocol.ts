@@ -11,6 +11,10 @@ const CLOSE = '</orca_excel_artifact>'
 const MAX_ENVELOPE_BYTES = 1024 * 1024
 const SAFE_ID = /^[A-Za-z0-9._-]+$/
 
+export function hasExcelArtifactEnvelope(reply: string): boolean {
+  return reply.includes(OPEN) || reply.includes(CLOSE)
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -77,7 +81,7 @@ conditionalFormats는 값 비교 규칙 {"range":"D2:D6","type":"cell","operator
 freezePane은 셀 주소가 아니라 {"row":3,"column":0}처럼 고정할 행·열 개수이고, merges는 ["A1:D1"] 같은 범위 배열입니다. 병합 범위 안에서는 좌상단 anchor 셀에만 값·수식을 선언하세요(나머지 셀의 내용은 Excel 병합 규칙상 사라집니다). 표(tables)의 헤더 행 열 이름은 표 안에서 서로 달라야 하며(같은 이름 두 번 금지), 표 이름은 셀 주소처럼 보이면 안 됩니다. 첨부 이미지는 images 항목의 artifactPath에 @attachments/... 경로를 사용합니다.
 차트는 다음 형식으로 사용하세요: {"type":"bar","title":"제목","series":[{"name":"계열","categories":{"sheet":"Data","range":"B2:B6"},"values":{"sheet":"Data","range":"D2:D6"}}],"position":"F2","width":600,"height":300}. type은 area|bar|column|doughnut|line|pie|scatter, position은 차트를 놓을 anchor 셀 주소이며 width/height는 픽셀 정수(100~4096)입니다. 선택 필드는 subtype(standard|stacked|percent_stacked|straight|smooth), legend(none|top|bottom|left|right), series의 color뿐이며, x/y inch 좌표나 chartType 같은 다른 필드는 넣지 마세요.
 수식이 참조하는 시트는 반드시 같은 workbookSpec의 sheets에 실제로 만들어야 합니다. 존재하지 않는 시트를 참조하면 검증이 실패합니다.
-첨부 XLSX는 먼저 로컬 문서 도구로 inspect/extract하여 SHA-256을 얻은 뒤 input에 {"kind":"xlsx","path":"@attachments/...","sha256":"..."}를 사용하세요.
+첨부 XLSX는 첨부 문서 block의 SHA-256을 input에 {"kind":"xlsx","path":"@attachments/...","sha256":"..."}로 사용하세요. SHA-256이 없는 이전 첨부만 로컬 문서 도구로 inspect/extract하세요.
 binary, Base64, 절대 경로, shell, package, executable을 요청에 넣지 마세요. 지원되지 않는 기능을 추측하지 말고 capability의 workbookFeatures만 사용하세요.
 원본을 수정하지 않는 별도 output이 기본입니다. 도구 결과를 받은 뒤 결과를 근거로 최종 답변하세요.
 [Excel Artifact v1 끝]

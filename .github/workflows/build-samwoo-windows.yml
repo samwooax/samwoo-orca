@@ -117,6 +117,7 @@ jobs:
             src/main/ipc/hermes-team-chat-project-attachment.test.ts `
             src/main/ipc/hermes-excel-artifact-job-registry.test.ts `
             src/main/ipc/hermes-excel-artifact-protocol.test.ts `
+            src/main/ipc/hermes-team-chat-excel-capability.test.ts `
             src/main/ipc/hermes-local-document-formats.test.ts `
             src/main/ipc/hermes-local-office-documents.test.ts `
             src/main/ipc/hermes-local-document-protocol.test.ts `
@@ -126,6 +127,7 @@ jobs:
             src/main/ipc/hermes-local-project-documents.test.ts `
             src/main/ipc/hermes-local-project-tool-loop.test.ts `
             src/main/ipc/hermes-team-chat-attachment-normalization.test.ts `
+            src/main/ipc/hermes-team-chat-attachment-picker.test.ts `
             src/main/ipc/hermes-team-chat-image-transfer.test.ts `
             src/main/ipc/hermes-team-chat-acp-client.test.ts `
             src/main/ipc/hermes-team-chat-session-registry.test.ts `
@@ -152,10 +154,12 @@ jobs:
             src/main/window/messenger-popout-window.test.ts `
             src/main/updater-install-flags.test.ts `
             src/renderer/src/components/hermes-team-chat/HermesTeamChatModelControls.test.tsx `
+            src/renderer/src/components/hermes-team-chat/HermesTeamChatActivity.test.ts `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-composer-options.test.ts `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-mail-token.test.ts `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-session-options.test.ts `
             src/renderer/src/components/hermes-team-chat/hermes-team-chat-stored-session.test.ts `
+            src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-progress.test.ts `
             src/renderer/src/components/hermes-team-chat/use-hermes-team-chat-attachments.test.tsx `
             src/renderer/src/components/native-chat/NativeChatComposerActions.test.tsx `
             src/renderer/src/components/right-sidebar/useFileExplorerHandlers.test.ts `

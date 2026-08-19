@@ -810,9 +810,11 @@
     },
     "components": {
       "HermesTeamChatActivity": {
+        "completedWithFailures": "応答完了 · 途中のエラー記録あり",
+        "overallFailed": "応答失敗",
+        "cancelled": "応答中断",
         "running": "作業中 · {{value0}}ステップ",
-        "failed": "作業終了 · {{value0}}件失敗",
-        "completed": "作業完了 · {{value0}}ステップ"
+        "completed": "応答完了 · {{value0}}ステップ"
       },
       "HermesTeamChatView": {
         "model": "モデル",

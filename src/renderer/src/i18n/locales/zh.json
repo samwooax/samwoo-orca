@@ -810,9 +810,11 @@
     },
     "components": {
       "HermesTeamChatActivity": {
+        "completedWithFailures": "响应完成 · 含中间错误记录",
+        "overallFailed": "响应失败",
+        "cancelled": "响应已停止",
         "running": "处理中 · {{value0}} 个步骤",
-        "failed": "处理结束 · {{value0}} 个失败",
-        "completed": "处理完成 · {{value0}} 个步骤"
+        "completed": "响应完成 · {{value0}} 个步骤"
       },
       "HermesTeamChatView": {
         "model": "模型",

@@ -187,9 +187,9 @@ export async function prepareTeamChatAttachments(args: {
       }
       if (artifact.artifactKind === 'png' || artifact.artifactKind === 'jpeg') {
         const path = virtualDocumentPath(documents.length, artifact.name)
-        documents.push({ path, artifactId: artifact.artifactId })
+        documents.push({ path, artifactId: artifact.artifactId, sha256: artifact.sha256 })
         blocks.push(
-          `[첨부 이미지: ${artifact.name}]\nOrca 문서 도구 경로: ${path}\n형식: ${artifact.artifactKind}\n[첨부 이미지 끝]`
+          `[첨부 이미지: ${artifact.name}]\nOrca 문서 도구 경로: ${path}\n형식: ${artifact.artifactKind}\nSHA-256: ${artifact.sha256}\n[첨부 이미지 끝]`
         )
         images.push({
           source: 'artifact',
@@ -201,9 +201,9 @@ export async function prepareTeamChatAttachments(args: {
         continue
       }
       const path = virtualDocumentPath(documents.length, artifact.name)
-      documents.push({ path, artifactId: artifact.artifactId })
+      documents.push({ path, artifactId: artifact.artifactId, sha256: artifact.sha256 })
       blocks.push(
-        `[첨부 문서: ${artifact.name}]\nOrca 문서 도구 경로: ${path}\n형식: ${artifact.artifactKind}\n[첨부 문서 끝]`
+        `[첨부 문서: ${artifact.name}]\nOrca 문서 도구 경로: ${path}\n형식: ${artifact.artifactKind}\nSHA-256: ${artifact.sha256}\n[첨부 문서 끝]`
       )
     }
     return {

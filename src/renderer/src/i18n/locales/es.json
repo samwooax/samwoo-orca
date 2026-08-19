@@ -810,9 +810,11 @@
     },
     "components": {
       "HermesTeamChatActivity": {
+        "completedWithFailures": "Respuesta completada · se registraron errores intermedios",
+        "overallFailed": "Error en la respuesta",
+        "cancelled": "Respuesta detenida",
         "running": "Trabajando · {{value0}} pasos",
-        "failed": "Finalizado · {{value0}} fallidos",
-        "completed": "Completado · {{value0}} pasos"
+        "completed": "Respuesta completada · {{value0}} pasos"
       },
       "HermesTeamChatView": {
         "model": "Modelo",

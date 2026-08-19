@@ -22,6 +22,7 @@ import {
 import { executeLocalDocumentToolRequest } from './hermes-local-document-tool-handler'
 import {
   excelArtifactProtocolPrompt,
+  hasExcelArtifactEnvelope,
   parseExcelArtifactRequest
 } from './hermes-excel-artifact-protocol'
 import { executeExcelArtifactToolRequest } from './hermes-excel-artifact-tool-handler'
@@ -55,10 +56,6 @@ function hasEnvelopeMarker(reply: string, name: 'files' | 'documents' | 'command
 
 function hasUnknownOrcaEnvelope(reply: string): boolean {
   return /<\/?orca_[A-Za-z0-9_]+>/.test(reply)
-}
-
-function hasExcelEnvelope(reply: string): boolean {
-  return reply.includes('<orca_excel_artifact>') || reply.includes('</orca_excel_artifact>')
 }
 
 function summarizeFileResults(
@@ -120,11 +117,10 @@ export async function executeLocalProjectToolReply(args: {
   const hasFileEnvelope = hasEnvelopeMarker(args.reply, 'files')
   const hasDocumentEnvelope = hasEnvelopeMarker(args.reply, 'documents')
   const hasCommandEnvelope = hasEnvelopeMarker(args.reply, 'commands')
-  const hasExcelArtifactEnvelope = hasExcelEnvelope(args.reply)
+  const hasExcelEnvelope = hasExcelArtifactEnvelope(args.reply)
   if (
-    [hasFileEnvelope, hasDocumentEnvelope, hasCommandEnvelope, hasExcelArtifactEnvelope].filter(
-      Boolean
-    ).length > 1
+    [hasFileEnvelope, hasDocumentEnvelope, hasCommandEnvelope, hasExcelEnvelope].filter(Boolean)
+      .length > 1
   ) {
     return {
       kind: 'invalid',
@@ -136,12 +132,12 @@ export async function executeLocalProjectToolReply(args: {
       hasFileEnvelope ||
       hasDocumentEnvelope ||
       hasCommandEnvelope ||
-      hasExcelArtifactEnvelope ||
+      hasExcelEnvelope ||
       hasUnknownOrcaEnvelope(args.reply)
     ) {
       return {
         kind: 'invalid',
-        error: hasExcelArtifactEnvelope
+        error: hasExcelEnvelope
           ? 'invalid or unsupported Excel Artifact envelope'
           : hasCommandEnvelope
             ? 'invalid local command envelope; use mode and timeoutSeconds fields'

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import {
   chmod,
   link,
@@ -118,7 +119,10 @@ describe('HermesAcpFilesystem', () => {
       signal
     })
     expect(result.content).toBe(
-      `${HERMES_ACP_OFFICE_PREVIEW_PREFIX}${JSON.stringify(await render.mock.results[0].value)}`
+      `${HERMES_ACP_OFFICE_PREVIEW_PREFIX}${JSON.stringify({
+        ...(await render.mock.results[0].value),
+        sha256: createHash('sha256').update('office fixture').digest('hex')
+      })}`
     )
     expect(result._meta).toEqual({ samwoo: { kind: 'office-preview', version: 1 } })
     await expect(
@@ -127,6 +131,36 @@ describe('HermesAcpFilesystem', () => {
         content: 'not binary'
       })
     ).rejects.toThrow('cannot be written')
+  })
+
+  it('rejects an Office preview when the source changes during rendering', async () => {
+    const sourcePath = join(root, 'changing.xlsx')
+    await writeFile(sourcePath, 'before')
+    const render = vi.fn().mockImplementation(async () => {
+      await writeFile(sourcePath, 'after')
+      return {
+        kind: 'xlsx',
+        mediaType: 'image/png',
+        imageBase64: 'aGVsbG8=',
+        width: 800,
+        height: 600,
+        startIndex: 1,
+        endIndex: 1,
+        totalCount: 1,
+        nextIndex: null
+      }
+    })
+    const filesystem = await createFilesystem(backupRoot, {
+      render,
+      cancelAll: vi.fn()
+    } as never)
+
+    await expect(
+      filesystem.handle('fs/read_text_file', {
+        path: '/workspace/changing.xlsx',
+        _meta: { samwoo: { officePreview: { version: 1 } } }
+      })
+    ).rejects.toThrow('office preview source changed while rendering')
   })
 
   it.each([

@@ -19,6 +19,7 @@ describe('Hermes ACP local files bridge', () => {
     expect(HERMES_ACP_LOCAL_FILES_BRIDGE).toContain('"_multimodal": True')
     expect(HERMES_ACP_LOCAL_FILES_BRIDGE).toContain('"type": "image_url"')
     expect(HERMES_ACP_LOCAL_FILES_BRIDGE).toContain('data:" + media_type + ";base64,')
+    expect(HERMES_ACP_LOCAL_FILES_BRIDGE).toContain('Source SHA-256: %s.')
   })
 
   it('gives cold Office rendering enough time to finish end to end', () => {

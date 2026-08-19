@@ -851,9 +851,11 @@
     },
     "components": {
       "HermesTeamChatActivity": {
+        "completedWithFailures": "Response completed · intermediate errors recorded",
+        "overallFailed": "Response failed",
+        "cancelled": "Response stopped",
         "running": "Working · {{value0}} steps",
-        "failed": "Finished · {{value0}} failed",
-        "completed": "Completed · {{value0}} steps"
+        "completed": "Response completed · {{value0}} steps"
       },
       "HermesTeamChatView": {
         "model": "Model",
@@ -863,7 +865,7 @@
         "startConversation": "Start a conversation with {{value0}}",
         "emptyHint": "Enter a message or select a project file.",
         "attachmentTooLarge": "Binary attachments must be 64 MB or smaller; text attachments must be 96 KB or smaller.",
-        "attachmentRejected": "Some files were not attached. Supported files are PDF, Excel, PowerPoint, images, and UTF-8 text.",
+        "attachmentRejected": "Some files were not attached. PDF, Excel, PowerPoint, images, and UTF-8 text up to 96 KB are supported; Word files are not yet supported.",
         "attachmentLimit": "You can attach up to 5 files.",
         "imagePasteFailed": "Image paste failed.",
         "pastedImage": "Pasted image",
