@@ -3,7 +3,7 @@
 > 이 문서는 SAMWOO-ORCA의 제품 결정, 현재 구현, 실제 배포 상태, 네트워크 구성, 제한값, 작업 대기열과 검증 기준을 함께 관리하는 **단일 진실(source of truth)**이다.
 > Codex와 Claude는 작업 전에 이 문서를 읽는다. 대화·지시서와 이 문서가 충돌하면 이 문서가 우선한다.
 > 비밀번호, Tailscale 인증 키, 코드서명 개인키, 메일 자격 증명 등 비밀값은 이 문서에 기록하지 않는다.
-> 최종 코드·운영 감사: 2026-08-19 · 저장소 버전: `1.4.215`
+> 최종 코드·운영 감사: 2026-08-19 · 저장소 버전: `1.4.216`
 
 ## 0. 상태 표기와 감사 범위
 
@@ -35,7 +35,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 
 | 항목             | 현재 상태                                     |
 | ---------------- | --------------------------------------------- |
-| 로컬 패키지 버전 | `1.4.215`                                     |
+| 로컬 패키지 버전 | `1.4.216`                                     |
 | 작업 브랜치      | `samwoo/upstream-v1.4.168`                    |
 | SAMWOO 원격      | `https://github.com/samwooax/samwoo-orca.git` |
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
@@ -491,6 +491,7 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.213` | 공개 유지                | Actions run `32113622524`, 설치기 241,552,592바이트·SHA-256 `d8c9cd0…9ccb7`·내부 서명 검증. 관리자 설치본에서 `ai_center`의 `pwd`, 신규 파일 생성·재읽기·첨부 확인 후 공개 latest·manifest HTTP 200 확인 |
 | `v1.4.214` | 공개 유지                | exact `ai_center` ACP terminal/process 무승인 실행. Actions run `32121382630`, 설치기 241,555,040바이트·SHA-256 `a7e53192…127de`·서명/자산 검증 후 공개 latest·manifest 확인                             |
 | `v1.4.215` | **공개 — 최신**          | bundled LibreOffice XLSX/PPTX 시각 미리보기. Actions run `32203907871`, 설치기 978,924,520바이트·SHA-256 `3667c22f…64ad`·서명/자산 검증 후 공개 latest·tag 확인                                          |
+| `v1.4.216` | release candidate        | exact `ai_center` ACP에서 bundled Excel Artifact 경로를 복구하고 HTML·UTF-8 첨부 판별, Office 원본 해시 검증과 응답 진행 상태 표시를 보완                                                         |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 

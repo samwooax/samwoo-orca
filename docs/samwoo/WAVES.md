@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.215 공개·ACP Excel 회귀 수정 코드 검증 완료, 릴리스 대기     | fdaf99a27, c525a4d1c, run 31944744288                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.215 공개·v1.4.216 ACP Excel 회귀 수정 릴리스 후보 준비       | fdaf99a27, c525a4d1c, run 31944744288                                  |
 
 ## 웨이브 상세
 
