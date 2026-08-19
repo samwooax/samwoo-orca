@@ -27,7 +27,7 @@
 | W12     | 예약 지시 — 인앱 스케줄러·우측 사이드탭                      | W5 Hermes Cron으로 대체                                           | 12ffde36d, 5eb6dd155, 663d6c626, run 31346008860                       |
 | W13     | PC 로컬 예약 — 프로젝트 결과 저장                            | v1.4.192 draft·원클릭 r24 완료, Windows 실측 대기                 | 85683e7e5, run 31452996632                                             |
 | W14     | Hermes 로컬 도구 경계·결과 보존 및 v1.4.193 공개             | ✅ 완료                                                           | f8e7a16c7, 8fc10570d, run 31581558831                                  |
-| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.215 공개·v1.4.216 ACP Excel 회귀 수정 릴리스 후보 준비       | fdaf99a27, c525a4d1c, run 31944744288                                  |
+| W15     | Hermes PDF/XLSX/PPTX 로컬 문서 도구                          | v1.4.216 공개·설치본 사용자 실측 대기                             | fdaf99a27, c525a4d1c, 1074bd27e, run 32210279875                       |
 
 ## 웨이브 상세
 
@@ -222,3 +222,4 @@
 - 2026-08-19 수정은 ACP native file/terminal을 유지하면서 native-local project에만 Excel Artifact capability·prompt·결과 roundtrip을 같은 persistent ACP session에 복구한다. WSL/SSH/Runtime은 차단하고 Excel envelope 외 legacy Orca envelope는 fail-closed한다. Team Chat 진입 때 bundle probe를 background prewarm하며, 첨부 block과 project Office preview가 수정 입력용 SHA-256을 제공한다. 사용자 Python·pip·직접 soffice는 사용하지 않는다.
 - native picker는 HTML/HTM과 예약 binary 확장자를 제외한 임의 strict UTF-8·NUL-free 파일을 96KB 한도에서 받고, 같은 handle의 bounded read로 교체·증가 race를 방어한다. Word `.doc`/`.docx`는 미지원임을 거절 안내에 명시한다.
 - UI는 최종 transport/agent turn 결과와 중간 tool attempt를 분리해 `응답 완료 · 중간 오류 기록 있음`, `응답 실패`, `응답 중단`으로 표시한다. Hermes 관련 41개 test file 219건(1건 skip), Node/Web/CLI typecheck, changed-file native/type-aware lint, localization 3종, reliability·max-lines gate가 통과했다. 전체 `pnpm test`는 로컬 Corepack 환경에서 native-runtime bootstrap이 전역 `pnpm.cmd`를 찾지 못해 test 진입 전에 중단됐고 패키지 GUI 실측은 남아 있다.
+- Actions run `32210279875`가 신규 회귀 테스트를 포함한 Windows 통합 검사, 앱·frozen worker 빌드, LibreOffice 포함 내부 서명 NSIS 패키징과 자산 검증을 통과했다. `v1.4.216` 설치기 978,921,032바이트·SHA-256 `d191d278a0c12d4ec1b5b634a9b85676dd3c57eca45234ada5b4abb7ff20cc36`, blockmap과 `latest.yml`을 공개했고 latest tag·manifest 버전·대상 commit `480356154`를 확인했다. 설치본 GUI smoke는 사용자가 후속 수행한다.

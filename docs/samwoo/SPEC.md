@@ -41,7 +41,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | upstream 원격    | `https://github.com/stablyai/orca.git`        |
 | GitHub 공개 범위 | **Public** — 2026-08-08 운영 확인             |
 | 기본 브랜치      | `main`                                        |
-| 최신 공개 릴리스 | `v1.4.215` — 2026-08-19 운영 확인             |
+| 최신 공개 릴리스 | `v1.4.216` — 2026-08-19 운영 확인             |
 | 앱 ID / 제품명   | `com.samwooax.samwoo-orca` / `SAMWOO-ORCA`    |
 
 공개 저장소에는 서버 비밀번호·메일 비밀번호·Tailscale 인증 키·코드서명 개인키를 넣지 않는다. 서버 문서의 주소 예시는 마스킹하고, 실제 서비스 주소는 중앙 설정 코드와 이 운영 명세에서만 관리한다.
@@ -70,7 +70,7 @@ SAMWOO 회사 배포의 기준 플랫폼은 Windows다. upstream 코드의 macOS
 | Hermes 대시보드 | 원격 `4862` 포트                                   | 대시보드 터널                            | 코드에 구성, 이번 감사에서 UI 미확인                                                      |
 | 회사 메일       | `play.samwooeleco.com:993` IMAPS, 운영 `:25` SMTP  | 받은메일·본문·발송·첨부 처리             | 2026-08-10 IMAPS TLS 1.3·인증서 정상. SMTP가 STARTTLS를 광고하지 않아 현재 발송 경로 차단 |
 | Nextcloud       | VPS의 WebDAV 설정                                  | 공유 워크스페이스 파일 저장              | 2026-08-10 상태 API와 제한 서비스 계정의 기존 공유 조회·임시 파일 쓰기·ETag 삭제 정상     |
-| 업데이트 피드   | `github.com/samwooax/samwoo-orca/releases` / HTTPS | 공개 릴리스 업데이트                     | `v1.4.215` 공개·latest 확인 (2026-08-19)                                                  |
+| 업데이트 피드   | `github.com/samwooax/samwoo-orca/releases` / HTTPS | 공개 릴리스 업데이트                     | `v1.4.216` 공개·latest 확인 (2026-08-19)                                                  |
 
 Tailscale MagicDNS는 관리 Windows PC에서 해석 실패한 이력이 있어 현재는 IP를 직접 쓴다. 엔드포인트는 `src/shared/samwoo-service-endpoints.ts`에서 중앙 관리한다. 클라이언트 노트북에 외부에서 들어오는 SSH를 요구하지 않으며, 앱이 Hermes와 VPS로 **아웃바운드 연결**한다.
 
@@ -490,8 +490,8 @@ SAMWOO 커스텀 기능은 upstream 기능을 대체하지 않고 추가한다. 
 | `v1.4.212` | draft 폐기 완료·GUI 실패 | `ai_center` ACP terminal 메타가 SDK에서 이중 중첩되고, 없는 파일 읽기 오류가 일반화돼 신규 파일 생성을 중단함. Actions run `32111154186`, 2026-08-18 설치본 실측 후 draft 삭제                           |
 | `v1.4.213` | 공개 유지                | Actions run `32113622524`, 설치기 241,552,592바이트·SHA-256 `d8c9cd0…9ccb7`·내부 서명 검증. 관리자 설치본에서 `ai_center`의 `pwd`, 신규 파일 생성·재읽기·첨부 확인 후 공개 latest·manifest HTTP 200 확인 |
 | `v1.4.214` | 공개 유지                | exact `ai_center` ACP terminal/process 무승인 실행. Actions run `32121382630`, 설치기 241,555,040바이트·SHA-256 `a7e53192…127de`·서명/자산 검증 후 공개 latest·manifest 확인                             |
-| `v1.4.215` | **공개 — 최신**          | bundled LibreOffice XLSX/PPTX 시각 미리보기. Actions run `32203907871`, 설치기 978,924,520바이트·SHA-256 `3667c22f…64ad`·서명/자산 검증 후 공개 latest·tag 확인                                          |
-| `v1.4.216` | release candidate        | exact `ai_center` ACP에서 bundled Excel Artifact 경로를 복구하고 HTML·UTF-8 첨부 판별, Office 원본 해시 검증과 응답 진행 상태 표시를 보완                                                         |
+| `v1.4.215` | 공개 유지                | bundled LibreOffice XLSX/PPTX 시각 미리보기. Actions run `32203907871`, 설치기 978,924,520바이트·SHA-256 `3667c22f…64ad`·서명/자산 검증 후 공개 latest·tag 확인                                          |
+| `v1.4.216` | **공개 — 최신**          | exact `ai_center` ACP bundled Excel Artifact 복구, HTML·UTF-8 첨부와 Office 원본 해시·진행 상태 보완. Actions run `32210279875`, 설치기 978,921,032바이트·SHA-256 `d191d278…20cc36`·서명/자산 검증 후 공개 |
 
 교훈: 별도 React 루트(팝아웃 창)는 메인 창의 Provider 컨텍스트를 상속하지 않는다. 새 창을 추가할 때 Tooltip 등 필요한 Provider를 창 루트에서 다시 감싸고, 패키지 빌드 기준 GUI 실행을 릴리스 전에 확인한다.
 
